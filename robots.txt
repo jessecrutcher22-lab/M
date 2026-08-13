@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://manufacturing-tycoon.vercel.app/sitemap.xml

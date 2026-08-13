@@ -1,0 +1,2524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Manufacturing Tycoon — Build a Factory Empire</title>
+<meta name="description" content="Free idle tycoon game. Start with $5,000 in a garage workshop and build a manufacturing empire worth $1 billion. Real financial statements, 19 machines, company acquisitions, real estate and a stock market.">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="author" content="Manufacturing Tycoon">
+<link rel="canonical" href="https://manufacturing-tycoon.vercel.app/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Manufacturing Tycoon">
+<meta property="og:title" content="Manufacturing Tycoon — Build a Factory Empire">
+<meta property="og:description" content="Start in a garage. Finish with a billion-dollar manufacturing empire. Free idle tycoon game with real financial statements.">
+<meta property="og:url" content="https://manufacturing-tycoon.vercel.app/">
+<meta property="og:image" content="https://manufacturing-tycoon.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Manufacturing Tycoon — Build a Factory Empire">
+<meta name="twitter:description" content="Start in a garage. Finish with a billion-dollar empire. Free idle tycoon game.">
+<meta name="twitter:image" content="https://manufacturing-tycoon.vercel.app/og-image.png">
+
+<!-- Mobile app feel -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mfg Tycoon">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏭</text></svg>">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoGame","name":"Manufacturing Tycoon",
+"description":"Idle tycoon simulation. Build a manufacturing empire from a garage workshop to a billion-dollar global business.",
+"genre":["Simulation","Strategy","Idle"],"gamePlatform":"Web Browser",
+"applicationCategory":"Game","operatingSystem":"Any",
+"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ANALYTICS — paste ONE of these, then delete the others
+     ═══════════════════════════════════════════════════════════
+
+  ── GOOGLE ANALYTICS 4 ──────────────────────────────────────
+  Get your ID at analytics.google.com (looks like G-XXXXXXXXXX)
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX', { send_page_view: false });
+</script>
+
+  ── PLAUSIBLE (privacy-friendly, paid) ──────────────────────
+<script defer data-domain="yourdomain.com" src="https://plausible.io/js/script.manual.js"></script>
+
+  ── FATHOM (privacy-friendly, paid) ─────────────────────────
+<script src="https://cdn.usefathom.com/script.js" data-site="YOURSITEID" data-auto="false" defer></script>
+
+     ═══════════════════════════════════════════════════════════ -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font-ui:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --font-display:'Space Grotesk','Inter',sans-serif;
+  --tap:44px;
+  --tap-sm:40px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--font-ui);font-size:13px;background:#f1f5f9;color:#0f172a;overflow-x:hidden;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.sval,.plrow span,.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.display{font-family:var(--font-display);letter-spacing:-0.02em}
+#app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+button{cursor:pointer;font-family:inherit;border:none;outline:none;transition:all 0.1s;touch-action:manipulation}
+button:active{transform:scale(0.96)}
+input{font-family:inherit;outline:none}
+input[type=number]{-moz-appearance:textfield;background:#fff;border:1px solid #cbd5e1;border-radius:4px;color:#0f172a;font-size:11px;padding:5px 8px;width:100%}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+input[type=range]{accent-color:#2563eb;width:100%}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px}
+.card{background:#fff;border-radius:10px;padding:13px 14px;margin-bottom:9px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.sl{font-size:11px;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;font-weight:700;margin-top:6px;font-family:var(--font-display)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.sbox{background:#fff;border-radius:6px;padding:8px 10px;border:1px solid #e2e8f0}
+.slbl{font-size:11px;color:#64748b;margin-bottom:3px;font-weight:500}
+.sval{font-size:15px;font-weight:700;font-family:var(--font-display);font-variant-numeric:tabular-nums}
+@keyframes popIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.35)}50%{box-shadow:0 0 0 6px rgba(22,163,74,0)}}
+@keyframes countUp{from{transform:translateY(-3px);opacity:.5}to{transform:translateY(0);opacity:1}}
+.affordable{animation:pulseGlow 2.2s ease-in-out infinite}
+.cash-tick{animation:countUp .25s ease}
+.aff-badge{font-size:11.5px;background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:10px;font-weight:700;letter-spacing:.5px}
+.mini-bar{height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-top:6px}
+.mini-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.tab-bar{display:flex;background:#fff;border-bottom:1px solid #e2e8f0;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
+.tab-btn{flex-shrink:0;padding:0 14px;min-height:var(--tap);background:none;border:none;border-bottom:3px solid transparent;font-size:12.5px;color:#64748b;white-space:nowrap;font-family:var(--font-ui);font-weight:600}
+.tab-btn.on{color:#2563eb;border-bottom-color:#2563eb;font-weight:bold}
+#flash{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;border-radius:6px;padding:8px 18px;font-size:12px;z-index:9999;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.2);display:none}
+@keyframes ticker{from{transform:translateX(100%)}to{transform:translateX(-200%)}}
+.tick{display:inline-block;white-space:nowrap;animation:ticker 30s linear infinite}
+.content{padding:10px;overflow-y:auto;flex:1}
+.plrow{display:flex;justify-content:space-between;padding:7px 4px;border-bottom:1px solid #f1f5f9;font-size:12.5px;gap:10px}
+.plrow.bold{font-weight:700;font-size:13px}
+.plrow.ind{padding-left:20px}
+.fin-nav{display:flex;gap:5px;margin-bottom:12px;flex-wrap:wrap}
+.fn{padding:0 14px;min-height:var(--tap-sm);border-radius:8px;font-size:12.5px;font-family:var(--font-ui);border:1px solid #e2e8f0;background:#fff;color:#374151;cursor:pointer;font-weight:600}
+.fn.on{background:#2563eb;color:#fff;border-color:#2563eb;font-weight:bold}
+@keyframes tutPulse{0%,100%{box-shadow:inset 0 -3px 0 0 #f59e0b}50%{box-shadow:inset 0 -3px 0 0 #fcd34d}}
+.tab-btn.tut-hl{color:#b45309!important;animation:tutPulse 1.1s ease-in-out infinite}
+.tab-btn.tut-hl::after{content:"●";color:#f59e0b;font-size:9px;margin-left:4px;vertical-align:middle}
+#tutCoach button:active{transform:scale(0.97)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr"></div>
+  <div id="tkr" style="background:#eff6ff;border-bottom:1px solid #bfdbfe;height:26px;overflow:hidden;display:flex;align-items:center;flex-shrink:0">
+    <span style="color:#93c5fd;font-size:11.5px;padding:0 8px;flex-shrink:0">◈</span>
+    <div style="overflow:hidden;flex:1"><span class="tick" id="tnews" style="font-size:11.5px;color:#1d4ed8;font-weight:500"></span></div>
+  </div>
+  <div class="tab-bar" id="tabs"></div>
+  <div class="content" id="content"></div>
+</div>
+<div id="flash"></div>
+
+<script>
+// ── CONSTANTS ─────────────────────────────────────────────────
+const TICK=500,GM=90; // ms per tick, real-seconds per game-month
+
+const MAT={
+  steel:{name:"Steel Coil",emoji:"🔩",bp:120,unit:"rolls"},
+  copper:{name:"Copper Rod",emoji:"🟫",bp:85,unit:"rods"},
+  resin:{name:"Resin Pellets",emoji:"⚗️",bp:45,unit:"bags"},
+  electronics:{name:"Electronic Parts",emoji:"💡",bp:200,unit:"kits"},
+  aluminum:{name:"Aluminum Sheet",emoji:"🪙",bp:160,unit:"sheets"},
+  chemicals:{name:"Industrial Chems",emoji:"🧪",bp:95,unit:"drums"},
+  titanium:{name:"Titanium Billet",emoji:"🔷",bp:980,unit:"billets"},
+  optics:{name:"Optical Components",emoji:"🔭",bp:450,unit:"units"},
+  medGrade:{name:"Medical Grade Steel",emoji:"💉",bp:340,unit:"sheets"},
+  polymer:{name:"Medical Polymer",emoji:"🧬",bp:220,unit:"bags"},
+  lithium:{name:"Lithium Cells",emoji:"🔋",bp:580,unit:"cells"},
+  siliconWafer:{name:"Silicon Wafer",emoji:"💿",bp:320,unit:"wafers"},
+};
+
+const PROD={
+  brackets:{name:"Steel Brackets",emoji:"📐",in:{steel:7},bp:1330,mach:"press",tier:1},
+  wireHarness:{name:"Wire Harness",emoji:"🔌",in:{copper:20},bp:2740,mach:"wire",tier:1},
+  plasticHousing:{name:"Plastic Housing",emoji:"📦",in:{resin:15},bp:1190,mach:"molder",tier:1},
+  pcbAssembly:{name:"PCB Assembly",emoji:"🔧",in:{electronics:15,copper:15},bp:6490,mach:"pcb",tier:1},
+  aluFrames:{name:"Aluminum Frames",emoji:"🏗️",in:{aluminum:75},bp:22000,mach:"cnc",tier:2},
+  coatings:{name:"Coated Components",emoji:"✨",in:{chemicals:25,steel:10},bp:6700,mach:"coater",tier:2},
+  motorUnits:{name:"Electric Motor",emoji:"⚡",in:{copper:110,aluminum:55},bp:33600,mach:"winding",tier:2},
+  precisionParts:{name:"Precision Parts",emoji:"🎯",in:{steel:140,aluminum:140,electronics:70},bp:115000,mach:"mill",tier:3},
+  powerModules:{name:"Power Module",emoji:"🔋",in:{electronics:300,copper:200,chemicals:100},bp:184000,mach:"smt",tier:3},
+  roboticArm:{name:"Robotic Arm",emoji:"🦾",in:{precisionParts:3,electronics:5},bp:627000,mach:"robotics",tier:3},
+  armorPanel:{name:"Armor Panel",emoji:"🛡️",in:{titanium:140},bp:299000,mach:"titaniumPress",tier:3},
+  opticalMount:{name:"Optical Mount",emoji:"🔭",in:{titanium:45,optics:90},bp:184000,mach:"lathe",tier:3},
+  ruggedBox:{name:"Rugged Enclosure",emoji:"📦",in:{aluminum:130,steel:65},bp:60400,mach:"ruggedLine",tier:3},
+  surgicalTool:{name:"Surgical Tool",emoji:"🏥",in:{medGrade:480},bp:347000,mach:"cleanRoom",tier:3},
+  diagnosticCase:{name:"Diagnostic Housing",emoji:"🩺",in:{polymer:180,electronics:60},bp:111000,mach:"medMolder",tier:3},
+  implantComp:{name:"Implant Component",emoji:"💉",in:{medGrade:840,polymer:840},bp:1000000,mach:"sterileAssembly",tier:3},
+  solarCell:{name:"Solar Cell Array",emoji:"☀️",in:{siliconWafer:120},bp:70700,mach:"solarLine",tier:2},
+  batteryPack:{name:"Battery Pack",emoji:"🔋",in:{lithium:200,electronics:65},bp:276000,mach:"batteryAssembly",tier:3},
+  evMotor:{name:"EV Motor Unit",emoji:"⚡",in:{copper:770,aluminum:460,lithium:150},bp:489000,mach:"evWinder",tier:3},
+};
+
+const MACH={
+  press:{name:"Sheet Metal Press",emoji:"🏗️",cost:8000,prod:"brackets",rpm:3,ops:1,tier:1,slots:1,col:"#f97316",desc:"Stamps steel into brackets"},
+  wire:{name:"Wire Drawing Machine",emoji:"⚙️",cost:12000,prod:"wireHarness",rpm:2,ops:1,tier:1,slots:1,col:"#b45309",desc:"Extrudes copper wire harnesses"},
+  molder:{name:"Injection Molder",emoji:"🔩",cost:10000,prod:"plasticHousing",rpm:4,ops:1,tier:1,slots:1,col:"#8b5cf6",desc:"Molds resin into housings"},
+  pcb:{name:"PCB Assembly Station",emoji:"💡",cost:25000,prod:"pcbAssembly",rpm:1.5,ops:2,tier:1,slots:1,col:"#0ea5e9",desc:"Populates circuit boards"},
+  cnc:{name:"CNC Machining Center",emoji:"🔄",cost:85000,prod:"aluFrames",rpm:1,ops:2,tier:2,slots:2,col:"#10b981",desc:"5-axis aluminum milling"},
+  coater:{name:"Industrial Coater",emoji:"🎨",cost:60000,prod:"coatings",rpm:2.5,ops:1,tier:2,slots:2,col:"#ec4899",desc:"Chemical surface coating"},
+  winding:{name:"Coil Winding Machine",emoji:"🌀",cost:110000,prod:"motorUnits",rpm:0.8,ops:2,tier:2,slots:2,col:"#f59e0b",desc:"Winds copper coils"},
+  mill:{name:"Precision Milling Cell",emoji:"🎯",cost:350000,prod:"precisionParts",rpm:0.5,ops:3,tier:3,slots:3,col:"#ef4444",desc:"Micron-tolerance machining"},
+  smt:{name:"SMT Assembly Line",emoji:"🔋",cost:480000,prod:"powerModules",rpm:0.4,ops:3,tier:3,slots:3,col:"#6366f1",desc:"Surface-mount electronics"},
+  robotics:{name:"Robotic Assembly Cell",emoji:"🦾",cost:950000,prod:"roboticArm",rpm:0.2,ops:4,tier:3,slots:4,col:"#8b5cf6",desc:"Fully automated assembly"},
+  titaniumPress:{name:"Titanium Press",emoji:"🔷",cost:620000,prod:"armorPanel",rpm:0.3,ops:3,tier:3,slots:4,col:"#dc2626",desc:"High-pressure titanium forming"},
+  lathe:{name:"Precision Lathe",emoji:"🔭",cost:480000,prod:"opticalMount",rpm:0.4,ops:2,tier:3,slots:3,col:"#0284c7",desc:"Optical-grade lathe"},
+  ruggedLine:{name:"Rugged Assembly Line",emoji:"🏗️",cost:280000,prod:"ruggedBox",rpm:0.8,ops:2,tier:3,slots:2,col:"#374151",desc:"Military-spec assembly"},
+  cleanRoom:{name:"Clean Room Cell",emoji:"🏥",cost:750000,prod:"surgicalTool",rpm:0.3,ops:3,tier:3,slots:4,col:"#7c3aed",desc:"ISO Class 5 clean room"},
+  medMolder:{name:"Medical Molder",emoji:"🩺",cost:420000,prod:"diagnosticCase",rpm:0.6,ops:2,tier:3,slots:3,col:"#a855f7",desc:"Medical polymer molding"},
+  sterileAssembly:{name:"Sterile Assembly",emoji:"💉",cost:1200000,prod:"implantComp",rpm:0.15,ops:4,tier:3,slots:5,col:"#9333ea",desc:"Implant-grade assembly"},
+  solarLine:{name:"Solar Cell Line",emoji:"☀️",cost:380000,prod:"solarCell",rpm:1.0,ops:2,tier:2,slots:3,col:"#16a34a",desc:"Photovoltaic manufacturing"},
+  batteryAssembly:{name:"Battery Assembly",emoji:"🔋",cost:680000,prod:"batteryPack",rpm:0.35,ops:3,tier:3,slots:4,col:"#15803d",desc:"Lithium pack assembly"},
+  evWinder:{name:"EV Motor Winder",emoji:"⚡",cost:920000,prod:"evMotor",rpm:0.25,ops:3,tier:3,slots:4,col:"#0d9488",desc:"EV motor assembly"},
+};
+
+const PL={
+  base:{name:"Core Manufacturing",emoji:"🏭",cost:0,col:"#2563eb",desc:"Structural components & PCBs.",mats:["steel","copper","resin","electronics"],prods:["brackets","wireHarness","plasticHousing","pcbAssembly"],machs:["press","wire","molder","pcb"],req:null},
+  advanced:{name:"Advanced Fabrication",emoji:"⚙️",cost:120000,col:"#10b981",desc:"Aluminum & chemical processing.",mats:["aluminum","chemicals"],prods:["aluFrames","coatings","motorUnits"],machs:["cnc","coater","winding"],req:null},
+  precision:{name:"Precision Engineering",emoji:"🎯",cost:500000,col:"#f59e0b",desc:"Micron-tolerance parts.",mats:[],prods:["precisionParts","powerModules","roboticArm"],machs:["mill","smt","robotics"],req:"advanced"},
+  defense:{name:"Defense Components",emoji:"🛡️",cost:1200000,col:"#dc2626",desc:"High-margin government contracts.",mats:["titanium","optics"],prods:["armorPanel","opticalMount","ruggedBox"],machs:["titaniumPress","lathe","ruggedLine"],req:"precision"},
+  medical:{name:"Medical Devices",emoji:"🏥",cost:900000,col:"#7c3aed",desc:"Surgical tools & implant components.",mats:["medGrade","polymer"],prods:["surgicalTool","diagnosticCase","implantComp"],machs:["cleanRoom","medMolder","sterileAssembly"],req:"advanced"},
+  renewables:{name:"Renewables & EV",emoji:"☀️",cost:800000,col:"#16a34a",desc:"Solar cells, batteries & EV motors.",mats:["lithium","siliconWafer"],prods:["solarCell","batteryPack","evMotor"],machs:["solarLine","batteryAssembly","evWinder"],req:"advanced"},
+};
+
+const ACQ={
+  sparkTech:{name:"SparkTech Components",emoji:"⚡",cost:8000000,revenue:120000,col:"#0ea5e9",desc:"Regional PCB manufacturer. 2 PCB stations + electronics stock. Strong domestic contracts.",bonus:{mach:{pcb:2},mats:{electronics:50}},req:null},
+  ironValley:{name:"Iron Valley Fabrication",emoji:"🏗️",cost:25000000,revenue:380000,col:"#f97316",desc:"National steel fabrication group. 3 presses, 1 CNC. Unlocks Advanced product line.",bonus:{mach:{press:3,cnc:1},productLine:"advanced"},req:null},
+  sunPower:{name:"SunPower Manufacturing",emoji:"☀️",cost:95000000,revenue:1200000,col:"#16a34a",desc:"Listed solar manufacturer. $95M enterprise value. Unlocks Renewables & EV line.",bonus:{mach:{solarLine:1,batteryAssembly:1},productLine:"renewables"},req:"advanced"},
+  mediTech:{name:"MediTech Precision",emoji:"🏥",cost:180000000,revenue:2200000,col:"#7c3aed",desc:"Publicly listed medical device company. Market cap $180M. Unlocks Medical line.",bonus:{mach:{cleanRoom:1,medMolder:1},productLine:"medical"},req:"advanced"},
+  defenseDyn:{name:"Defense Dynamics",emoji:"🛡️",cost:450000000,revenue:5500000,col:"#dc2626",desc:"Private defense contractor. $450M enterprise value. Long-term government contracts. Unlocks Defense line.",bonus:{mach:{titaniumPress:1,lathe:1},productLine:"defense"},req:"precision"},
+  globalRobo:{name:"GlobalRobo Systems",emoji:"🦾",cost:850000000,revenue:10000000,col:"#a855f7",desc:"Global robotics integrator. $850M valuation. Adds 2 robotic cells + major speed boost.",bonus:{mach:{robotics:2},speedBonus:0.5},req:"precision"},
+};
+
+const PROPS={
+  starter:{name:"Garage Workshop",emoji:"🏚️",cost:0,slots:4,wareM:200,wareP:50,desc:"Free starting premises. Where every empire begins.",unique:true},
+  smallUnit:{name:"Small Industrial Unit",emoji:"🏭",cost:50000,slots:8,wareM:500,wareP:150,desc:"A modest unit on an industrial park."},
+  warehouse:{name:"Warehouse Facility",emoji:"🏬",cost:180000,slots:16,wareM:1500,wareP:400,desc:"Full warehouse conversion with loading dock."},
+  industrial:{name:"Industrial Complex",emoji:"🏗️",cost:600000,slots:30,wareM:5000,wareP:1200,desc:"Multi-unit industrial estate."},
+  megaPlant:{name:"Manufacturing Mega Plant",emoji:"🏙️",cost:2500000,slots:60,wareM:20000,wareP:5000,desc:"World-class production facility."},
+  gigaPlant:{name:"Gigafactory",emoji:"🌆",cost:45000000,slots:110,wareM:80000,wareP:20000,desc:"Continental-scale plant. Fully automated logistics."},
+  superFactory:{name:"Super Factory",emoji:"🛰️",cost:500000000,slots:200,wareM:400000,wareP:100000,desc:"The largest manufacturing facility on earth. 200 machine slots, vast warehousing, its own power plant and rail terminal."},
+};
+
+const RE={
+  // Entry level
+  studio:    {name:"Studio Apartment",       emoji:"🏠",cost:85000,    rent:650,   upkeep:90,   yld:8.2, type:"residential",desc:"Compact studio in a regional center. Easy first investment."},
+  unit:      {name:"Residential Unit",       emoji:"🏢",cost:180000,   rent:1200,  upkeep:150,  yld:7.5, type:"residential",desc:"2-bedroom unit. Reliable tenant. Low maintenance."},
+  townhouse: {name:"Townhouse",              emoji:"🏘️",cost:320000,   rent:2100,  upkeep:250,  yld:7.4, type:"residential",desc:"3-bed townhouse in a growth suburb. Solid yield."},
+  shopSmall: {name:"Small Retail Unit",      emoji:"🏪",cost:220000,   rent:2200,  upkeep:200,  yld:11.0,type:"commercial", desc:"Small shopfront in a strip mall. Hairdresser tenant."},
+  officeSmall:{name:"Small Office Suite",    emoji:"🏬",cost:380000,   rent:3400,  upkeep:350,  yld:10.1,type:"commercial", desc:"Single office suite. Accountant tenant. Downtown fringe."},
+  // Mid tier
+  house1:    {name:"Residential House",      emoji:"🏡",cost:850000,   rent:4800,  upkeep:550,  yld:6.4, type:"residential",desc:"4-bed home in a premium suburb. Strong capital growth."},
+  duplex:    {name:"Duplex",                 emoji:"🏘️",cost:1800000,  rent:9500,  upkeep:1100, yld:6.1, type:"residential",desc:"Two dwellings. Double income. Inner city location."},
+  shopfront: {name:"Retail Strip",           emoji:"🏪",cost:3500000,  rent:32000, upkeep:3000, yld:10.5,type:"commercial", desc:"Multi-tenancy retail strip. Food & beverage anchor."},
+  warehouse1:{name:"Small Warehouse",        emoji:"🏭",cost:2200000,  rent:19000, upkeep:1800, yld:9.8, type:"commercial", desc:"Small industrial warehouse. Logistics tenant."},
+  // Upper mid
+  penthouse: {name:"City Penthouse",         emoji:"🏙️",cost:6500000,  rent:38000, upkeep:4000, yld:6.6, type:"residential",desc:"Top-floor penthouse. Blue-chip tenant. Trophy asset."},
+  office1:   {name:"Office Tower",           emoji:"🏬",cost:28000000, rent:230000,upkeep:22000,yld:9.4, type:"commercial", desc:"Midtown office tower. Long-term corporate leases."},
+  warehouse2:{name:"Logistics Warehouse",    emoji:"🏭",cost:42000000, rent:360000,upkeep:32000,yld:9.9, type:"commercial", desc:"Large logistics warehouse. E-commerce fulfilment."},
+  // Large scale
+  medicalCtr:{name:"Private Medical Center", emoji:"🏥",cost:120000000,rent:1000000,upkeep:90000,yld:9.7,type:"commercial", desc:"Private hospital wing. 30-year anchor lease."},
+  shoppingCtr:{name:"Shopping Center",       emoji:"🛍️",cost:280000000,rent:2300000,upkeep:200000,yld:9.6,type:"commercial",desc:"Neighborhood center. 18 specialty tenants."},
+  industrialEst:{name:"Industrial Estate",   emoji:"🏗️",cost:420000000,rent:3400000,upkeep:290000,yld:9.5,type:"commercial",desc:"Multi-unit estate. 24 tenants. Long lease terms."},
+  skyRise:   {name:"Downtown Office Skyscraper",  emoji:"🌆",cost:1200000000,rent:9500000,upkeep:800000,yld:9.2,type:"commercial",desc:"Premium Downtown tower. 40 floors. NYSE 100 tenants."},
+};
+
+const REUPG={
+  paint:    {name:"Fresh Paint & Tidy",  emoji:"🪣",cm:0.01, rb:0.04, desc:"+4% rent — quick cosmetic refresh"},
+  garden:   {name:"Landscaping",         emoji:"🌿",cm:0.015,rb:0.05, desc:"+5% rent — kerb appeal lift"},
+  security: {name:"Security System",     emoji:"🔒",cm:0.02, rb:0.06, desc:"+6% rent — tenants pay for safety"},
+  solar:    {name:"Solar Panels",        emoji:"☀️", cm:0.03, rb:0.07, desc:"+7% rent, reduces upkeep 10%"},
+  aircon:   {name:"HVAC Upgrade",        emoji:"🌡️",cm:0.04, rb:0.09, desc:"+9% rent — climate control expected"},
+  reno:     {name:"Full Renovation",     emoji:"🔨",cm:0.08, rb:0.15, desc:"+15% rent — new kitchen, baths, floors"},
+  smartHome:{name:"Smart Home Tech",     emoji:"📱",cm:0.05, rb:0.10, desc:"+10% rent — app-controlled systems"},
+  carpark:  {name:"Extra Parking",       emoji:"🚗",cm:0.06, rb:0.12, desc:"+12% rent — premium for commercial"},
+  fitout:   {name:"Commercial Fitout",   emoji:"🛋️",cm:0.10, rb:0.18, desc:"+18% rent — turn-key commercial space"},
+  solar2:   {name:"Battery Storage",     emoji:"🔋",cm:0.04, rb:0.06, desc:"+6% rent, reduces upkeep 15%"},
+};
+
+const WORK={
+  operator:{name:"Machine Operator",emoji:"👷",wage:25,desc:"Runs machines"},
+  engineer:{name:"Process Engineer",emoji:"👨‍🔧",wage:55,desc:"+5% speed each"},
+  manager:{name:"Plant Manager",emoji:"👔",wage:80,desc:"Required for Trade Mgr"},
+};
+
+const OSTAFF={
+  accountant:{name:"Accountant",emoji:"📊",wage:90,desc:"Unlocks Balance Sheet"},
+  salesRep:{name:"Sales Rep",emoji:"🤝",wage:70,desc:"+8% export prices each"},
+  procurement:{name:"Procurement Officer",emoji:"📦",wage:65,desc:"-5% import costs each"},
+  analyst:{name:"Financial Analyst",emoji:"📈",wage:110,desc:"Unlocks Share Market"},
+  itManager:{name:"IT Manager",emoji:"💻",wage:95,desc:"Trade Mgr runs faster"},
+};
+
+const OEQUIP={
+  crm:{name:"CRM System",emoji:"🗂️",cost:15000,desc:"+5% export prices"},
+  erp:{name:"ERP Software",emoji:"🖥️",cost:45000,desc:"-8% import costs"},
+  comms:{name:"Video Conferencing",emoji:"📹",cost:12000,desc:"+3% export prices"},
+  robots2:{name:"Office Automation",emoji:"🤖",cost:30000,desc:"Saves $200/hr wages"},
+};
+
+const EXPS={
+  autoLine:{name:"Assembly Line Upgrade",emoji:"🏭",cost:80000,desc:"2x production",tag:"SPEED x2"},
+  robotics2:{name:"Collaborative Robotics",emoji:"🤖",cost:300000,desc:"Another 2x production",tag:"SPEED x4"},
+  isoQual:{name:"ISO 9001 Cert.",emoji:"📋",cost:50000,desc:"+20% sell price",tag:"+20% PRICE"},
+  logistics:{name:"Logistics Platform",emoji:"💻",cost:30000,desc:"-10% imports",tag:"-10% IMPORT"},
+  lean:{name:"Lean Manufacturing",emoji:"♻️",cost:120000,desc:"-15% mat waste",tag:"-15% WASTE"},
+  sixSigma:{name:"Six Sigma Program",emoji:"⭐",cost:200000,desc:"+30% sell price",tag:"+30% PRICE"},
+};
+
+const LOANS=[
+  // minRev = minimum annual revenue required, minNW = minimum net worth required
+  {id:"starter",  name:"Starter Micro Loan",        amount:5000,      rate:0.22, months:6,   col:"#94a3b8",risk:"STARTER",     minRev:0,          minNW:0,           desc:"No requirements. Get your first machine running."},
+  {id:"micro",    name:"Working Capital Facility",   amount:50000,     rate:0.18, months:6,   col:"#f97316",risk:"SHORT TERM",  minRev:0,          minNW:20000,       desc:"Requires $20K net worth."},
+  {id:"biz",      name:"Business Loan",              amount:250000,    rate:0.14, months:18,  col:"#eab308",risk:"STANDARD",   minRev:100000,     minNW:100000,      desc:"Requires $100K revenue/yr or $100K net worth."},
+  {id:"biz2",     name:"Growth Business Loan",       amount:1000000,   rate:0.12, months:24,  col:"#3b82f6",risk:"GROWTH",     minRev:500000,     minNW:500000,      desc:"Requires $500K revenue/yr or $500K net worth."},
+  {id:"property", name:"Commercial Mortgage",        amount:5000000,   rate:0.065,months:60,  col:"#10b981",risk:"SECURED",    minRev:2000000,    minNW:2000000,     desc:"Requires $2M revenue/yr or $2M net worth."},
+  {id:"comm",     name:"Corporate Bond",             amount:25000000,  rate:0.075,months:60,  col:"#8b5cf6",risk:"INVESTMENT", minRev:10000000,   minNW:10000000,    desc:"Requires $10M revenue/yr or $10M net worth."},
+  {id:"industry", name:"Infrastructure Facility",    amount:100000000, rate:0.06, months:120, col:"#14b8a6",risk:"LARGE CAP",  minRev:50000000,   minNW:50000000,    desc:"Requires $50M revenue/yr or $50M net worth."},
+  {id:"mega",     name:"Syndicated Debt Package",    amount:500000000, rate:0.048,months:180, col:"#a855f7",risk:"ELITE",      minRev:200000000,  minNW:200000000,   desc:"Requires $200M revenue/yr or $200M net worth."},
+];
+
+const SHARES={
+  VTX:{name:"Voltex Industries",emoji:"⚡",bp:12.50,sector:"Manufacturing",div:0.04,vol:0.025},
+  STE:{name:"SteelCore Ltd",emoji:"🔩",bp:8.20,sector:"Materials",div:0.03,vol:0.035},
+  CPR:{name:"CopperTech Group",emoji:"🟫",bp:22.80,sector:"Materials",div:0.025,vol:0.04},
+  AEG:{name:"Aegis Electronics",emoji:"💡",bp:45.00,sector:"Technology",div:0.015,vol:0.05},
+  LOG:{name:"LogiFreight Corp",emoji:"🚚",bp:6.80,sector:"Logistics",div:0.05,vol:0.02},
+  NAB:{name:"National Alloy Bank",emoji:"🏦",bp:31.20,sector:"Finance",div:0.06,vol:0.015},
+  REN:{name:"RenewPower Energy",emoji:"🌱",bp:18.90,sector:"Energy",div:0.02,vol:0.055},
+  PRC:{name:"PrecisionCo Global",emoji:"🎯",bp:67.40,sector:"Manufacturing",div:0.018,vol:0.045},
+};
+
+const HEADLINES=["📈 Steel demand surges","📉 Copper softens","🚢 Export volumes at quarterly high","💹 Electronics shortage ongoing","🌏 Asian markets strong","📦 Logistics normalising","🔧 Manufacturing output beats forecasts","🛳️ Trade agreements boost margins"];
+
+// ── RANDOM EVENTS ─────────────────────────────────────────────
+const MONTHLY_EVENTS=[
+  {id:"rush",title:"Rush Order Contract!",emoji:"📦",type:"good",desc:"A major client needs urgent delivery and is paying a premium.",effect:(g)=>{const b=Math.max(500,g.cash*.08);g.cash+=b;g.earned+=b;return`+${f(b)} cash deposited`}},
+  {id:"grant",title:"Government Stimulus Grant",emoji:"🏛️",type:"good",desc:"A government manufacturing grant has been approved for your business.",effect:(g)=>{const b=Math.floor(3000+Math.random()*12000);g.cash+=b;g.earned+=b;return`+${f(b)} grant received`}},
+  {id:"matdeal",title:"Supplier Discount Week",emoji:"🤝",type:"good",desc:"Your materials supplier is running a special deal this month.",effect:(g)=>{Object.keys(g.mats).forEach(k=>{g.mats[k]=(g.mats[k]||0)*1.3});return`All raw material stocks +30%`}},
+  {id:"export",title:"Export Surge",emoji:"🌏",type:"good",desc:"International demand spiked — products selling above market rate.",effect:(g)=>{const b=Math.max(800,g.cash*.06);g.cash+=b;g.earned+=b;return`+${f(b)} from export premiums`}},
+  {id:"productivity",title:"Worker Productivity Boost",emoji:"💪",type:"good",desc:"Your team has been performing exceptionally this month.",effect:(g)=>{const b=Math.max(400,g.cash*.04);g.cash+=b;g.earned+=b;return`+${f(b)} from increased output`}},
+  {id:"breakdown",title:"Machine Breakdown",emoji:"⚠️",type:"bad",desc:"One of your machines requires emergency repair.",effect:(g)=>{const c=Math.max(500,Math.min(g.cash*.12,8000));g.cash-=c;g.spent+=c;return`-${f(c)} repair cost`}},
+  {id:"theft",title:"Warehouse Theft",emoji:"🔓",type:"bad",desc:"Security breach overnight — some raw materials went missing.",effect:(g)=>{Object.keys(g.mats).forEach(k=>{g.mats[k]=Math.max(0,(g.mats[k]||0)*.75)});return`Raw material stocks reduced by 25%`}},
+  {id:"fine",title:"Compliance Fine",emoji:"📋",type:"bad",desc:"Routine safety inspection found a minor non-compliance issue.",effect:(g)=>{const c=Math.max(300,Math.min(g.cash*.07,5000));g.cash-=c;g.spent+=c;return`-${f(c)} regulatory fine`}},
+  {id:"disruption",title:"Supply Chain Disruption",emoji:"🚢",type:"bad",desc:"Global shipping delays pushing up material prices.",effect:(g)=>{Object.keys(g.matP).forEach(k=>{g.matP[k]=(g.matP[k]||100)*1.4});return`Material prices +40% this month`}},
+  {id:"dispute",title:"Worker Dispute",emoji:"✊",type:"bad",desc:"A wages dispute has reduced output and incurred settlement costs.",effect:(g)=>{const c=Math.max(200,Math.min(g.cash*.05,3000));g.cash-=c;g.spent+=c;return`-${f(c)} settlement + lost productivity`}},
+  {id:"partnership",title:"Partnership Opportunity",emoji:"🤜",type:"good",desc:"A logistics firm wants to collaborate. Efficiency bonus this month.",effect:(g)=>{const b=Math.max(600,g.cash*.05);g.cash+=b;g.earned+=b;return`+${f(b)} partnership bonus`}},
+  {id:"audit",title:"Surprise Tax Audit",emoji:"🔍",type:"bad",desc:"The tax authority is reviewing your books. All fine but it cost you.",effect:(g)=>{const c=Math.max(500,Math.min(g.cash*.06,4000));g.cash-=c;g.spent+=c;return`-${f(c)} accounting and legal fees`}},
+];
+
+const YEARLY_EVENTS=[
+  {id:"boom",title:"Industry Boom Year!",emoji:"🚀",type:"good",desc:"Your sector is booming. A great year to be a manufacturer.",effect:(g)=>{const b=Math.max(5000,g.cash*.15);g.cash+=b;g.earned+=b;return`+${f(b)} industry boom dividend`}},
+  {id:"govcontract",title:"Major Government Contract",emoji:"🏆",type:"good",desc:"Your company has been awarded a large government supply contract.",effect:(g)=>{const b=Math.max(8000,g.cash*.20);g.cash+=b;g.earned+=b;return`+${f(b)} contract advance payment`}},
+  {id:"award",title:"National Innovation Award",emoji:"🌟",type:"good",desc:"Your manufacturing excellence has been recognized nationally.",effect:(g)=>{const b=Math.max(3000,g.cash*.08);g.cash+=b;g.earned+=b;return`+${f(b)} prize money and brand lift`}},
+  {id:"placement",title:"Private Equity Investment",emoji:"📈",type:"good",desc:"Investors want exposure to your business. Capital injection secured.",effect:(g)=>{const b=Math.max(10000,g.cash*.25);g.cash+=b;g.earned+=b;return`+${f(b)} capital injection`}},
+  {id:"expansion_grant",title:"Regional Expansion Grant",emoji:"🏗️",type:"good",desc:"Regional government backs your expansion plans with a major grant.",effect:(g)=>{const b=Math.max(15000,g.cash*.20);g.cash+=b;g.earned+=b;return`+${f(b)} expansion grant approved`}},
+  {id:"merger",title:"Merger Goodwill Payment",emoji:"🏢",type:"good",desc:"A competitor tried to acquire you. You declined but kept a goodwill fee.",effect:(g)=>{const b=Math.max(6000,g.cash*.12);g.cash+=b;g.earned+=b;return`+${f(b)} goodwill payment received`}},
+  {id:"recession",title:"Economic Recession",emoji:"📉",type:"bad",desc:"The economy has contracted. Orders are down and costs are up.",effect:(g)=>{const c=Math.max(3000,Math.min(g.cash*.18,50000));g.cash-=c;g.spent+=c;return`-${f(c)} from reduced demand`}},
+  {id:"fire",title:"Factory Fire!",emoji:"🔥",type:"bad",desc:"A fire in part of your facility has caused significant damage and stock loss.",effect:(g)=>{const c=Math.max(5000,Math.min(g.cash*.22,80000));g.cash-=c;g.spent+=c;Object.keys(g.mats).forEach(k=>{g.mats[k]=(g.mats[k]||0)*.5});return`-${f(c)} damages and 50% of stock lost`}},
+  {id:"lawsuit",title:"Legal Dispute",emoji:"⚖️",type:"bad",desc:"A supplier dispute went to court. Legal fees and settlement hit hard.",effect:(g)=>{const c=Math.max(4000,Math.min(g.cash*.15,60000));g.cash-=c;g.spent+=c;return`-${f(c)} legal settlement`}},
+  {id:"crisis",title:"Supply Chain Crisis",emoji:"😷",type:"bad",desc:"A global disruption has severely impacted your supply chain for the year.",effect:(g)=>{const c=Math.max(2000,Math.min(g.cash*.12,40000));g.cash-=c;g.spent+=c;Object.keys(g.matP).forEach(k=>{g.matP[k]=(g.matP[k]||100)*1.6});return`-${f(c)} losses and material prices +60%`}},
+];
+
+// ── HELPERS ───────────────────────────────────────────────────
+const f=n=>{const s=n<0?"-":"",a=Math.abs(n);if(a>=1e9)return s+"$"+(a/1e9).toFixed(2)+"B";if(a>=1e6)return s+"$"+(a/1e6).toFixed(2)+"M";if(a>=1e3)return s+"$"+(a/1e3).toFixed(1)+"K";return s+"$"+a.toFixed(2)};
+const pmt=(P,r,n)=>{const rm=r/12;return P*rm/(1-Math.pow(1+rm,-n))};
+const ts=()=>{const d=new Date();return d.getHours().toString().padStart(2,"0")+":"+d.getMinutes().toString().padStart(2,"0")+":"+d.getSeconds().toString().padStart(2,"0")};
+const h=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+// ── STATE ─────────────────────────────────────────────────────
+let G;
+function freshState(){
+  const sp={},sh={};
+  Object.entries(SHARES).forEach(([k,v])=>{sp[k]=v.bp;sh[k]=Array(20).fill(v.bp)});
+  return {
+    company:"My Factory",
+    cash:5000,earned:0,spent:0,time:0,
+    lastLoan:0,lastTM:0,lastDiv:0,lastHist:0,
+    mats:Object.fromEntries(Object.keys(MAT).map(k=>[k,0])),
+    inv:Object.fromEntries(Object.keys(PROD).map(k=>[k,0])),
+    mach:Object.fromEntries(Object.keys(MACH).map(k=>[k,0])),
+    work:{operator:0,engineer:0,manager:0},
+    ostaff:{accountant:0,salesRep:0,procurement:0,analyst:0,itManager:0},
+    oequip:[],exps:[],loans:[],
+    matP:Object.fromEntries(Object.entries(MAT).map(([k,v])=>[k,v.bp])),
+    prodP:Object.fromEntries(Object.entries(PROD).map(([k,v])=>[k,v.bp])),
+    props:{starter:1},
+    tmOn:false,tmCfg:defaultTM(),tmLog:[],
+    cd:{},
+    sHold:{},sBasis:{},sPrices:sp,sHist:sh,
+    divTotal:0,
+    reProps:{},reRent:0,
+    revByP:Object.fromEntries(Object.keys(PROD).map(k=>[k,0])),
+    cogsByP:Object.fromEntries(Object.keys(PROD).map(k=>[k,0])),
+    wagesPaid:0,intPaid:0,matCost:0,
+    finHist:[],
+    plines:["base"],acqs:[],acqRev:0,
+    seenTabs:["factory","property","finance","help","support","leaderboard"],
+    lastMonthEvent:0,lastYearEvent:0,
+    news:"Factory online — go to Finance for startup capital.",
+  };
+}
+function defaultTM(){
+  const c={};
+  // Reorder levels scale with how hungry the recipes are for each material
+  const need={};
+  Object.entries(PROD).forEach(([pid,p])=>{const m=Object.values(MACH).find(x=>x.prod===pid);if(!m)return;
+    Object.entries(p.in).forEach(([k,q])=>{need[k]=Math.max(need[k]||0,q)})});
+  Object.entries(MAT).forEach(([k,v])=>{
+    const base=Math.max(40,Math.ceil((need[k]||20)*2.5));
+    c[k]={on:true,min:base,target:base*4,qty:base*2,maxP:v.bp*1.3};
+  });
+  Object.entries(PROD).forEach(([k])=>{c[k]={sell:true,thresh:1.05}});
+  return c;
+}
+
+// ── COMPUTED ──────────────────────────────────────────────────
+function speed(){let s=1;if(G.exps.includes("autoLine"))s*=2;if(G.exps.includes("robotics2"))s*=2;s*=(1+(G.work.engineer||0)*0.05);G.acqs.forEach(id=>{const a=ACQ[id];if(a&&a.bonus&&a.bonus.speedBonus)s*=(1+a.bonus.speedBonus)});return s}
+function expB(){let b=1;if(G.exps.includes("isoQual"))b*=1.2;if(G.exps.includes("sixSigma"))b*=1.3;b*=(1+(G.ostaff.salesRep||0)*0.08);if(G.oequip.includes("crm"))b*=1.05;if(G.oequip.includes("comms"))b*=1.03;return b}
+function impD(){let d=1;if(G.exps.includes("logistics"))d*=0.9;d*=Math.pow(0.95,G.ostaff.procurement||0);if(G.oequip.includes("erp"))d*=0.92;return d}
+function propCount(id){const v=G.props[id];return v===true?1:(v||0)}
+function maxSlots(){return Object.entries(PROPS).reduce((a,[id,p])=>a+propCount(id)*p.slots,0)}
+function usedSlots(){return Object.entries(MACH).reduce((a,[id,m])=>a+(G.mach[id]||0)*m.slots,0)}
+function wareM(){return Object.entries(PROPS).reduce((a,[id,p])=>a+propCount(id)*p.wareM,0)}
+function wareP(){return Object.entries(PROPS).reduce((a,[id,p])=>a+propCount(id)*p.wareP,0)}
+function unlockedMachs(){return G.plines.flatMap(l=>PL[l]?PL[l].machs:[])}
+// Raw materials / products the Trade Manager should handle = only those tied to unlocked machines
+function tmMats(){const s=new Set();unlockedMachs().forEach(mid=>{const m=MACH[mid];const p=m&&PROD[m.prod];if(p)Object.keys(p.in).forEach(k=>{if(MAT[k])s.add(k)})});return Object.keys(MAT).filter(k=>s.has(k))}
+function tmProds(){const s=new Set();unlockedMachs().forEach(mid=>{if(MACH[mid])s.add(MACH[mid].prod)});return Object.keys(PROD).filter(k=>s.has(k))}
+function revPerSec(){let ops=G.work.operator||0,r=0,sp=speed(),eb=expB();Object.entries(MACH).forEach(([id,m])=>{const c=G.mach[id]||0;if(!c)return;const a=Math.min(c,Math.floor(ops/m.ops));ops-=a*m.ops;r+=a*(m.rpm/60)*sp*(G.prodP[m.prod]||0)*eb});return r}
+function wageHr(){let w=Object.entries(WORK).reduce((a,[id,wt])=>a+(G.work[id]||0)*wt.wage,0)+Object.entries(OSTAFF).reduce((a,[id,wt])=>a+(G.ostaff[id]||0)*wt.wage,0);if(G.oequip.includes("robots2"))w-=200;return Math.max(0,w)}
+function totalDebt(){return G.loans.reduce((a,l)=>a+l.remaining,0)}
+function monthDebt(){return G.loans.reduce((a,l)=>a+l.monthly,0)}
+function netWorth(){
+  const mv=Object.entries(MACH).reduce((a,[id,m])=>a+(G.mach[id]||0)*m.cost,0);
+  const pv=Object.entries(PROPS).reduce((a,[id,p])=>a+propCount(id)*p.cost,0);
+  const ev=G.oequip.reduce((a,id)=>a+(OEQUIP[id]?OEQUIP[id].cost:0),0);
+  const sv=Object.entries(G.sHold).reduce((a,[t,q])=>a+q*(G.sPrices[t]||0),0);
+  const rv=Object.entries(G.reProps).filter(([,p])=>p.owned).reduce((a,[id])=>a+(RE[id]?RE[id].cost:0),0);
+  const av=G.acqs.reduce((a,id)=>a+(ACQ[id]?ACQ[id].cost:0),0);
+  return G.cash+mv+pv+ev+sv+rv+av-totalDebt();
+}
+
+// ── GAME LOOP ─────────────────────────────────────────────────
+function tick(){
+  if(screen!=="game")return;   // pause while on home screen
+  const dt=TICK/1000;
+  G.time+=dt;
+  const sp=speed(),eb=expB(),id2=impD(),mxM=wareM(),mxP=wareP();
+
+  // Production
+  let ops=G.work.operator||0;
+  const totProd=Object.values(G.inv).reduce((a,v)=>a+v,0);
+  Object.entries(MACH).forEach(([mid,m])=>{
+    const cnt=G.mach[mid]||0;if(!cnt)return;
+    const act=Math.min(cnt,Math.floor(ops/m.ops));
+    ops-=act*m.ops;if(!act)return;
+    const p=PROD[m.prod];if(!p)return;
+    if(totProd>=mxP)return;
+    let make=(m.rpm/60)*dt*act*sp;
+    make=Math.min(make,mxP-totProd);
+    Object.entries(p.in).forEach(([mat,amt])=>{make=Math.min(make,(G.mats[mat]||0)/amt)});
+    if(make<=0.0001)return;
+    Object.entries(p.in).forEach(([mat,amt])=>{G.mats[mat]=Math.max(0,(G.mats[mat]||0)-make*amt)});
+    G.inv[m.prod]=(G.inv[m.prod]||0)+make;
+  });
+
+  // Wages
+  const wps=wageHr()/3600;
+  G.cash-=wps*dt;G.spent+=wps*dt;G.wagesPaid+=wps*dt;
+
+  // Monthly
+  const doMo=G.time-G.lastLoan>=GM;
+  if(doMo){
+    G.lastLoan=G.time;
+    // Loan repayments
+    G.loans=G.loans.map(l=>{
+      G.cash-=l.monthly;G.spent+=l.monthly;
+      const int=l.remaining*(l.rate/12);G.intPaid+=int;
+      const pp=Math.min(l.monthly-int,l.remaining);
+      return{...l,remaining:Math.max(0,l.remaining-pp),monthsLeft:l.monthsLeft-1};
+    }).filter(l=>l.monthsLeft>0&&l.remaining>0.01);
+    // Real estate
+    Object.entries(G.reProps).forEach(([id,prop])=>{
+      if(!prop.owned)return;const def=RE[id];if(!def||!def.rent)return;
+      const um=prop.upgrades.reduce((a,uid)=>a+(REUPG[uid]?REUPG[uid].rb:0),0);
+      const uk=prop.upgrades.includes("solar")?0.9:1;
+      const rent=def.rent*(1+um),upkeep=def.upkeep*uk;
+      if(Math.random()<0.04){G.cash-=upkeep;G.spent+=upkeep;}
+      else{G.cash+=rent-upkeep;G.earned+=rent;G.reRent+=rent;G.spent+=upkeep;}
+    });
+    // Acquisition revenue
+    G.acqs.forEach(id=>{const a=ACQ[id];if(!a)return;G.cash+=a.revenue;G.earned+=a.revenue;G.acqRev+=a.revenue});
+    // Full monthly income statement snapshot
+    const prev=G.finHist[G.finHist.length-1];
+    const mRev=G.earned-(prev?prev._e:0);
+    const mExp=G.spent-(prev?prev._s:0);
+    const mWages=G.wagesPaid-(prev?prev._w:0);
+    const mMatCost=G.matCost-(prev?prev._m:0);
+    const mIntPaid=G.intPaid-(prev?prev._i:0);
+    const mReRent=G.reRent-(prev?prev._rr:0);
+    const mAcqRev=G.acqRev-(prev?prev._ar:0);
+    const mDivRev=G.divTotal-(prev?prev._dv:0);
+    // Per-product revenue this month
+    const mRevByP={};
+    Object.keys(G.revByP).forEach(k=>{mRevByP[k]=(G.revByP[k]||0)-(prev&&prev._rbp?prev._rbp[k]||0:0)});
+    const mCogsByP={};
+    Object.keys(G.cogsByP).forEach(k=>{mCogsByP[k]=(G.cogsByP[k]||0)-(prev&&prev._cbp?prev._cbp[k]||0:0)});
+    const mMfgRev=Object.values(mRevByP).reduce((a,v)=>a+v,0);
+    const mCogs=Object.values(mCogsByP).reduce((a,v)=>a+v,0);
+    const mGrossProfit=mMfgRev+mReRent+mAcqRev+mDivRev-mCogs;
+    const mOpex=mWages+Math.max(0,mExp-mWages-mMatCost-mIntPaid-mCogs);
+    const mEbitda=mGrossProfit-mOpex;
+    const mDepn=(Object.entries(MACH).reduce((a,[id,m])=>a+(G.mach[id]||0)*m.cost,0)+Object.entries(PROPS).filter(([id])=>G.props[id]&&id!=="starter").reduce((a,[,p])=>a+p.cost,0))*0.05/12;
+    const mEbit=mEbitda-mDepn;
+    const mEbt=mEbit-mIntPaid;
+    const mTax=Math.max(0,mEbt*0.21);
+    const mNet=mEbt-mTax;
+    const monthNum=Math.floor(G.time/GM);
+    G.finHist.push({
+      month:monthNum,yr:Math.floor((monthNum-1)/12)+1,mo:(monthNum-1)%12+1,
+      cash:G.cash,
+      // Revenue
+      mfgRev:mMfgRev,reRev:mReRent,acqRev:mAcqRev,divRev:mDivRev,
+      totalRev:mMfgRev+mReRent+mAcqRev+mDivRev,
+      // Costs
+      cogs:mCogs,wages:mWages,opex:mOpex,intPaid:mIntPaid,depn:mDepn,
+      // Profit lines
+      grossProfit:mGrossProfit,ebitda:mEbitda,ebit:mEbit,ebt:mEbt,tax:mTax,net:mNet,
+      // Per product
+      revByP:mRevByP,cogsByP:mCogsByP,
+      // Cumulative markers
+      _e:G.earned,_s:G.spent,_w:G.wagesPaid,_m:G.matCost,_i:G.intPaid,
+      _rr:G.reRent,_ar:G.acqRev,_dv:G.divTotal,
+      _rbp:{...G.revByP},_cbp:{...G.cogsByP},
+    });
+    if(G.finHist.length>36)G.finHist.shift(); // keep 3 years
+  }
+
+  // Dividends quarterly
+  if(G.time-G.lastDiv>=GM*3){
+    G.lastDiv=G.time;
+    let dt2=0;
+    Object.entries(G.sHold).forEach(([t,q])=>{if(!q)return;dt2+=q*(G.sPrices[t]*SHARES[t].div)/4});
+    if(dt2>0){G.cash+=dt2;G.earned+=dt2;G.divTotal+=dt2}
+  }
+
+  // Trade Manager
+  const tmCyc=(G.ostaff.itManager||0)>0?2:5;
+  if(G.tmOn&&G.time-G.lastTM>=tmCyc){
+    G.lastTM=G.time;
+    const matStock=Object.values(G.mats).reduce((a,v)=>a+v,0);
+    tmMats().forEach(mid=>{
+      const m=MAT[mid];const c=G.tmCfg[mid];if(!c||!c.on)return;
+      if((G.mats[mid]||0)>c.min)return;
+      if(matStock>=mxM)return;
+      const price=(G.matP[mid]||m.bp)*id2;
+      if(price>c.maxP)return;
+      const qty=Math.min(c.qty,c.target-(G.mats[mid]||0),mxM-matStock);
+      if(qty<=0)return;const cost=qty*price;
+      if(G.cash<cost+1000)return;
+      G.mats[mid]=(G.mats[mid]||0)+qty;
+      G.cash-=cost;G.spent+=cost;G.matCost+=cost;
+      G.tmLog.unshift({time:ts(),type:"import",msg:m.emoji+" Imported "+qty+" "+m.name+" "+f(cost)});
+    });
+    Object.entries(PROD).forEach(([pid,p])=>{
+      const c=G.tmCfg[pid];if(!c||!c.sell)return;
+      const stock=G.inv[pid]||0;if(stock<0.5)return;
+      const price=(G.prodP[pid]||p.bp)*eb,thr=p.bp*c.thresh;
+      if(price<thr)return;
+      const rev=stock*price,cogs=Object.entries(p.in).reduce((a,[mat,amt])=>a+amt*stock*(G.matP[mat]||0),0);
+      G.inv[pid]=0;G.cash+=rev;G.earned+=rev;
+      G.revByP[pid]=(G.revByP[pid]||0)+rev;G.cogsByP[pid]=(G.cogsByP[pid]||0)+cogs;
+      G.tmLog.unshift({time:ts(),type:"export",msg:p.emoji+" Sold "+stock.toFixed(1)+" "+p.name+" "+f(rev)});
+    });
+    if(G.tmLog.length>60)G.tmLog.length=60;
+  }
+
+  // Share prices
+  Object.entries(SHARES).forEach(([t,def])=>{G.sPrices[t]=Math.max(0.5,G.sPrices[t]*(1+(Math.random()-0.49)*def.vol))});
+  if(Math.floor(G.time/10)>Math.floor((G.time-dt)/10)){
+    Object.keys(SHARES).forEach(t=>{G.sHist[t]=[...G.sHist[t].slice(-19),G.sPrices[t]]});
+  }
+  // Market drift
+  if(Math.floor(G.time/45)>Math.floor((G.time-dt)/45)){
+    Object.entries(MAT).forEach(([k,v])=>{G.matP[k]=v.bp*(0.75+Math.random()*0.5)});
+    Object.entries(PROD).forEach(([k,v])=>{G.prodP[k]=v.bp*(0.75+Math.random()*0.5)});
+    G.news=HEADLINES[Math.floor(Math.random()*HEADLINES.length)];
+  }
+  Object.keys(G.cd).forEach(id=>{G.cd[id]=Math.max(0,G.cd[id]-dt)});
+  checkNewUnlocks();
+  // Auto-submit when a new wealth tier is reached
+  const _nw=netWorth();
+  const _tier=lbRank(_nw).t;
+  if(G._lastTier&&G._lastTier!==_tier&&_nw>1e5)submitScore(true);
+  G._lastTier=_tier;
+
+  // Monthly event (every GM seconds = 1 game month)
+  if(G.time-G.lastMonthEvent>=GM&&G.time>GM*2){
+    G.lastMonthEvent=G.time;
+    if(Math.random()<0.55){// 55% chance each month
+      const pool=MONTHLY_EVENTS;
+      const ev=pool[Math.floor(Math.random()*pool.length)];
+      const result=ev.effect(G);
+      showEventModal(ev,result);
+    }
+  }
+
+  // Yearly event (every GM*12 seconds = 1 game year)
+  if(G.time-G.lastYearEvent>=GM*12&&G.time>GM*12){
+    G.lastYearEvent=G.time;
+    const ev=YEARLY_EVENTS[Math.floor(Math.random()*YEARLY_EVENTS.length)];
+    const result=ev.effect(G);
+    showEventModal(ev,result,true);
+  }
+
+  tutCheck();
+  render();
+}
+
+// ── UI STATE ──────────────────────────────────────────────────
+let tab="factory",fin="loans",mTier=1,offSec="staff",editRE=null,sqty={},payA={};
+let flashTmr=null;
+
+// Event modal
+function showEventModal(ev,result,isYearly=false){
+  const existing=document.getElementById("evModal");
+  if(existing)existing.remove();
+  const modal=document.createElement("div");
+  modal.id="evModal";
+  modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;";
+  const isGood=ev.type==="good";
+  modal.innerHTML=`
+  <div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
+    <div style="font-size:11px;letter-spacing:3px;color:${isYearly?"#7c3aed":"#64748b"};margin-bottom:8px;text-transform:uppercase;font-weight:bold;">${isYearly?"⚡ ANNUAL EVENT":"📅 MONTHLY EVENT"}</div>
+    <div style="font-size:44px;margin-bottom:10px;">${ev.emoji}</div>
+    <div style="font-size:16px;font-weight:bold;color:#0f172a;margin-bottom:8px;">${ev.title}</div>
+    <div style="font-size:12px;color:#64748b;line-height:1.6;margin-bottom:16px;">${ev.desc}</div>
+    <div style="background:${isGood?"#f0fdf4":"#fff1f2"};border:2px solid ${isGood?"#86efac":"#fca5a5"};border-radius:10px;padding:12px;margin-bottom:20px;">
+      <div style="font-size:11px;color:${isGood?"#16a34a":"#dc2626"};letter-spacing:2px;margin-bottom:4px;">${isGood?"✅ OUTCOME":"❌ OUTCOME"}</div>
+      <div style="font-size:15px;font-weight:bold;color:${isGood?"#16a34a":"#dc2626"};">${result}</div>
+    </div>
+    <button onclick="document.getElementById('evModal').remove()" style="width:100%;padding:12px;border-radius:8px;background:${isGood?"#16a34a":"#dc2626"};color:#fff;font-weight:bold;font-size:14px;font-family:inherit;cursor:pointer;">${isGood?"Accept & Continue":"Understood"}</button>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+function flash(msg){
+  const el=document.getElementById("flash");
+  el.textContent=msg;el.style.display="block";
+  if(flashTmr)clearTimeout(flashTmr);
+  flashTmr=setTimeout(()=>el.style.display="none",3000);
+}
+
+// Tabs unlock progressively — keeps the first session simple
+const TABS=[
+  {id:"factory",   label:"🏭 Factory",     unlock:()=>true},
+  {id:"property",  label:"🏗️ Property",    unlock:()=>true},
+  {id:"finance",   label:"💰 Finance",     unlock:()=>true},
+  {id:"trade",     label:"🤖 Trade",       unlock:()=>machineCount()>=1,        hint:"Buy your first machine"},
+  {id:"objectives",label:"🏆 Goals",       unlock:()=>machineCount()>=1,        hint:"Buy your first machine"},
+  {id:"office",    label:"🏢 Office",      unlock:()=>G.earned>=25000,          hint:"Earn $25K revenue"},
+  {id:"expand",    label:"🚀 Expand",      unlock:()=>G.earned>=75000,          hint:"Earn $75K revenue"},
+  {id:"realestate",label:"🏠 Real Estate", unlock:()=>G.earned>=250000,         hint:"Earn $250K revenue"},
+  {id:"shares",    label:"📈 Shares",      unlock:()=>(G.ostaff.analyst||0)>=1, hint:"Hire a Financial Analyst"},
+  {id:"leaderboard",label:"🏆 Leaders",   unlock:()=>true},
+  {id:"help",      label:"📖 Help",        unlock:()=>true},
+  {id:"support",   label:"💛 Support",     unlock:()=>true},
+];
+function machEcon(id){
+  const m=MACH[id],p=PROD[m.prod];if(!m||!p)return null;
+  const rate=m.rpm/60;
+  let mc=0;Object.entries(p.in).forEach(([k,q])=>{mc+=q*(MAT[k]?(G.matP[k]||MAT[k].bp):(G.prodP[k]||PROD[k].bp))});
+  const sell=(G.prodP[m.prod]||p.bp);
+  const gross=rate*(sell-mc)*speed()*expB();
+  const wage=(m.ops*WORK.operator.wage)/3600;
+  const net=gross-wage;
+  return{rate,matCost:mc,sell,gross,net,wage,
+    margin:sell>0?((sell-mc)/sell*100):0,
+    perSlot:net/m.slots,perOp:net/m.ops,
+    payback:net>0?m.cost/net/60:null,
+    roi:net>0?(net*60*60*24*365/m.cost*100):0};
+}
+function machineCount(){return Object.values(G.mach).reduce((a,v)=>a+v,0)}
+function isTabUnlocked(id){const t=TABS.find(x=>x.id===id);return t?t.unlock():false}
+// Track which tabs the player has already been shown, so we can announce new ones
+function checkNewUnlocks(){
+  if(!G.seenTabs)G.seenTabs=["factory","property","finance","help","support","leaderboard"];
+  const newly=TABS.filter(t=>t.unlock()&&!G.seenTabs.includes(t.id));
+  if(newly.length>0){
+    newly.forEach(t=>G.seenTabs.push(t.id));
+    const t=newly[0];
+    showUnlockToast(t.label);
+    trackEvent("tab_unlocked",{tab:t.id});
+  }
+}
+function showUnlockToast(label){
+  const el=document.createElement("div");
+  el.style.cssText="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e3a8a;color:#fff;padding:14px 22px;border-radius:12px;z-index:9998;box-shadow:0 8px 30px rgba(0,0,0,.3);font-weight:700;font-size:14px;text-align:center;animation:popIn .3s ease";
+  el.innerHTML='<div style="font-size:11.5px;opacity:.7;letter-spacing:2px;margin-bottom:3px">NEW UNLOCKED</div>'+label;
+  document.body.appendChild(el);
+  setTimeout(()=>{el.style.opacity="0";el.style.transition="opacity .4s";setTimeout(()=>el.remove(),400)},2600);
+}
+
+// ── STRIPE PAYMENT LINKS — replace with your real links ───────
+// Create at: dashboard.stripe.com → Payment Links → New
+const PAY_LINKS={
+  coffee:   "https://buy.stripe.com/YOUR_LINK_HERE",
+  supporter:"https://buy.stripe.com/YOUR_LINK_HERE",
+  patron:   "https://buy.stripe.com/YOUR_LINK_HERE",
+  monthly:  "https://buy.stripe.com/YOUR_LINK_HERE",
+};
+
+// ── ROUTE METADATA — page titles for analytics ────────────────
+const ROUTES={
+  factory:   {title:"Factory",         path:"/factory"},
+  property:  {title:"Property",        path:"/property"},
+  trade:     {title:"Trade Manager",   path:"/trade"},
+  office:    {title:"Office",          path:"/office"},
+  expand:    {title:"Expand",          path:"/expand"},
+  realestate:{title:"Real Estate",     path:"/real-estate"},
+  shares:    {title:"Share Market",    path:"/shares"},
+  finance:   {title:"Finance",         path:"/finance"},
+  objectives:{title:"Objectives",      path:"/objectives"},
+  leaderboard:{title:"Leaderboard",   path:"/leaderboard"},
+  help:      {title:"How to Play",     path:"/help"},
+  support:   {title:"Support the Game",path:"/support"},
+};
+const SITE_NAME="Manufacturing Tycoon";
+
+// ═══════════════════════════════════════════════════════════════
+// LEADERBOARD CONFIG
+// Leave LB_API empty for a local-only board (this device).
+// Paste your backend URL here to make it truly global.
+// ═══════════════════════════════════════════════════════════════
+const LB_API="/api/scores";                 // GET endpoint — returns the top 100
+const LB_SUBMIT="/api/submit";              // POST endpoint — records a score (best run per name)
+const LB_KEY="";                 // public anon key, only needed for a custom backend like Supabase
+const LB_LOCAL_KEY="mfgTycoon_localBoard";
+/* ── GOING GLOBAL: Supabase setup (free tier) ───────────────────
+   1. Create a project at supabase.com
+   2. SQL Editor -> run:
+
+      create table scores (
+        id bigint generated always as identity primary key,
+        name text not null,
+        net_worth bigint not null,
+        revenue bigint,
+        months int,
+        machines int,
+        acquisitions int,
+        created_at timestamptz default now()
+      );
+      alter table scores enable row level security;
+      create policy "public read"   on scores for select using (true);
+      create policy "public insert" on scores for insert with check (true);
+      create index on scores (net_worth desc);
+
+   3. Settings -> API: copy the Project URL and the anon public key
+   4. Set below:
+        LB_API = "https://YOURPROJECT.supabase.co/rest/v1/scores"
+        LB_KEY = "your-anon-public-key"
+   ─────────────────────────────────────────────────────────────── */
+let   lbCache=null, lbLoading=false, lbError=null, lbLastFetch=0;
+
+function lbLocalScores(){
+  try{return JSON.parse(localStorage.getItem(LB_LOCAL_KEY))||[]}catch(e){return _lbMem||[]}
+}
+let _lbMem=[];
+function lbSaveLocal(list){
+  _lbMem=list;
+  try{localStorage.setItem(LB_LOCAL_KEY,JSON.stringify(list))}catch(e){}
+}
+
+// Submit the current run to the board
+async function submitScore(silent){
+  const entry={
+    name:(G.company||"Anonymous").slice(0,28),
+    net_worth:Math.round(netWorth()),
+    revenue:Math.round(G.earned),
+    months:Math.floor(G.time/GM),
+    machines:Object.values(G.mach).reduce((a,v)=>a+v,0),
+    acquisitions:G.acqs.length,
+    created_at:new Date().toISOString(),
+  };
+
+  // Always record locally so the board is never empty
+  let local=lbLocalScores();
+  const existing=local.findIndex(s=>s.name===entry.name);
+  if(existing>=0){ if(entry.net_worth>local[existing].net_worth) local[existing]=entry; }
+  else local.push(entry);
+  local.sort((a,b)=>b.net_worth-a.net_worth);
+  lbSaveLocal(local.slice(0,100));
+
+  trackEvent("submit_score",{net_worth:entry.net_worth});
+
+  if(!LB_API){
+    if(!silent)flash("🏆 Score saved to your local board");
+    lbCache=null; render(); return;
+  }
+  try{
+    const headers={"Content-Type":"application/json"};
+    if(LB_KEY){headers["apikey"]=LB_KEY;headers["Authorization"]="Bearer "+LB_KEY;}
+    const res=await fetch(LB_SUBMIT,{method:"POST",headers,body:JSON.stringify(entry)});
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    if(!silent)flash("🏆 Submitted to the global leaderboard!");
+    lbCache=null; lbLastFetch=0; fetchLeaderboard();
+  }catch(e){
+    console.warn("Leaderboard submit failed",e);
+    if(!silent)flash("⚠ Couldn't reach the global board — saved locally");
+    render();
+  }
+}
+
+async function fetchLeaderboard(force){
+  if(!LB_API){ lbCache=lbLocalScores(); render(); return; }
+  if(lbLoading)return;
+  if(!force&&lbCache&&Date.now()-lbLastFetch<30000)return;
+  lbLoading=true; lbError=null; render();
+  try{
+    const headers={};
+    if(LB_KEY){headers["apikey"]=LB_KEY;headers["Authorization"]="Bearer "+LB_KEY;}
+    const url=LB_API+(LB_API.includes("?")?"&":"?")+"select=*&order=net_worth.desc&limit=100";
+    const res=await fetch(url,{headers});
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    const data=await res.json();
+    lbCache=Array.isArray(data)?data:[];
+    lbLastFetch=Date.now();
+  }catch(e){
+    lbError="Couldn't load the global board. Showing your local scores.";
+    lbCache=lbLocalScores();
+  }
+  lbLoading=false; render();
+}
+
+function lbRank(nw){
+  if(nw>=200e9)return{t:"Titan of Industry",c:"#991b1b",e:"🌌"};
+  if(nw>=20e9) return{t:"Global Top 100",   c:"#dc2626",e:"👑"};
+  if(nw>=5e9)  return{t:"Rich List",        c:"#f97316",e:"🏆"};
+  if(nw>=1e9)  return{t:"Billionaire",      c:"#f59e0b",e:"💫"};
+  if(nw>=100e6)return{t:"Ultra HNW",        c:"#7c3aed",e:"🏰"};
+  if(nw>=10e6) return{t:"Top 1% Globally",  c:"#0284c7",e:"✈️"};
+  if(nw>=1e6)  return{t:"Millionaire",      c:"#16a34a",e:"💎"};
+  if(nw>=1e5)  return{t:"Six Figures",      c:"#64748b",e:"📈"};
+  return{t:"Getting Started",c:"#94a3b8",e:"🏭"};
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function render(){
+  const app=document.getElementById("app");
+  if(screen==="home"){
+    document.getElementById("hdr").innerHTML="";
+    document.getElementById("tkr").style.display="none";
+    document.getElementById("tabs").style.display="none";
+    document.getElementById("content").innerHTML=rHome();
+    renderTutorial();
+    return;
+  }
+  document.getElementById("tkr").style.display="flex";
+  document.getElementById("tabs").style.display="flex";
+  renderHdr();renderTicker();renderTabs();renderContent();
+  renderTutorial();
+}
+
+function rHome(){
+  const saves=loadAllSaves();
+  const hasSaves=Object.keys(saves).length>0;
+
+  let o=`
+  <div style="padding:10px 0 20px">
+    <!-- Hero -->
+    <div style="text-align:center;padding:30px 16px 24px">
+      <div style="font-size:56px;margin-bottom:10px">🏭</div>
+      <div style="font-size:26px;font-weight:bold;letter-spacing:-1px;margin-bottom:6px">Manufacturing Tycoon</div>
+      <div style="font-size:12px;color:#64748b;line-height:1.7;max-width:320px;margin:0 auto">
+        Build a factory empire from a garage workshop to a billion-dollar global manufacturer.
+      </div>
+      <div style="display:flex;gap:6px;justify-content:center;margin-top:14px;flex-wrap:wrap">
+        ${["19 Machines","6 Product Lines","6 Acquisitions","Real Estate","Share Market"].map(t=>`<span style="font-size:11px;background:#eff6ff;color:#2563eb;padding:3px 9px;border-radius:12px;border:1px solid #bfdbfe">${t}</span>`).join("")}
+      </div>
+    </div>`;
+
+  if(!_storageOK){
+    o+=`<div class="card" style="background:#fff7ed;border:1px solid #fed7aa;margin-bottom:12px;padding:12px">
+      <div style="font-size:12.5px;color:#c2410c;line-height:1.6"><b>⚠ Saves won't persist here.</b> Your browser is blocking storage (private mode or an embedded frame). The game works fine, but progress will be lost when you close the tab. Open the file directly in your browser to enable saving.</div>
+    </div>`;
+  }
+
+  // Save slots
+  o+=`<div class="sl" style="padding:0 2px">${hasSaves?"Your Factories":"Start Your Empire"}</div>`;
+
+  for(let i=0;i<MAX_SLOTS;i++){
+    const s=saves[i];
+    if(s){
+      const yr=Math.floor(s.gameMonth/12)+1,mo=(s.gameMonth%12)+1;
+      o+=`
+      <div class="card" style="border:2px solid #2563eb33;padding:0;overflow:hidden;margin-bottom:10px">
+        <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:12px 14px;color:#fff">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div style="min-width:0">
+              <div style="font-size:11.5px;letter-spacing:2px;opacity:0.6;margin-bottom:2px">SLOT ${i+1}</div>
+              <div style="font-weight:bold;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h(s.company||"My Factory")}</div>
+              <div style="font-size:11.5px;opacity:0.7;margin-top:2px">Year ${yr}, Month ${mo} · Saved ${timeAgo(s.savedAt)}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:11.5px;opacity:0.6;letter-spacing:1px">NET WORTH</div>
+              <div style="font-size:16px;font-weight:bold;color:#86efac">${f(s.netWorth||0)}</div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:10px 14px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+            ${[["Cash",f(s.cash||0)],["Revenue",f(s.revenue||0)],["Machines",s.machines||0],["Lines",s.plines||1]].map(([l,v])=>`<div style="background:#f8fafc;border-radius:5px;padding:6px 7px;text-align:center"><div style="font-size:11.5px;color:#9ca3af;margin-bottom:1px">${l}</div><div style="font-size:11px;font-weight:bold">${v}</div></div>`).join("")}
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="loadGame(${i})" style="flex:2;min-height:48px;border-radius:10px;background:#16a34a;color:#fff;font-weight:700;font-size:14px;font-family:var(--font-ui)">▶ Continue</button>
+            <button onclick="confirmDelete(${i})" style="flex:0 0 auto;min-width:52px;min-height:48px;border-radius:10px;background:#fff1f2;color:#dc2626;border:1px solid #fecaca;font-size:17px;font-family:var(--font-ui)">🗑</button>
+          </div>
+        </div>
+      </div>`;
+    } else {
+      o+=`
+      <div class="card" style="border:2px dashed #cbd5e1;background:#fafafa;text-align:center;padding:20px 14px;margin-bottom:10px">
+        <div style="font-size:26px;margin-bottom:6px;opacity:0.4">➕</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:12px">Empty Slot ${i+1}</div>
+        <button onclick="promptNewGame(${i})" style="width:100%;min-height:48px;border-radius:10px;background:#2563eb;color:#fff;font-weight:700;font-size:14px;font-family:var(--font-ui)">🏭 Start New Factory</button>
+      </div>`;
+    }
+  }
+
+  // How to play preview
+  o+=`
+    <div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin-top:16px;padding:14px">
+      <div style="font-size:12px;font-weight:bold;color:#92400e;margin-bottom:8px">🎯 How It Works</div>
+      <div style="font-size:11px;color:#92400e;line-height:1.8">
+        Take a loan → buy machines → hire operators → manufacture and sell products. Reinvest into new product lines, acquire companies, buy property and shares. Track everything with real financial statements. Goal: <b>$1 Billion net worth</b>.
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:10px;padding:12px">
+      <div style="font-size:11px;font-weight:bold;margin-bottom:8px">💾 About Saves</div>
+      <div style="font-size:12px;color:#64748b;line-height:1.7">
+        Your game saves automatically every 20 seconds while playing, and whenever you return to this screen. Saves are stored in this browser only — clearing your browser data will remove them.
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:20px 10px;font-size:11.5px;color:#94a3b8;line-height:1.8">
+      Free to play · No ads · No paywalls<br>
+      <a href="#support" onclick="screen='game';switchTab('support');return false" style="color:#7c3aed;text-decoration:none;font-weight:bold">💛 Support the game</a>
+    </div>
+  </div>`;
+
+  return o;
+}
+
+// ── MODALS (prompt/confirm are blocked in sandboxed frames) ───
+function closeModal(){const m=document.getElementById("appModal");if(m)m.remove()}
+
+function promptNewGame(slot){
+  closeModal();
+  const suggestions=["Voltex Industries","Ironforge Manufacturing","Apex Fabrication","Summit Works","Meridian Industries","Forge & Co."];
+  const suggested=suggestions[Math.floor(Math.random()*suggestions.length)];
+  const m=document.createElement("div");
+  m.id="appModal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)";
+  m.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="font-size:40px;margin-bottom:8px">🏭</div>
+        <div class="display" style="font-size:19px;font-weight:700;margin-bottom:4px">Name Your Company</div>
+        <div style="font-size:12.5px;color:#64748b">This will appear on all your financial statements.</div>
+      </div>
+      <input id="coNameInput" type="text" maxlength="28" value="${suggested}"
+        style="width:100%;padding:14px;border:2px solid #cbd5e1;border-radius:10px;font-size:16px;font-weight:600;font-family:var(--font-ui);text-align:center;margin-bottom:8px">
+      <div style="font-size:11px;color:#94a3b8;text-align:center;margin-bottom:16px">Max 28 characters</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeModal()" style="flex:1;min-height:48px;border-radius:10px;background:#f1f5f9;color:#475569;font-weight:600;font-size:14px;font-family:var(--font-ui)">Cancel</button>
+        <button onclick="confirmNewGame(${slot})" style="flex:2;min-height:48px;border-radius:10px;background:#2563eb;color:#fff;font-weight:700;font-size:14px;font-family:var(--font-ui)">🏭 Start Building</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  const inp=document.getElementById("coNameInput");
+  setTimeout(()=>{inp.focus();inp.select()},80);
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")confirmNewGame(slot)});
+  m.addEventListener("click",e=>{if(e.target===m)closeModal()});
+}
+
+function confirmNewGame(slot){
+  const inp=document.getElementById("coNameInput");
+  const name=inp&&inp.value.trim()?inp.value.trim():"My Factory";
+  closeModal();
+  trackEvent("new_game",{slot:slot});
+  newGame(slot,name);
+}
+
+function confirmDelete(slot){
+  const saves=loadAllSaves();
+  const s=saves[slot];
+  if(!s)return;
+  closeModal();
+  const m=document.createElement("div");
+  m.id="appModal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)";
+  m.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:24px;max-width:330px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center">
+      <div style="font-size:38px;margin-bottom:10px">🗑️</div>
+      <div class="display" style="font-size:18px;font-weight:700;margin-bottom:6px">Delete this save?</div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:6px">"${h(s.company||"this save")}"</div>
+      <div style="font-size:12px;color:#dc2626;margin-bottom:18px">Net worth ${f(s.netWorth||0)} · This cannot be undone.</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeModal()" style="flex:1;min-height:48px;border-radius:10px;background:#f1f5f9;color:#475569;font-weight:600;font-size:14px;font-family:var(--font-ui)">Keep</button>
+        <button onclick="closeModal();deleteSave(${slot})" style="flex:1;min-height:48px;border-radius:10px;background:#dc2626;color:#fff;font-weight:700;font-size:14px;font-family:var(--font-ui)">Delete</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click",e=>{if(e.target===m)closeModal()});
+}
+
+function renderHdr(){
+  const rps=revPerSec(),whr=wageHr(),nps=rps-whr/3600,gm=Math.floor(G.time/GM);
+  const us=usedSlots(),ms=maxSlots(),nc=G.cash>=0?"#0f172a":"#dc2626",pc=nps>=0?"#16a34a":"#dc2626";
+  document.getElementById("hdr").innerHTML=`
+<div style="background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 12px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+    <div>
+      <div style="font-size:12px;color:#64748b;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;font-weight:600">${h(G.company||"Manufacturing Co.")}</div>
+      <div class="display" style="font-size:30px;font-weight:700;color:${nc};letter-spacing:-1.5px;line-height:1">${f(G.cash)}</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:3px">Cash on hand</div>
+      <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
+        <span style="color:${pc};font-size:12.5px;font-weight:700">${nps>=0?"▲":"▼"} ${f(Math.abs(nps))}/s</span>
+        <span style="color:#64748b;font-size:12px;font-weight:500">Yr ${Math.floor(gm/12)+1} Mo ${(gm%12)+1}</span>
+        <span style="color:#64748b;font-size:12px;font-weight:500">${us}/${ms} slots</span>
+        ${G.tmOn?'<span style="font-size:11px;color:#2563eb">TM LIVE</span>':""}
+      </div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="display:flex;gap:5px;justify-content:flex-end;margin-bottom:6px">
+        <button onclick="saveGame(activeSlot)" style="padding:0 12px;min-height:40px;border-radius:8px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;font-size:13px;font-family:inherit;font-weight:600">💾</button>
+        <button onclick="quitToHome()" style="padding:0 12px;min-height:40px;border-radius:8px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;font-size:13px;font-family:inherit;font-weight:600">🏠 Home</button>
+      </div>
+      <div style="font-size:12px;color:#64748b;letter-spacing:1.5px;margin-bottom:5px;text-transform:uppercase;font-weight:600">Est. Annual</div>
+      <div style="font-size:12px;line-height:1.9">
+        <div><span style="color:#9ca3af">Revenue </span><span style="color:#16a34a;font-weight:bold">${f(rps*GM*12)}</span></div>
+        <div><span style="color:#9ca3af">Wages </span><span style="color:#dc2626;font-weight:bold">${f((whr/3600)*GM*12)}</span></div>
+        <div><span style="color:#9ca3af">Loans </span><span style="color:#f97316;font-weight:bold">${f(monthDebt()*12)}</span></div>
+        <div><span style="color:#9ca3af">Net </span><span style="color:${nps>=0?"#16a34a":"#dc2626"};font-weight:bold">${f((nps*GM-monthDebt())*12)}</span></div>
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+function renderTicker(){
+  document.getElementById("tnews").textContent=G.news+" · SLOTS "+usedSlots()+"/"+maxSlots()+" · NET WORTH "+f(netWorth())+" · DEBT "+f(totalDebt());
+}
+
+function renderTabs(){
+  const unlocked=TABS.filter(t=>t.unlock());
+  const nextLocked=TABS.find(t=>!t.unlock()&&t.hint);
+  const tgt=(G.tut&&G.tut.active&&TUT_STEPS[G.tut.step])?TUT_STEPS[G.tut.step].tab:null;
+  let html=unlocked.map(t=>`<button class="tab-btn ${tab===t.id?"on":""} ${t.id===tgt&&tab!==t.id?"tut-hl":""}" onclick="switchTab('${t.id}')">${t.label}</button>`).join("");
+  if(nextLocked){
+    html+=`<button class="tab-btn" style="opacity:.45;cursor:default" onclick="flash('🔒 ${nextLocked.hint} to unlock')">🔒 ${nextLocked.label.replace(/^\S+\s/,"")}</button>`;
+  }
+  document.getElementById("tabs").innerHTML=html;
+}
+
+// ── SAVE SYSTEM ───────────────────────────────────────────────
+const SAVE_KEY="mfgTycoon_saves";
+const MAX_SLOTS=3;
+let screen="home";      // "home" | "game"
+let activeSlot=null;
+let autoSaveTimer=null;
+
+let _memSaves=null;          // fallback when localStorage is blocked
+let _storageOK=(()=>{try{localStorage.setItem("__t","1");localStorage.removeItem("__t");return true}catch(e){return false}})();
+
+function loadAllSaves(){
+  if(!_storageOK)return _memSaves||{};
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw)return {};
+    return JSON.parse(raw)||{};
+  }catch(e){return _memSaves||{}}
+}
+function writeAllSaves(saves){
+  _memSaves=saves;                      // always keep an in-memory copy
+  if(!_storageOK)return true;           // succeed silently, session-only
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(saves));return true}
+  catch(e){console.warn("Save failed",e);return false}
+}
+function saveGame(slot,silent){
+  if(slot==null)return;
+  const saves=loadAllSaves();
+  saves[slot]={
+    company:G.company||"My Factory",
+    savedAt:Date.now(),
+    gameMonth:Math.floor(G.time/GM),
+    netWorth:netWorth(),
+    cash:G.cash,
+    revenue:G.earned,
+    machines:Object.values(G.mach).reduce((a,v)=>a+v,0),
+    plines:G.plines.length,
+    acqs:G.acqs.length,
+    data:G,
+  };
+  const ok=writeAllSaves(saves);
+  if(ok&&!silent)flash("💾 Game saved");
+  else if(!ok&&!silent)flash("⚠ Save failed — storage may be full");
+}
+function loadGame(slot){
+  const saves=loadAllSaves();
+  const s=saves[slot];
+  if(!s||!s.data){flash("⚠ Save not found");return}
+  G=s.data;
+  // Backfill any missing fields from a fresh state (forward compatibility)
+  const fresh=freshState();
+  Object.keys(fresh).forEach(k=>{if(G[k]===undefined)G[k]=fresh[k]});
+  // Migrate legacy boolean properties -> counts
+  Object.keys(G.props||{}).forEach(k=>{if(G.props[k]===true)G.props[k]=1});
+  if(!G.props||!Object.keys(G.props).length)G.props={starter:1};
+  activeSlot=slot;
+  screen="game";
+  window._selMonth=null;
+  startAutoSave();
+  switchTab("factory");
+  flash("✅ Loaded "+(s.company||"save"));
+}
+function deleteSave(slot){
+  const saves=loadAllSaves();
+  const name=saves[slot]?saves[slot].company:"save";
+  delete saves[slot];
+  writeAllSaves(saves);
+  flash("🗑 Deleted "+name);
+  render();
+}
+function newGame(slot,companyName){
+  G=freshState();
+  G.company=companyName||"My Factory";
+  activeSlot=slot;
+  screen="game";
+  window._selMonth=null;
+  saveGame(slot,true);
+  startAutoSave();
+  startTutorial();
+}
+function startAutoSave(){
+  if(autoSaveTimer)clearInterval(autoSaveTimer);
+  autoSaveTimer=setInterval(()=>{if(screen==="game"&&activeSlot!=null)saveGame(activeSlot,true)},20000);
+}
+function quitToHome(){
+  if(activeSlot!=null){saveGame(activeSlot,true);submitScore(true);}
+  if(autoSaveTimer)clearInterval(autoSaveTimer);
+  screen="home";
+  _ignoreHash=true;window.location.hash="home";setTimeout(()=>{_ignoreHash=false},0);
+  document.title=SITE_NAME;
+  trackEvent("quit_to_home");
+  render();
+}
+function timeAgo(t){
+  const s=Math.floor((Date.now()-t)/1000);
+  if(s<60)return "just now";
+  if(s<3600)return Math.floor(s/60)+"m ago";
+  if(s<86400)return Math.floor(s/3600)+"h ago";
+  return Math.floor(s/86400)+"d ago";
+}
+
+// ── ROUTING & ANALYTICS ───────────────────────────────────────
+function switchTab(t,skipHash){
+  if(!ROUTES[t])t="factory";
+  if(!isTabUnlocked(t))t="factory";
+  tab=t;
+  if(!skipHash){
+    // Update URL without triggering hashchange loop
+    _ignoreHash=true;
+    window.location.hash=t;
+    setTimeout(()=>{_ignoreHash=false},0);
+  }
+  trackPage(t);
+  window.scrollTo(0,0);
+  const c=document.getElementById("content");
+  if(c)c.scrollTop=0;
+  render();
+}
+
+let _ignoreHash=false;
+
+function trackPage(t){
+  const r=ROUTES[t];if(!r)return;
+  const title=r.title+" · "+SITE_NAME;
+  document.title=title;
+  // Google Analytics 4
+  if(typeof gtag==="function"){
+    gtag("event","page_view",{page_title:r.title,page_location:window.location.origin+r.path,page_path:r.path});
+  }
+  // Plausible
+  if(typeof plausible==="function"){plausible("pageview",{u:window.location.origin+r.path})}
+  // Fathom
+  if(window.fathom&&typeof window.fathom.trackPageview==="function"){window.fathom.trackPageview({url:r.path})}
+  // Simple Analytics
+  if(window.sa_pageview)window.sa_pageview(r.path);
+}
+
+// Track a custom event (used for support button clicks etc)
+function trackEvent(name,params){
+  if(typeof gtag==="function")gtag("event",name,params||{});
+  if(typeof plausible==="function")plausible(name,{props:params||{}});
+}
+
+// Handle browser back/forward and direct links
+window.addEventListener("hashchange",()=>{
+  if(_ignoreHash)return;
+  const t=window.location.hash.replace("#","")||"home";
+  if(t==="home"){screen="home";render();return}
+  if(screen==="home")return;   // ignore tab hashes while on home
+  switchTab(t,true);
+});
+
+// On load: honour the URL hash so links deep-link correctly
+function initRoute(){
+  const t=window.location.hash.replace("#","");
+  if(t&&t!=="home"&&ROUTES[t]){
+    // Deep link into a tab — only valid if a save exists to resume
+    const saves=loadAllSaves();
+    const slots=Object.keys(saves);
+    if(slots.length>0){loadGame(slots[0]);return}
+  }
+  screen="home";tab="factory";
+  _ignoreHash=true;window.location.hash="home";setTimeout(()=>{_ignoreHash=false},0);
+  document.title=SITE_NAME;
+  if(typeof gtag==="function")gtag("event","page_view",{page_title:"Home",page_path:"/"});
+}
+function switchFin(t){fin=t;render()}
+
+function renderContent(){
+  const el=document.getElementById("content");
+  if(tab==="factory")el.innerHTML=rFactory();
+  else if(tab==="property")el.innerHTML=rProperty();
+  else if(tab==="trade")el.innerHTML=rTrade();
+  else if(tab==="office")el.innerHTML=rOffice();
+  else if(tab==="expand")el.innerHTML=rExpand();
+  else if(tab==="realestate")el.innerHTML=rRealEstate();
+  else if(tab==="shares")el.innerHTML=rShares();
+  else if(tab==="finance")el.innerHTML=rFinance();
+  else if(tab==="objectives")el.innerHTML=rObjectives();
+  else if(tab==="leaderboard"){el.innerHTML=rLeaderboard();if(!lbCache&&!lbLoading)fetchLeaderboard();}
+  else if(tab==="help")el.innerHTML=rHelp();
+  else if(tab==="support")el.innerHTML=rSupport();
+}
+
+// ── TAB RENDERERS ─────────────────────────────────────────────
+function rFactory(){
+  const us=usedSlots(),ms=maxSlots(),sp=speed(),um=unlockedMachs();
+  const overCap=us>ms;
+  let o=`<div class="card" style="${overCap?"border-color:#fca5a5;background:#fff5f5":""}"><div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12.5px"><span style="font-weight:600">Machine Slots</span><span style="color:${overCap?"#dc2626":us>=ms?"#f59e0b":"#16a34a"};font-weight:700">${us}/${ms}</span></div><div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.max(0,Math.min(100,(us/ms)*100))}%;background:${us>ms?"#dc2626":us>=ms?"#f59e0b":"#2563eb"};border-radius:3px;transition:width .4s"></div></div></div>`;
+  if(overCap){
+    o+=`<div class="card" style="background:#fff1f2;border:1px solid #fecaca;margin-bottom:10px">
+      <div style="font-size:12.5px;color:#991b1b;line-height:1.6">
+        <b>⚠ Over capacity by ${us-ms} slot${us-ms>1?"s":""}.</b> Machines still run, but you can't buy more until you either upgrade your property or sell some machines below.
+      </div>
+    </div>`;
+  }
+  o+=`<div style="display:flex;gap:6px;margin-bottom:10px">${[1,2,3].map(t=>`<button onclick="mTier=${t};render()" style="flex:1;min-height:44px;border-radius:8px;font-size:13px;background:${mTier===t?{1:"#64748b",2:"#10b981",3:"#f59e0b"}[t]:"#fff"};color:${mTier===t?"#fff":{1:"#64748b",2:"#10b981",3:"#f59e0b"}[t]};border:1px solid ${{1:"#64748b",2:"#10b981",3:"#f59e0b"}[t]};font-size:11.5px;font-weight:bold;font-family:inherit">Tier ${t}</button>`).join("")}</div>`;
+  const totalOpsNeeded=Object.entries(MACH).reduce((a,[id,m])=>a+(G.mach[id]||0)*m.ops,0);
+  const opsAvail=G.work.operator||0;
+  o+=`<div class="card" style="background:#fff7ed;border:1px solid #fed7aa;margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px"><span style="color:#92400e;font-weight:bold">👷 Operators needed to run all machines</span><span style="color:${opsAvail>=totalOpsNeeded?"#16a34a":"#dc2626"};font-weight:bold;font-size:12px">${opsAvail} / ${totalOpsNeeded}</span></div>${totalOpsNeeded>0?`<div style="height:4px;background:#fed7aa;border-radius:2px;margin-top:6px"><div style="height:100%;width:${Math.min(100,opsAvail/totalOpsNeeded*100)}%;background:${opsAvail>=totalOpsNeeded?"#16a34a":"#f97316"};border-radius:2px"></div></div>`:""}<div style="font-size:11px;color:#92400e;margin-top:4px">Hire Operators in the Property tab → Workforce section</div></div>`;
+
+  Object.entries(MACH).filter(([id,m])=>m.tier===mTier&&um.includes(id)).forEach(([id,m])=>{
+    const cnt=G.mach[id]||0;
+    let op2=G.work.operator||0,act=0;
+    Object.entries(MACH).forEach(([mid2,m2])=>{const a=Math.min(G.mach[mid2]||0,Math.floor(op2/m2.ops));op2-=a*m2.ops;if(mid2===id)act=a});
+    const rps=act*(m.rpm/60)*sp,noSlots=us+m.slots>ms&&!cnt;
+    const canBuy=G.cash>=m.cost&&!noSlots;
+    const progPct=Math.min(100,(G.cash/m.cost)*100);
+    o+=`<div class="card ${canBuy&&!cnt?"affordable":""}" style="border-color:${canBuy&&!cnt?"#16a34a":cnt?m.col+"55":"#e2e8f0"}">
+      <div style="display:flex;gap:10px;align-items:center">
+        <span style="font-size:20px">${m.emoji}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">${h(m.name)}</div>
+          <div style="font-size:12px;color:#64748b">${h(m.desc)}</div>
+          ${(()=>{const e=machEcon(id);if(!e)return"";
+            return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin:8px 0">
+              <div style="background:#f0fdf4;border-radius:6px;padding:6px 7px;text-align:center">
+                <div style="font-size:10px;color:#15803d">PROFIT/SEC</div>
+                <div style="font-size:13.5px;font-weight:700;color:#16a34a">${f(e.net)}</div>
+              </div>
+              <div style="background:#eff6ff;border-radius:6px;padding:6px 7px;text-align:center">
+                <div style="font-size:10px;color:#1d4ed8">PER SLOT</div>
+                <div style="font-size:13.5px;font-weight:700;color:#2563eb">${f(e.perSlot)}</div>
+              </div>
+              <div style="background:#fefce8;border-radius:6px;padding:6px 7px;text-align:center">
+                <div style="font-size:10px;color:#a16207">PAYBACK</div>
+                <div style="font-size:13.5px;font-weight:700;color:#ca8a04">${e.payback?e.payback.toFixed(1)+"m":"—"}</div>
+              </div>
+            </div>
+            <div style="font-size:11.5px;color:#64748b;line-height:1.5">
+              ${m.slots} slot${m.slots>1?"s":""} · <span style="color:#f97316;font-weight:600">${m.ops} operator${m.ops>1?"s":""}</span> · Gross margin <b style="color:${e.margin>=50?"#16a34a":e.margin>=40?"#f59e0b":"#64748b"}">${e.margin.toFixed(0)}%</b>
+            </div>`;})()}
+          ${cnt?`<div style="font-size:11.5px;margin-top:2px;color:${act<cnt?"#f97316":"#16a34a"}">${act}/${cnt} running · ${rps.toFixed(3)}/s</div>`:""}
+          ${noSlots?`<div style="font-size:11px;color:#f97316;margin-top:3px">Needs ${m.slots} slots — upgrade property</div>`:""}
+          ${!canBuy&&!noSlots?`<div class="mini-bar"><div class="mini-fill" style="width:${progPct}%;background:${progPct>75?"#16a34a":progPct>40?"#f59e0b":"#cbd5e1"}"></div></div><div style="font-size:11.5px;color:#94a3b8;margin-top:3px">${progPct.toFixed(0)}% of the way there · need ${f(m.cost-G.cash)} more</div>`:""}
+          ${canBuy&&!cnt?`<div style="margin-top:5px"><span class="aff-badge">✓ AFFORDABLE NOW</span></div>`:""}
+        </div>
+        <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;gap:5px">
+          <div style="color:#94a3b8;font-size:11.5px">${f(m.cost)}</div>
+          <button onclick="buyMach('${id}')" style="padding:0 16px;min-height:44px;border-radius:8px;background:${G.cash>=m.cost&&!noSlots?m.col:"#f1f5f9"};color:${G.cash>=m.cost&&!noSlots?"#fff":"#94a3b8"};font-weight:700;font-size:13px;font-family:inherit">${cnt?"+1 ("+cnt+")":"BUY"}</button>
+          ${cnt?`<button onclick="sellMach('${id}')" style="padding:0 14px;min-height:40px;border-radius:8px;font-size:12px;background:#fff1f2;color:#dc2626;border:1px solid #fecaca;font-family:inherit;font-weight:600">Sell ${f(Math.floor(m.cost*.5))}</button>`:""}
+        </div>
+      </div>
+    </div>`;
+  });
+  const locked=Object.entries(MACH).filter(([id,m])=>m.tier===mTier&&!um.includes(id)).length;
+  if(locked>0)o+=`<div class="card" style="text-align:center;font-size:11.5px;color:#94a3b8;border-style:dashed">🔒 ${locked} machines locked — unlock product lines in Expand tab</div>`;
+  o+=`<div class="sl" style="margin-top:14px">Production Upgrades</div>`;
+  Object.entries(EXPS).forEach(([id,e])=>{
+    const owned=G.exps.includes(id);
+    o+=`<div class="card" style="border-color:${owned?"#16a34a55":"#e2e8f0"}">
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:16px">${e.emoji}</span>
+        <div style="flex:1"><div style="font-weight:bold;font-size:12px">${h(e.name)} <span style="font-size:11px;background:#f1f5f9;color:#64748b;padding:1px 5px;border-radius:3px">${e.tag}</span></div><div style="font-size:12px;color:#64748b">${h(e.desc)}</div></div>
+        ${owned?`<span style="color:#16a34a;font-size:11.5px;font-weight:bold">ACTIVE</span>`:`<div style="text-align:right;flex-shrink:0"><div style="font-size:11.5px;color:#94a3b8;margin-bottom:4px">${f(e.cost)}</div><button onclick="buyExp('${id}')" style="padding:0 16px;min-height:44px;border-radius:8px;background:${G.cash>=e.cost?"#7c3aed":"#f1f5f9"};color:${G.cash>=e.cost?"#fff":"#94a3b8"};font-weight:700;font-size:13px;font-family:inherit">INSTALL</button></div>`}
+      </div>
+    </div>`;
+  });
+  return o;
+}
+
+function rProperty(){
+  const us=usedSlots(),ms=maxSlots();
+  const totalProps=Object.entries(PROPS).reduce((a,[id])=>a+propCount(id),0);
+  const totalValue=Object.entries(PROPS).reduce((a,[id,p])=>a+propCount(id)*p.cost,0);
+
+  // Portfolio summary
+  let o=`<div class="card" style="background:#eff6ff;border:1px solid #bfdbfe;margin-bottom:12px">
+    <div class="sl" style="color:#2563eb;margin-top:0">Facility Portfolio</div>
+    <div class="g2">
+      <div class="sbox" style="border-color:#bfdbfe"><div class="slbl">Facilities Owned</div><div class="sval">${totalProps}</div></div>
+      <div class="sbox" style="border-color:#bfdbfe"><div class="slbl">Total Slots</div><div class="sval" style="color:${us>ms?"#dc2626":"#2563eb"}">${us} / ${ms}</div></div>
+      <div class="sbox" style="border-color:#bfdbfe"><div class="slbl">Material Storage</div><div class="sval" style="color:#f59e0b">${wareM().toLocaleString()}</div></div>
+      <div class="sbox" style="border-color:#bfdbfe"><div class="slbl">Portfolio Value</div><div class="sval" style="color:#16a34a">${f(totalValue)}</div></div>
+    </div>
+    <div style="margin-top:10px;font-size:11.5px;color:#1d4ed8;line-height:1.6">
+      💡 Facilities <b>stack</b> — buy multiple and their slots and storage add together.
+    </div>
+  </div>`;
+
+  o+=`<div class="sl">Facilities</div>`;
+
+  Object.entries(PROPS).forEach(([id,p])=>{
+    const owned=propCount(id);
+    const canAfford=G.cash>=p.cost;
+    const isUnique=!!p.unique;
+    const prog=Math.min(100,(G.cash/Math.max(1,p.cost))*100);
+    const canBuy=canAfford&&!(isUnique&&owned>=1);
+
+    o+=`<div class="card ${canBuy&&p.cost>0?"affordable":""}" style="border:2px solid ${canBuy&&p.cost>0?"#16a34a":owned?"#2563eb44":"#e2e8f0"}">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span style="font-size:30px;flex-shrink:0">${p.emoji}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-weight:700;font-size:15px">${h(p.name)}</span>
+            ${owned>0?`<span style="font-size:11px;background:#dbeafe;color:#1d4ed8;padding:2px 9px;border-radius:10px;font-weight:700">×${owned} OWNED</span>`:""}
+            ${isUnique?`<span style="font-size:10px;background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:10px">ONE ONLY</span>`:""}
+          </div>
+          <div style="font-size:12.5px;color:#64748b;margin-bottom:10px;line-height:1.5">${h(p.desc)}</div>
+
+          <div class="g3" style="margin-bottom:10px">
+            <div class="sbox"><div class="slbl">SLOTS</div><div class="sval" style="color:#2563eb">${p.slots}</div></div>
+            <div class="sbox"><div class="slbl">MATERIALS</div><div class="sval" style="color:#f59e0b;font-size:13px">${p.wareM.toLocaleString()}</div></div>
+            <div class="sbox"><div class="slbl">PRODUCTS</div><div class="sval" style="color:#a855f7;font-size:13px">${p.wareP.toLocaleString()}</div></div>
+          </div>
+
+          ${owned>0?`<div style="font-size:11.5px;color:#16a34a;margin-bottom:9px;font-weight:600">Contributing ${owned*p.slots} slots · ${(owned*p.wareM).toLocaleString()} material storage</div>`:""}
+
+          ${!canAfford&&p.cost>0&&!(isUnique&&owned>=1)?`
+            <div class="mini-bar"><div class="mini-fill" style="width:${prog}%;background:${prog>75?"#16a34a":prog>40?"#f59e0b":"#cbd5e1"}"></div></div>
+            <div style="font-size:11px;color:#94a3b8;margin:4px 0 9px">${prog.toFixed(0)}% · need ${f(p.cost-G.cash)} more</div>`:""}
+
+          ${canBuy&&p.cost>0?`<div style="margin-bottom:9px"><span class="aff-badge">✓ AFFORDABLE NOW</span></div>`:""}
+
+          <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+            ${!(isUnique&&owned>=1)?`
+              <button onclick="buyProp('${id}')" style="flex:1;min-width:150px;min-height:46px;border-radius:9px;background:${canAfford?"#16a34a":"#f1f5f9"};color:${canAfford?"#fff":"#94a3b8"};font-weight:700;font-size:13.5px;font-family:var(--font-ui)">
+                ${p.cost===0?"FREE":canAfford?(owned>0?"+ BUY ANOTHER · "+f(p.cost):"PURCHASE · "+f(p.cost)):"Need "+f(p.cost-G.cash)}
+              </button>`:`<div style="flex:1;font-size:12px;color:#94a3b8">Starter premises — always yours</div>`}
+            ${owned>0&&id!=="starter"?`
+              <button onclick="sellProp('${id}')" style="min-height:46px;padding:0 15px;border-radius:9px;background:#fff1f2;color:#dc2626;border:1px solid #fecaca;font-size:12.5px;font-family:var(--font-ui);font-weight:600">Sell 1<br><span style="font-size:11px">${f(p.cost*.75)}</span></button>`:""}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // Workforce
+  o+=`<div class="sl" style="margin-top:16px">Factory Workforce</div>`;
+  const totalOpsNeeded=Object.entries(MACH).reduce((a,[id,m])=>a+(G.mach[id]||0)*m.ops,0);
+  const opsAvail=G.work.operator||0;
+  o+=`<div class="card" style="background:#fff7ed;border:1px solid #fed7aa">
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px">
+      <span style="color:#92400e;font-weight:700">👷 Operators needed</span>
+      <span style="color:${opsAvail>=totalOpsNeeded?"#16a34a":"#dc2626"};font-weight:700;font-size:15px">${opsAvail} / ${totalOpsNeeded}</span>
+    </div>
+    ${totalOpsNeeded>0?`<div class="mini-bar" style="margin-top:7px"><div class="mini-fill" style="width:${Math.min(100,opsAvail/totalOpsNeeded*100)}%;background:${opsAvail>=totalOpsNeeded?"#16a34a":"#f97316"}"></div></div>`:""}
+  </div>`;
+
+  Object.entries(WORK).forEach(([id,w])=>{
+    const count=G.work[id]||0;
+    o+=`<div class="card"><div style="display:flex;align-items:center;gap:11px"><span style="font-size:26px">${w.emoji}</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${h(w.name)}</div><div style="font-size:12px;color:#64748b">${h(w.desc)} · $${w.wage}/hr</div></div><div style="display:flex;gap:6px;align-items:center;flex-shrink:0"><button onclick="hireW('${id}',-1)" style="width:44px;height:44px;border-radius:8px;background:#f1f5f9;color:#334155;font-size:22px;font-weight:700;font-family:inherit;display:flex;align-items:center;justify-content:center">-</button><input type="number" min="0" value="${count}" onchange="setW('${id}',this.value)" style="width:60px;height:44px;text-align:center;padding:4px;border:1px solid #cbd5e1;border-radius:8px;font-size:17px;font-weight:700;background:#fff"><button onclick="hireW('${id}',1)" style="width:44px;height:44px;border-radius:8px;background:#2563eb;color:#fff;font-size:22px;font-weight:700;font-family:inherit;display:flex;align-items:center;justify-content:center">+</button></div></div></div>`;
+  });
+  return o;
+}
+
+function rTrade(){
+  const id2=impD(),eb=expB();
+  let o=`<div class="card" style="background:${G.tmOn?"#eff6ff":"#f8fafc"};border:2px solid ${G.tmOn?"#2563eb":"#e2e8f0"}"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px"><div style="flex:1"><div style="font-weight:bold;font-size:13px;margin-bottom:4px">Automated Trade Manager</div><div style="font-size:12px;color:#64748b;line-height:1.6">Auto-buys imports, auto-sells products when prices hit targets.</div>${G.tmOn?`<div style="margin-top:6px;font-size:11.5px;color:#2563eb">${G.tmLog.length} actions logged</div>`:""}</div><button onclick="toggleTM()" style="padding:10px 16px;border-radius:7px;background:${G.tmOn?"#2563eb":"#e2e8f0"};color:${G.tmOn?"#fff":"#374151"};font-weight:bold;font-size:12px;flex-shrink:0;font-family:inherit">${G.tmOn?"STOP":"START"}</button></div></div>`;
+  o+=`<div class="sl">Import Rules</div>`;
+  tmMats().forEach(mid=>{
+    const m=MAT[mid];const c=G.tmCfg[mid]||{};
+    const mktP=(G.matP[mid]||m.bp)*id2,stockOk=(G.mats[mid]||0)>=(c.min||0),prOk=mktP<=(c.maxP||9999);
+    o+=`<div class="card" style="border-color:${c.on?(stockOk?"#16a34a55":prOk?"#f9731655":"#dc262655"):"#e2e8f0"}"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">${m.emoji}</span><div style="flex:1"><div style="font-weight:700;font-size:14px">${h(m.name)}</div><div style="font-size:12px;color:#64748b">Stock <span style="color:${stockOk?"#16a34a":"#f97316"};font-weight:bold">${(G.mats[mid]||0).toFixed(1)}</span> / ${c.min||20} min</div></div><button onclick="setTM('${mid}','on',${!c.on})" style="padding:0 14px;min-height:42px;border-radius:8px;font-size:12px;background:${c.on?"#dcfce7":"#f1f5f9"};color:${c.on?"#16a34a":"#64748b"};border:1px solid ${c.on?"#86efac":"#e2e8f0"};font-family:inherit;font-weight:600">${c.on?"AUTO":"OFF"}</button></div></div>`;
+  });
+  o+=`<div class="sl" style="margin-top:10px">Export Rules</div>`;
+  tmProds().forEach(pid=>{
+    const p=PROD[pid];const c=G.tmCfg[pid]||{};
+    const price=(G.prodP[pid]||p.bp)*eb,thr=p.bp*(c.thresh||1.05),pg=price>=thr,stock=G.inv[pid]||0;
+    o+=`<div class="card" style="border-color:${c.sell?(pg&&stock>0.5?"#16a34a55":pg?"#dbeafe":"#fed7aa"):"#e2e8f0"}"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">${p.emoji}</span><div style="flex:1"><div style="font-weight:bold;font-size:12px">${h(p.name)}</div><div style="font-size:12px;color:#64748b">Stock ${stock.toFixed(1)} · Price <span style="color:${pg?"#16a34a":"#dc2626"}">${f(price)}</span> / target ${f(thr)}</div></div><button onclick="setTM('${pid}','sell',${!c.sell})" style="padding:0 14px;min-height:42px;border-radius:8px;font-size:12px;background:${c.sell?"#dcfce7":"#f1f5f9"};color:${c.sell?"#16a34a":"#64748b"};border:1px solid ${c.sell?"#86efac":"#e2e8f0"};font-family:inherit;font-weight:600">${c.sell?"AUTO":"OFF"}</button></div></div>`;
+  });
+  o+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:8px"><div class="sl" style="margin:0">Trade Log (${G.tmLog.length})</div><button onclick="G.tmLog=[];render()" style="font-size:11px;padding:2px 8px;background:#f1f5f9;color:#64748b;border-radius:3px;border:1px solid #e2e8f0;font-family:inherit">CLEAR</button></div>`;
+  if(!G.tmLog.length)o+=`<div style="text-align:center;padding:20px;color:#94a3b8;font-size:11px">${G.tmOn?"Waiting...":"Start Trade Manager to see activity."}</div>`;
+  else{o+=`<div class="card" style="padding:0;overflow:hidden">`;G.tmLog.slice(0,15).forEach(e=>{o+=`<div style="display:flex;gap:8px;padding:5px 10px;border-bottom:1px solid #f8fafc;font-size:11.5px"><span style="color:#94a3b8;flex-shrink:0">${e.time}</span><span style="color:${e.type==="import"?"#2563eb":"#16a34a"}">${h(e.msg)}</span></div>`});o+=`</div>`;}
+  return o;
+}
+
+function rOffice(){
+  let o=`<div style="display:flex;gap:6px;margin-bottom:12px"><button onclick="offSec='staff';render()" style="flex:1;min-height:44px;border-radius:8px;font-size:13px;background:${offSec==="staff"?"#7c3aed":"#fff"};color:${offSec==="staff"?"#fff":"#374151"};border:1px solid ${offSec==="staff"?"#7c3aed":"#e2e8f0"};font-weight:bold;font-size:11px;font-family:inherit">Staff</button><button onclick="offSec='equipment';render()" style="flex:1;min-height:44px;border-radius:8px;font-size:13px;background:${offSec==="equipment"?"#7c3aed":"#fff"};color:${offSec==="equipment"?"#fff":"#374151"};border:1px solid ${offSec==="equipment"?"#7c3aed":"#e2e8f0"};font-weight:bold;font-size:11px;font-family:inherit">Equipment</button></div>`;
+  if(offSec==="staff"){
+    Object.entries(OSTAFF).forEach(([id,w])=>{
+      const count=G.ostaff[id]||0;
+      o+=`<div class="card" style="border-color:${count>0?"#7c3aed55":"#e2e8f0"}"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">${w.emoji}</span><div style="flex:1"><div style="font-weight:bold">${h(w.name)}</div><div style="font-size:12px;color:#64748b">${h(w.desc)} · $${w.wage}/hr</div></div><div style="display:flex;gap:5px;align-items:center"><button onclick="hireO('${id}',-1)" style="width:44px;height:44px;border-radius:8px;background:#f1f5f9;color:#334155;font-size:22px;font-weight:700;font-family:inherit;display:flex;align-items:center;justify-content:center">-</button><input type="number" min="0" value="${count}" onchange="setO('${id}',this.value)" style="width:60px;height:44px;text-align:center;padding:4px;border:1px solid #cbd5e1;border-radius:8px;font-size:17px;font-weight:700;background:#fff"><button onclick="hireO('${id}',1)" style="width:44px;height:44px;border-radius:8px;background:#7c3aed;color:#fff;font-size:22px;font-weight:700;font-family:inherit;display:flex;align-items:center;justify-content:center">+</button></div></div></div>`;
+    });
+  } else {
+    Object.entries(OEQUIP).forEach(([id,eq])=>{
+      const owned=G.oequip.includes(id);
+      o+=`<div class="card" style="border-color:${owned?"#16a34a55":"#e2e8f0"}"><div style="display:flex;gap:8px;align-items:center"><span style="font-size:20px">${eq.emoji}</span><div style="flex:1"><div style="font-weight:bold">${h(eq.name)}</div><div style="font-size:12px;color:#64748b">${h(eq.desc)}</div></div>${owned?`<span style="color:#16a34a;font-size:11.5px;font-weight:bold">ACTIVE</span>`:`<div style="text-align:right;flex-shrink:0"><div style="font-size:11.5px;color:#94a3b8;margin-bottom:4px">${f(eq.cost)}</div><button onclick="buyOEquip('${id}')" style="padding:0 16px;min-height:44px;border-radius:8px;background:${G.cash>=eq.cost?"#7c3aed":"#f1f5f9"};color:${G.cash>=eq.cost?"#fff":"#94a3b8"};font-weight:700;font-size:13px;font-family:inherit">BUY</button></div>`}</div></div>`;
+    });
+  }
+  return o;
+}
+
+function rExpand(){
+  let o="";
+  if(G.acqs.length>0){
+    o+=`<div class="card" style="background:#f0fdf4;border:1px solid #bbf7d0;margin-bottom:12px"><div class="sl" style="color:#16a34a">Your Subsidiaries</div>`;
+    G.acqs.forEach(id=>{const a=ACQ[id];if(!a)return;o+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #dcfce7"><div style="display:flex;gap:8px;align-items:center"><span style="font-size:18px">${a.emoji}</span><div style="font-weight:bold;font-size:12px">${h(a.name)}</div></div><div style="color:#16a34a;font-weight:bold;font-size:12px">${f(a.revenue)}/mo</div></div>`});
+    o+=`<div style="display:flex;justify-content:space-between;padding-top:6px;font-size:11px;font-weight:bold"><span>Total subsidiary income</span><span style="color:#16a34a">${f(G.acqs.reduce((a,id)=>a+(ACQ[id]?ACQ[id].revenue:0),0))}/mo</span></div></div>`;
+  }
+  o+=`<div class="sl">Product Lines</div>`;
+  Object.entries(PL).forEach(([id,pl])=>{
+    const owned=G.plines.includes(id),reqOk=!pl.req||G.plines.includes(pl.req);
+    const plCanBuy=G.cash>=pl.cost&&reqOk&&!owned;
+    const plProg=Math.min(100,(G.cash/pl.cost)*100);
+    o+=`<div class="card ${plCanBuy?"affordable":""}" style="border:2px solid ${plCanBuy?"#16a34a":owned?pl.col+"55":"#e2e8f0"};opacity:${!reqOk&&!owned?0.6:1}">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:24px">${pl.emoji}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-weight:bold;font-size:13px">${h(pl.name)}</span>
+            ${owned?`<span style="font-size:11px;background:${pl.col}22;color:${pl.col};padding:1px 7px;border-radius:3px;font-weight:bold">UNLOCKED</span>`:""}
+            ${!reqOk?`<span style="font-size:11px;background:#f8fafc;color:#9ca3af;padding:1px 7px;border-radius:3px">Requires ${PL[pl.req]?PL[pl.req].name:"prev line"}</span>`:""}
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:6px">${h(pl.desc)}</div>
+          <div style="font-size:11.5px;color:#374151">Products: <b>${pl.prods.map(k=>PROD[k]?PROD[k].name:k).join(", ")}</b></div>
+          ${!owned&&reqOk&&!plCanBuy?`<div class="mini-bar"><div class="mini-fill" style="width:${plProg}%;background:${plProg>75?"#16a34a":"#cbd5e1"}"></div></div><div style="font-size:11.5px;color:#94a3b8;margin-top:3px">${plProg.toFixed(0)}% · need ${f(pl.cost-G.cash)} more</div>`:""}
+          ${plCanBuy?`<div style="margin-top:5px"><span class="aff-badge">✓ AFFORDABLE NOW</span></div>`:""}
+        </div>
+        ${!owned?`<div style="text-align:right;flex-shrink:0"><div style="font-size:14px;font-weight:bold;margin-bottom:6px">${pl.cost===0?"Free":f(pl.cost)}</div><button onclick="unlockPL('${id}')" style="padding:0 18px;min-height:46px;border-radius:8px;background:${G.cash>=pl.cost&&reqOk?pl.col:"#f1f5f9"};color:${G.cash>=pl.cost&&reqOk?"#fff":"#9ca3af"};font-weight:700;font-size:13px;font-family:inherit">${!reqOk?"Locked":G.cash>=pl.cost?"UNLOCK":"Need "+f(pl.cost-G.cash)}</button></div>`:""}
+      </div>
+    </div>`;
+  });
+  o+=`<div class="sl" style="margin-top:18px">Company Acquisitions</div>`;
+  Object.entries(ACQ).forEach(([id,acq])=>{
+    const owned=G.acqs.includes(id),reqOk=!acq.req||G.plines.includes(acq.req);
+    const aqCanBuy=G.cash>=acq.cost&&reqOk&&!owned;
+    const aqProg=Math.min(100,(G.cash/acq.cost)*100);
+    o+=`<div class="card ${aqCanBuy?"affordable":""}" style="border:2px solid ${aqCanBuy?"#16a34a":owned?acq.col+"44":"#e2e8f0"};opacity:${!reqOk&&!owned?0.6:1}">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:24px">${acq.emoji}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-weight:bold;font-size:13px">${h(acq.name)}</span>
+            ${owned?`<span style="font-size:11px;background:${acq.col}22;color:${acq.col};padding:1px 7px;border-radius:3px;font-weight:bold">ACQUIRED</span>`:""}
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:4px">${h(acq.desc)}</div>
+          ${!owned?`<div style="font-size:11.5px;color:#16a34a;font-weight:700">${f(acq.revenue)}/mo ongoing</div>`:""}
+          ${!owned&&reqOk&&!aqCanBuy?`<div class="mini-bar"><div class="mini-fill" style="width:${aqProg}%;background:${aqProg>75?"#16a34a":"#cbd5e1"}"></div></div><div style="font-size:11.5px;color:#94a3b8;margin-top:3px">${aqProg.toFixed(0)}% · need ${f(acq.cost-G.cash)} more</div>`:""}
+          ${aqCanBuy?`<div style="margin-top:5px"><span class="aff-badge">✓ AFFORDABLE NOW</span></div>`:""}
+        </div>
+        ${!owned?`<div style="text-align:right;flex-shrink:0"><div style="font-size:16px;font-weight:bold;margin-bottom:4px">${f(acq.cost)}</div><div style="font-size:11px;color:#94a3b8;margin-bottom:6px">ROI: ${(acq.revenue*12/acq.cost*100).toFixed(1)}%/yr</div><button onclick="acquire('${id}')" style="padding:0 18px;min-height:46px;border-radius:8px;background:${G.cash>=acq.cost&&reqOk?acq.col:"#f1f5f9"};color:${G.cash>=acq.cost&&reqOk?"#fff":"#9ca3af"};font-weight:700;font-size:13px;font-family:inherit">${!reqOk?"Locked":G.cash>=acq.cost?"ACQUIRE":"Need "+f(acq.cost-G.cash)}</button></div>`:""}
+      </div>
+    </div>`;
+  });
+  return o;
+}
+
+function rRealEstate(){
+  const ownedList=Object.entries(G.reProps).filter(([,p])=>p.owned);
+  const tRent=ownedList.reduce((a,[id,p])=>{const d=RE[id];if(!d)return a;const um=p.upgrades.reduce((x,uid)=>x+(REUPG[uid]?REUPG[uid].rb:0),0);return a+d.rent*(1+um)},0);
+  const tUpk=ownedList.reduce((a,[id,p])=>{const d=RE[id];if(!d)return a;return a+d.upkeep*(p.upgrades.includes("solar")?0.9:1)},0);
+  let o=`<div class="card" style="background:#fff7ed;border:1px solid #fed7aa;margin-bottom:12px"><div class="sl" style="color:#c2410c">Real Estate Portfolio</div><div class="g2">
+    <div class="sbox" style="border-color:#fed7aa"><div class="slbl">Properties</div><div class="sval">${ownedList.length} owned</div></div>
+    <div class="sbox" style="border-color:#fed7aa"><div class="slbl">Monthly Net</div><div class="sval" style="color:${tRent>=tUpk?"#16a34a":"#dc2626"}">${f(tRent-tUpk)}</div></div>
+    <div class="sbox" style="border-color:#fed7aa"><div class="slbl">Monthly Rent</div><div class="sval" style="color:#16a34a">${f(tRent)}</div></div>
+    <div class="sbox" style="border-color:#fed7aa"><div class="slbl">Annual Net</div><div class="sval" style="color:#7c3aed">${f((tRent-tUpk)*12)}</div></div>
+  </div></div>`;
+  if(ownedList.length>0){
+    o+=`<div class="sl">Your Properties</div>`;
+    ownedList.forEach(([id,prop])=>{
+      const d=RE[id];
+      const um=prop.upgrades.reduce((a,uid)=>a+(REUPG[uid]?REUPG[uid].rb:0),0);
+      const uk=prop.upgrades.includes("solar")?0.9:1;
+      const mR=d.rent*(1+um),mU=d.upkeep*uk,isOpen=editRE===id;
+      o+=`<div class="card" style="border:1px solid #fed7aa55"><div style="display:flex;gap:10px"><span style="font-size:22px">${d.emoji}</span><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;gap:4px;flex-wrap:wrap"><span style="font-weight:bold;font-size:12px">${h(d.name)}</span><span style="color:#16a34a;font-weight:bold;font-size:12px">${f(mR-mU)}/mo net</span></div><div style="font-size:12px;color:#64748b">${d.type} · ${f(mR)}/mo rent · ${f(mU)}/mo costs</div>${prop.upgrades.length>0?`<div style="font-size:11px;color:#7c3aed;margin-top:2px">${prop.upgrades.map(u=>REUPG[u]?REUPG[u].name:u).join(" · ")}</div>`:""}<div style="display:flex;gap:6px;margin-top:8px"><button onclick="editRE=editRE==='${id}'?null:'${id}';render()" style="padding:4px 10px;border-radius:4px;font-size:11.5px;background:${isOpen?"#fed7aa":"#f1f5f9"};color:#c2410c;border:1px solid #fed7aa;font-family:inherit">${isOpen?"Hide":"Upgrades"}</button><button onclick="sellRE('${id}')" style="padding:0 14px;min-height:40px;border-radius:8px;font-size:12px;background:#fff1f2;color:#dc2626;border:1px solid #fecaca;font-family:inherit;font-weight:600">Sell ${f(reSaleValue(id))}</button></div>${isOpen?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9">${Object.entries(REUPG).map(([uid,upg])=>{const inst=prop.upgrades.includes(uid);const uc=d.cost*upg.cm;return`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f8fafc"><div><span style="font-size:11.5px">${upg.emoji} ${h(upg.name)}</span><div style="font-size:11px;color:#94a3b8">${h(upg.desc)}</div></div>${inst?`<span style="font-size:11px;color:#16a34a;font-weight:bold">Done</span>`:`<button onclick="addREUpg('${id}','${uid}')" style="padding:0 14px;min-height:42px;border-radius:8px;font-size:12px;background:${G.cash>=uc?"#fff7ed":"#f8fafc"};color:${G.cash>=uc?"#c2410c":"#9ca3af"};border:1px solid ${G.cash>=uc?"#fed7aa":"#e2e8f0"};font-family:inherit;font-weight:600">${f(uc)}</button>`}</div>`}).join("")}</div>`:""}
+      </div></div></div>`;
+    });
+  }
+  o+=`<div class="sl" style="margin-top:8px">Available to Purchase</div>`;
+  Object.entries(RE).filter(([id])=>!G.reProps[id]||!G.reProps[id].owned).forEach(([id,d])=>{
+    const net=d.rent-d.upkeep,yrs=d.cost>0&&net>0?(d.cost/(net*12)).toFixed(1):null,tc=d.type==="residential"?"#2563eb":"#16a34a";
+    o+=`<div class="card" style="border:1px solid ${tc}33"><div style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:24px">${d.emoji}</span><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;gap:4px;flex-wrap:wrap"><div><div style="font-weight:bold;font-size:12px">${h(d.name)} <span style="font-size:11px;background:#f1f5f9;color:${tc};padding:1px 6px;border-radius:3px">${d.type}</span></div><div style="font-size:12px;color:#64748b;margin-top:2px">${h(d.desc)}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-weight:bold;font-size:14px">${f(d.cost)}</div><div style="font-size:11.5px;color:#16a34a;font-weight:bold">${f(d.rent)}/mo</div></div></div><div style="display:flex;gap:10px;margin-top:5px;font-size:11.5px;flex-wrap:wrap"><span style="color:#64748b">Net: <span style="color:#16a34a;font-weight:bold">${f(net)}/mo</span></span><span style="color:#64748b">Yield: <b>${d.yld.toFixed(1)}%</b></span>${yrs?`<span style="color:#64748b">Payback: <b>${yrs} yrs</b></span>`:""}</div><div style="margin-top:8px"><button onclick="buyRE('${id}')" style="padding:0 18px;min-height:46px;border-radius:8px;background:${G.cash>=d.cost?"#16a34a":"#f1f5f9"};color:${G.cash>=d.cost?"#fff":"#9ca3af"};font-weight:700;font-size:13px;font-family:inherit">${G.cash>=d.cost?"PURCHASE":"Need "+f(d.cost-G.cash)+" more"}</button></div></div></div></div>`;
+  });
+  return o;
+}
+
+function rShares(){
+  if((G.ostaff.analyst||0)<1)return`<div style="text-align:center;padding:60px 20px"><div style="font-size:32px;margin-bottom:12px">📈</div><div style="font-weight:bold;font-size:14px;margin-bottom:8px">Share Market Locked</div><div style="font-size:11px;color:#64748b">Hire a Financial Analyst in the Office tab to unlock share trading.</div></div>`;
+  const portVal=Object.entries(G.sHold).reduce((a,[t,q])=>a+q*(G.sPrices[t]||0),0);
+  let o=`<div class="card" style="background:#faf5ff;border:1px solid #ddd6fe;margin-bottom:12px"><div style="display:flex;justify-content:space-between"><div><div class="slbl" style="color:#7c3aed">PORTFOLIO VALUE</div><div style="font-size:20px;font-weight:bold;color:#7c3aed">${f(portVal)}</div></div><div style="text-align:right"><div class="slbl" style="color:#7c3aed">DIVIDENDS</div><div style="font-size:16px;font-weight:bold;color:#16a34a">${f(G.divTotal)}</div><div style="font-size:11px;color:#94a3b8">Paid quarterly</div></div></div></div>`;
+  Object.entries(SHARES).forEach(([tick,def])=>{
+    const price=G.sPrices[tick]||def.bp,held=G.sHold[tick]||0,hist=G.sHist[tick]||[],chg=hist[0]?((price-hist[0])/hist[0]*100):0;
+    const qty=sqty[tick]||1,basis=G.sBasis[tick]||{totalCost:0,qty:0},avgC=basis.qty>0?basis.totalCost/basis.qty:0,uPnl=held>0?held*price-avgC*held:0;
+    const maxH=Math.max(...hist,0.01);
+    const bars=hist.map((v,i)=>`<div style="flex:1;border-radius:1px;background:${v>=(hist[i-1]||v)?"#16a34a":"#dc2626"};height:${Math.max(2,v/maxH*24)}px;opacity:${0.5+i/hist.length*0.5}"></div>`).join("");
+    o+=`<div class="card" style="border:1px solid ${held>0?"#7c3aed55":"#e2e8f0"}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div><div style="display:flex;gap:6px;align-items:center"><span style="font-size:16px">${def.emoji}</span><span style="font-weight:bold">${h(def.name)}</span><span style="font-size:11px;background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:3px">${tick}</span></div><div style="font-size:11px;color:#94a3b8">${h(def.sector)} · ${(def.div*100).toFixed(1)}% div yield</div></div>
+        <div style="text-align:right"><div style="font-size:16px;font-weight:bold">$${price.toFixed(2)}</div><div style="font-size:11.5px;color:${chg>=0?"#16a34a":"#dc2626"};font-weight:bold">${chg>=0?"▲":"▼"} ${Math.abs(chg).toFixed(1)}%</div></div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:1px;height:24px;margin-bottom:8px">${bars}</div>
+      ${held>0?`<div style="background:${uPnl>=0?"#f0fdf4":"#fff1f2"};border:1px solid ${uPnl>=0?"#bbf7d0":"#fecaca"};border-radius:6px;padding:8px 10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px"><div style="font-size:11.5px"><div style="color:#6b7280">Qty: <b>${held.toFixed(0)}</b></div><div style="color:#6b7280">Avg: <b>$${avgC.toFixed(2)}</b></div></div><div style="text-align:right"><div style="font-size:11px;color:#6b7280">Unrealised P&L</div><div style="font-size:18px;font-weight:bold;color:${uPnl>=0?"#16a34a":"#dc2626"}">${uPnl>=0?"+":""}${f(uPnl)}</div></div></div></div>`:""}
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;gap:3px">${[1,5,10,50,100].map(q=>`<button onclick="sqty['${tick}']=${q};render()" style="padding:0 12px;min-height:40px;border-radius:8px;font-size:12px;background:${qty===q?"#dbeafe":"#f1f5f9"};color:${qty===q?"#2563eb":"#374151"};border:1px solid ${qty===q?"#bfdbfe":"#e2e8f0"};font-family:inherit;font-weight:600">${q}</button>`).join("")}<input type="number" min="1" value="${qty}" onchange="sqty['${tick}']=Math.max(1,parseInt(this.value)||1);render()" style="width:62px;height:40px;padding:2px 5px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;text-align:center;background:#fff;font-weight:600"></div>
+        <button onclick="buySh('${tick}',${qty})" style="padding:0 16px;min-height:44px;border-radius:8px;background:${G.cash>=qty*price?"#7c3aed":"#f1f5f9"};color:${G.cash>=qty*price?"#fff":"#94a3b8"};font-weight:700;font-size:13px;font-family:inherit">Buy ${f(qty*price)}</button>
+        ${held>0?`<button onclick="sellSh('${tick}',${Math.min(qty,held)})" style="padding:5px 12px;border-radius:5px;background:#16a34a;color:#fff;font-weight:bold;font-size:11px;font-family:inherit">Sell ${f(Math.min(qty,held)*price)}</button>`:""}
+      </div>
+    </div>`;
+  });
+  return o;
+}
+
+function rFinance(){
+  let o=`<div class="fin-nav">${[["loans","Loans"],["quickcash","Quick Cash"],["newloan","New Loan"],["monthly","📊 Monthly P&L"],["pandl","All-Time P&L"],["balance","Balance Sheet"]].map(([k,l])=>`<button class="fn ${fin===k?"on":""}" onclick="switchFin('${k}')">${l}</button>`).join("")}</div>`;
+  if(fin==="loans")o+=rLoans();
+  else if(fin==="quickcash")o+=rQuickCash();
+  else if(fin==="newloan")o+=rNewLoan();
+  else if(fin==="monthly")o+=rMonthly();
+  else if(fin==="pandl")o+=rPandL();
+  else if(fin==="balance")o+=rBalance();
+  return o;
+}
+
+function rLoans(){
+  const td=totalDebt(),md=monthDebt();
+  if(!G.loans.length)return`<div style="text-align:center;padding:40px;color:#9ca3af">No debt — you're free and clear!</div>`;
+  let o=`<div class="card" style="background:#fff7ed;border:1px solid #fed7aa;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">
+      <div><div style="font-size:11px;color:#c2410c;letter-spacing:2px;margin-bottom:4px">TOTAL DEBT</div><div style="font-size:20px;font-weight:bold;color:#f97316">${f(td)}</div><div style="font-size:12px;color:#64748b">Monthly: ${f(md)}/mo</div></div>
+      <button onclick="payAll()" style="padding:8px 14px;border-radius:6px;background:#b45309;color:#fff;font-weight:bold;font-size:11px;font-family:inherit">Pay All</button>
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">${[1000,5000,10000,25000,50000].map(amt=>`<button onclick="bulkPay(${amt})" style="padding:0 15px;min-height:42px;border-radius:8px;background:#fff;color:${G.cash>=amt?"#b45309":"#9ca3af"};border:1px solid ${G.cash>=amt?"#fed7aa":"#e2e8f0"};font-size:13px;font-weight:700;font-family:inherit">${f(amt)}</button>`).join("")}</div>
+  </div>`;
+  G.loans.forEach(loan=>{
+    const pct=1-loan.remaining/loan.principal,pa=parseFloat(payA[loan.id]||0)||0,pv=Math.min(pa,loan.remaining,G.cash);
+    o+=`<div class="card" style="border:1px solid ${loan.col}55">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-weight:bold">${h(loan.name)}</span><span style="color:#dc2626;font-weight:bold">-${f(loan.monthly)}/mo</span></div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:6px">Balance: ${f(loan.remaining)} · ${loan.monthsLeft} payments · ${(loan.rate*100).toFixed(0)}% p.a.</div>
+      <div style="height:4px;background:#f1f5f9;border-radius:2px;margin-bottom:10px"><div style="height:100%;width:${pct*100}%;background:${loan.col};border-radius:2px"></div></div>
+      <div style="background:#f8fafc;border-radius:6px;padding:10px;border:1px solid #e2e8f0">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+          ${[["1 pmt",loan.monthly],["$1K",1000],["$5K",5000],["Pay Off",loan.remaining]].map(([lbl,amt])=>`<button onclick="setPayA('${loan.id}',${Math.min(amt,loan.remaining).toFixed(2)})" style="padding:0 14px;min-height:40px;border-radius:8px;font-size:12px;background:#fff;color:#374151;border:1px solid #e2e8f0;font-family:inherit;font-weight:600">${lbl}</button>`).join("")}
+        </div>
+        <input type="range" min="0" max="${Math.min(loan.remaining,G.cash).toFixed(0)}" step="10" value="${pv}" oninput="setPayA('${loan.id}',this.value)" style="margin-bottom:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" min="0" value="${payA[loan.id]||""}" placeholder="Amount..." oninput="setPayA('${loan.id}',this.value)" style="flex:1">
+          <button onclick="doPayLoan('${loan.id}')" style="padding:6px 14px;border-radius:5px;background:${pv>0?"#d97706":"#f1f5f9"};color:${pv>0?"#fff":"#9ca3af"};font-weight:bold;font-size:11px;white-space:nowrap;font-family:inherit">Pay ${pv>0?f(pv):"—"}</button>
+        </div>
+        ${pv>0?`<div style="font-size:11px;color:#64748b;margin-top:4px">After: ${f(Math.max(0,loan.remaining-pv))}${loan.remaining-pv<=0?" CLEARED!":""}</div>`:""}
+      </div>
+    </div>`;
+  });
+  return o;
+}
+
+function rQuickCash(){
+  const QC=[
+    {id:"invoice",name:"Invoice Factoring",emoji:"🧾",badge:"INSTANT",col:"#f59e0b",cd:30,desc:"Sell finished goods at 80c/dollar.",calc:()=>Math.floor(Object.entries(PROD).reduce((a,[id])=>a+(G.inv[id]||0)*(G.prodP[id]||PROD[id].bp)*.8,0)),apply:(amt)=>{if(amt<100){flash("No finished goods to factor");return}Object.keys(PROD).forEach(k=>G.inv[k]=0);G.cash+=amt;G.earned+=amt;flash("Factored "+f(amt)+" in receivables")}},
+    {id:"scrap",name:"Scrap Material Sale",emoji:"♻️",badge:"QUICK",col:"#6366f1",cd:60,desc:"Liquidate 50% of raw stock at 60c/dollar.",calc:()=>Math.floor(Object.entries(MAT).reduce((a,[id])=>a+(G.mats[id]||0)*.5*(G.matP[id]||MAT[id].bp)*.6,0)),apply:(amt)=>{if(amt<50){flash("Not enough raw materials");return}Object.keys(MAT).forEach(k=>G.mats[k]=(G.mats[k]||0)*.5);G.cash+=amt;G.earned+=amt;flash("Scrapped stock: "+f(amt))}},
+    {id:"grant",name:"Government Grant",emoji:"🏛️",badge:"FREE",col:"#16a34a",cd:180,desc:"Government stimulus — $5K–$50K, no repayment.",calc:()=>Math.floor(5000+Math.random()*45000),apply:(amt)=>{G.cash+=amt;G.earned+=amt;flash("Grant approved: "+f(amt))}},
+    {id:"overdraft",name:"Emergency Overdraft",emoji:"🚨",badge:"EMERGENCY",col:"#ef4444",cd:45,desc:"$8K draw, $2K flat fee applied.",calc:()=>8000,apply:()=>{G.cash+=6000;G.earned+=8000;G.spent+=2000;flash("Overdraft: $8K in, $2K fee, net $6K")}},
+  ];
+  let o="";
+  QC.forEach(qc=>{
+    const cd=G.cd[qc.id]||0,onCd=cd>0,amt=qc.calc();
+    o+=`<div class="card" style="border:1px solid ${onCd?"#e2e8f0":qc.col+"44"}">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:24px">${qc.emoji}</span>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-weight:bold;font-size:12px">${h(qc.name)}</span>
+            <span style="font-size:11px;padding:1px 6px;border-radius:3px;background:#f1f5f9;color:${onCd?"#9ca3af":qc.col};border:1px solid ${onCd?"#e2e8f0":qc.col+"55"}">${onCd?"⏳ "+Math.ceil(cd)+"s":qc.badge}</span>
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:8px">${h(qc.desc)}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;font-weight:bold;color:${onCd?"#9ca3af":qc.col}">${f(amt)}</span>
+            <button onclick="useQC('${qc.id}')" style="padding:6px 14px;border-radius:6px;background:${onCd?"#f1f5f9":qc.col};color:${onCd?"#9ca3af":"#fff"};font-weight:bold;font-size:11px;opacity:${onCd?0.6:1};font-family:inherit">Activate</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    // Store apply fn for later call
+    if(!window._qcFns)window._qcFns={};
+    window._qcFns[qc.id]={calc:qc.calc,apply:qc.apply,cd:qc.cd};
+  });
+  return o;
+}
+
+function useQC(id){
+  const qc=window._qcFns&&window._qcFns[id];if(!qc)return;
+  const cd=G.cd[id]||0;if(cd>0){flash("Cooldown: "+Math.ceil(cd)+"s remaining");return}
+  const amt=qc.calc();qc.apply(amt);G.cd[id]=qc.cd;render();
+}
+
+function rNewLoan(){
+  const nw=netWorth();
+  // Estimate annual revenue from finHist (last 12 months) or from live rate
+  const last12=G.finHist.slice(-12);
+  const annualRev=last12.length>=12
+    ? last12.reduce((a,s)=>a+(s.totalRev||0),0)
+    : revPerSec()*GM*12;
+
+  let o=`<div class="card" style="background:#eff6ff;border:1px solid #bfdbfe;margin-bottom:12px">
+    <div style="font-size:11px;color:#2563eb;letter-spacing:2px;font-weight:bold;margin-bottom:8px">YOUR FINANCIAL PROFILE</div>
+    <div class="g2">
+      <div class="sbox" style="border-color:#bfdbfe"><div class="slbl">Est. Annual Revenue</div><div class="sval" style="color:#16a34a;font-size:12px">${f(annualRev)}</div></div>
+      <div class="sbox" style="border-color:#bfdbfe"><div class="slbl">Net Worth</div><div class="sval" style="color:#2563eb;font-size:12px">${f(nw)}</div></div>
+    </div>
+    <div style="font-size:11px;color:#64748b;margin-top:8px">Lenders assess your revenue and net worth. Build both to unlock larger facilities.</div>
+  </div>`;
+
+  LOANS.forEach(lt=>{
+    const monthly=pmt(lt.amount,lt.rate,lt.months);
+    const interest=monthly*lt.months-lt.amount;
+    const eligible=annualRev>=lt.minRev||nw>=lt.minNW;
+    const reqText=lt.minRev>0||lt.minNW>0
+      ? `Requires ${f(lt.minRev)}/yr revenue OR ${f(lt.minNW)} net worth`
+      : "No requirements — available immediately";
+    const metRev=annualRev>=lt.minRev;
+    const metNW=nw>=lt.minNW;
+
+    o+=`<div class="card" style="border:1px solid ${eligible?lt.col+"55":"#e2e8f0"};opacity:${eligible?1:0.7}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <span style="font-weight:bold;font-size:13px">${h(lt.name)}</span>
+          <span style="font-size:11px;margin-left:8px;background:${eligible?lt.col+"22":"#f1f5f9"};color:${eligible?lt.col:"#9ca3af"};padding:1px 6px;border-radius:3px;font-weight:bold">${lt.risk}</span>
+        </div>
+        <span style="color:${eligible?lt.col:"#9ca3af"};font-weight:bold;font-size:18px">${f(lt.amount)}</span>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:6px">Rate: ${(lt.rate*100).toFixed(1)}% · ${lt.months}mo · ${f(monthly)}/mo · ${f(interest)} interest</div>
+      <div style="background:${eligible?"#f0fdf4":"#f8fafc"};border:1px solid ${eligible?"#bbf7d0":"#e2e8f0"};border-radius:6px;padding:7px 10px;margin-bottom:10px;font-size:11.5px">
+        ${eligible
+          ? `<span style="color:#16a34a;font-weight:bold">✓ Eligible</span> — ${h(lt.desc)}`
+          : `<span style="color:#f97316;font-weight:bold">🔒 Not yet eligible</span> — ${h(reqText)}<br><span style="color:#9ca3af;font-size:11px">Revenue: ${f(annualRev)}/${f(lt.minRev)} ${metRev?"✓":"✗"} · Net Worth: ${f(nw)}/${f(lt.minNW)} ${metNW?"✓":"✗"}</span>`
+        }
+      </div>
+      <button onclick="takeLoan('${lt.id}')" ${eligible?"":"disabled"} style="width:100%;padding:9px;border-radius:6px;background:${eligible?lt.col:"#e2e8f0"};color:${eligible?"#fff":"#9ca3af"};font-weight:bold;font-size:12px;font-family:inherit;cursor:${eligible?"pointer":"not-allowed"}">
+        ${eligible?"APPLY — "+lt.name.toUpperCase():"LOCKED — Build revenue or net worth first"}
+      </button>
+    </div>`;
+  });
+  return o;
+}
+
+function rMonthly(){
+  const MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const rps=revPerSec(),whr=wageHr(),md=monthDebt();
+  // Live current month estimate
+  const lMfg=rps*GM,lRE=Object.entries(G.reProps).filter(([,p])=>p.owned).reduce((a,[id,p])=>{const d=RE[id];if(!d)return a;const um=p.upgrades.reduce((x,uid)=>x+(REUPG[uid]?REUPG[uid].rb:0),0);return a+d.rent*(1+um);},0);
+  const lAcq=G.acqs.reduce((a,id)=>a+(ACQ[id]?ACQ[id].revenue:0),0);
+  const lTotalRev=lMfg+lRE+lAcq;
+  const lWages=(whr/3600)*GM,lInt=md;
+  const machVal=Object.entries(MACH).reduce((a,[id,m])=>a+(G.mach[id]||0)*m.cost,0);
+  const propVal=Object.entries(PROPS).reduce((a,[id,p])=>a+propCount(id)*p.cost,0);
+  const lDepn=(machVal+propVal)*0.05/12;
+  const lEbitda=lTotalRev-lWages;
+  const lEbit=lEbitda-lDepn;
+  const lEbt=lEbit-lInt;
+  const lNet=lEbt-Math.max(0,lEbt*0.21);
+  const nc=lNet>=0?"#16a34a":"#dc2626";
+
+  let o=`
+  <!-- Live current month card -->
+  <div class="card" style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);border:none;color:#fff;margin-bottom:14px">
+    <div style="font-size:11px;letter-spacing:3px;opacity:0.7;margin-bottom:8px">📊 CURRENT MONTH — LIVE</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:10px">
+        <div style="font-size:11px;opacity:0.7;margin-bottom:3px">Total Revenue</div>
+        <div style="font-size:18px;font-weight:bold;color:#86efac">${f(lTotalRev)}</div>
+      </div>
+      <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:10px">
+        <div style="font-size:11px;opacity:0.7;margin-bottom:3px">Net Profit</div>
+        <div style="font-size:18px;font-weight:bold;color:${lNet>=0?"#86efac":"#fca5a5"}">${f(lNet)}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11.5px">
+      ${[["🏭 Mfg",f(lMfg)],["🏠 RE",f(lRE)],["🏢 Acq",f(lAcq)],["Wages","-"+f(lWages)],["Interest","-"+f(lInt)],["EBITDA",f(lEbitda)]].map(([l,v])=>`<div style="background:rgba(255,255,255,.08);border-radius:5px;padding:5px 7px"><div style="font-size:11.5px;opacity:0.6">${l}</div><div style="font-weight:bold">${v}</div></div>`).join("")}
+    </div>
+  </div>`;
+
+  if(!G.finHist.length){
+    return o+`<div style="text-align:center;padding:30px;color:#9ca3af;font-size:11px">📅 Complete Month 1 to see saved income statements.</div>`;
+  }
+
+  // Selected month detail view state
+  const sel=window._selMonth;
+  const selSnap=sel!=null?G.finHist.find(s=>s.month===sel):null;
+
+  if(selSnap){
+    // Full income statement for selected month
+    const s=selSnap;
+    const moName=MO[(s.mo||1)-1]||"Mo";
+    const PLR=(label,val,indent,bold,col)=>`<div class="plrow ${bold?"bold":""} ${indent?"ind":""}" style="color:${bold?"#0f172a":"#374151"}"><span>${label}</span><span style="font-weight:bold;color:${val>=0?(col||"#16a34a"):"#dc2626"}">${f(val)}</span></div>`;
+    const gpM=s.totalRev>0?((s.grossProfit/s.totalRev)*100):0;
+    const netM=s.totalRev>0?((s.net/s.totalRev)*100):0;
+
+    o+=`<div class="card" style="padding:0;overflow:hidden">
+      <div style="background:#1e3a8a;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;color:#93c5fd;letter-spacing:2px;margin-bottom:2px">INCOME STATEMENT</div>
+          <div style="color:#fff;font-weight:bold;font-size:14px">${moName} — Year ${s.yr||1}</div>
+        </div>
+        <button onclick="window._selMonth=null;render()" style="padding:5px 12px;border-radius:5px;background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-family:inherit">← Back</button>
+      </div>
+      <div style="padding:14px">
+        <div style="font-size:11.5px;color:#16a34a;font-weight:bold;letter-spacing:1px;margin-bottom:6px">REVENUE</div>
+        ${PLR("🏭 Manufacturing Sales",s.mfgRev||0,true,false,"#16a34a")}
+        ${PLR("🏠 Real Estate Income",s.reRev||0,true,false,"#16a34a")}
+        ${PLR("🏢 Acquisition Revenue",s.acqRev||0,true,false,"#16a34a")}
+        ${PLR("📈 Dividend Income",s.divRev||0,true,false,"#16a34a")}
+        ${PLR("TOTAL REVENUE",s.totalRev||0,false,true,"#16a34a")}
+        <div style="height:10px"></div>
+        <div style="font-size:11.5px;color:#dc2626;font-weight:bold;letter-spacing:1px;margin-bottom:6px">COST OF GOODS SOLD</div>
+        ${PLR("Raw material COGS",-(s.cogs||0),true,false,"#dc2626")}
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:10px 12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-weight:bold;font-size:11px">GROSS PROFIT</div><div style="font-size:11px;color:#94a3b8">Margin ${gpM.toFixed(1)}%</div></div>
+          <span style="font-weight:bold;font-size:16px;color:${(s.grossProfit||0)>=0?"#16a34a":"#dc2626"}">${f(s.grossProfit||0)}</span>
+        </div>
+        <div style="font-size:11.5px;color:#f97316;font-weight:bold;letter-spacing:1px;margin-bottom:6px">OPERATING EXPENSES</div>
+        ${PLR("Wages & Salaries",-(s.wages||0),true,false,"#f97316")}
+        ${PLR("Overhead & Admin",-(s.opex-s.wages||0),true,false,"#f97316")}
+        ${PLR("TOTAL OPEX",-(s.opex||0),false,true,"#f97316")}
+        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:10px 12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-weight:bold;font-size:11px">EBITDA</div><div style="font-size:11px;color:#94a3b8">Margin ${s.totalRev>0?((s.ebitda/s.totalRev)*100).toFixed(1):0}%</div></div>
+          <span style="font-weight:bold;font-size:16px;color:${(s.ebitda||0)>=0?"#0284c7":"#dc2626"}">${f(s.ebitda||0)}</span>
+        </div>
+        ${PLR("Depreciation",-(s.depn||0),true,false,"#9ca3af")}
+        <div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:7px;padding:10px 12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-weight:bold;font-size:11px">EBIT</div></div>
+          <span style="font-weight:bold;font-size:18px;color:${(s.ebit||0)>=0?"#2563eb":"#dc2626"}">${f(s.ebit||0)}</span>
+        </div>
+        ${PLR("Interest expense",-(s.intPaid||0),true,false,"#9ca3af")}
+        ${PLR("EBT (Earnings Before Tax)",s.ebt||0,false,true,(s.ebt||0)>=0?"#2563eb":"#dc2626")}
+        ${PLR("Corporate tax (21%)",-(s.tax||0),true,false,"#9ca3af")}
+        <div style="background:${(s.net||0)>=0?"#f0fdf4":"#fff1f2"};border:2px solid ${(s.net||0)>=0?"#86efac":"#fca5a5"};border-radius:8px;padding:12px;margin-top:10px">
+          <div style="font-size:11px;letter-spacing:2px;color:${(s.net||0)>=0?"#16a34a":"#dc2626"};margin-bottom:4px">NET PROFIT / (LOSS)</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:11px;color:#64748b">Net margin ${netM.toFixed(1)}% · Cash end of month ${f(s.cash)}</div>
+            <span style="font-weight:bold;font-size:22px;color:${(s.net||0)>=0?"#16a34a":"#dc2626"}">${f(s.net||0)}</span>
+          </div>
+        </div>
+        <div class="g3" style="margin-top:12px">
+          ${[["Gross Margin",gpM.toFixed(1)+"%",gpM>=40?"#16a34a":gpM>=20?"#f59e0b":"#dc2626"],["Net Margin",netM.toFixed(1)+"%",(s.net||0)>=0?"#16a34a":"#dc2626"],["Int. Cover",(s.intPaid||0)>0?((s.ebit||0)/(s.intPaid)).toFixed(1)+"x":"N/A","#374151"]].map(([l,v,c])=>`<div class="sbox"><div class="slbl">${l}</div><div class="sval" style="color:${c}">${v}</div></div>`).join("")}
+        </div>
+      </div>
+    </div>`;
+    return o;
+  }
+
+  // Monthly summary list — tap to drill into full statement
+  const byYear={};
+  G.finHist.forEach(s=>{const yr=s.yr||Math.floor((s.month-1)/12)+1;if(!byYear[yr])byYear[yr]=[];byYear[yr].push(s)});
+
+  Object.keys(byYear).sort((a,b)=>+b-+a).forEach(yr=>{
+    const snaps=byYear[yr];
+    const yrRev=snaps.reduce((a,s)=>a+(s.totalRev||0),0);
+    const yrNet=snaps.reduce((a,s)=>a+(s.net||0),0);
+    o+=`<div style="margin-bottom:16px">
+      <div style="background:#1e3a8a;border-radius:8px 8px 0 0;padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:#fff;font-weight:bold;font-size:12px">Year ${yr}</span>
+        <div style="display:flex;gap:12px;font-size:11.5px">
+          <span style="color:#bfdbfe">Revenue: <span style="color:#fff;font-weight:bold">${f(yrRev)}</span></span>
+          <span style="color:#bfdbfe">Net: <span style="color:${yrNet>=0?"#86efac":"#fca5a5"};font-weight:bold">${f(yrNet)}</span></span>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 60px 28px;padding:5px 10px;background:#f8fafc;font-size:11px;color:#94a3b8;font-weight:bold">
+          ${["Mo","Revenue","Gross P","Net","Cash",""].map((hd,i)=>`<div style="text-align:${i===0?"left":"right"}">${hd}</div>`).join("")}
+        </div>
+        ${[...snaps].reverse().map((snap,i)=>{
+          const moN=MO[(snap.mo||1)-1]||"Mo";
+          const isGood=(snap.net||0)>=0;
+          return`<div onclick="window._selMonth=${snap.month};render()" style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 60px 28px;padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:11px;background:${i===0?"#f0fdf4":"#fff"};cursor:pointer;transition:background 0.1s" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${i===0?"#f0fdf4":"#fff"}'">
+            <div style="color:#374151;font-weight:${i===0?"bold":"normal"}">${moN}</div>
+            <div style="text-align:right;color:#16a34a;font-weight:bold">${f(snap.totalRev||0)}</div>
+            <div style="text-align:right;color:${(snap.grossProfit||0)>=0?"#0284c7":"#dc2626"}">${f(snap.grossProfit||0)}</div>
+            <div style="text-align:right;color:${isGood?"#16a34a":"#dc2626"};font-weight:bold">${f(snap.net||0)}</div>
+            <div style="text-align:right;color:#2563eb;font-size:11.5px">${f(snap.cash)}</div>
+            <div style="text-align:right;color:#9ca3af;font-size:12px">›</div>
+          </div>`;
+        }).join("")}
+        <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr 60px 28px;padding:6px 10px;background:#eff6ff;border-top:2px solid #bfdbfe;font-size:11px;font-weight:bold">
+          <div style="color:#1e3a8a">TOTAL</div>
+          <div style="text-align:right;color:#16a34a">${f(yrRev)}</div>
+          <div style="text-align:right;color:#0284c7">${f(snaps.reduce((a,s)=>a+(s.grossProfit||0),0))}</div>
+          <div style="text-align:right;color:${yrNet>=0?"#16a34a":"#dc2626"}">${f(yrNet)}</div>
+          <div style="text-align:right">—</div>
+          <div></div>
+        </div>
+      </div>
+    </div>`;
+  });
+  return o;
+}
+
+function rPandL(){
+  // Redirect to monthly view cumulative
+  const mfgRev=Object.values(G.revByP).reduce((a,v)=>a+v,0);
+  const totalCOGS=Object.values(G.cogsByP).reduce((a,v)=>a+v,0);
+  const gp=mfgRev-totalCOGS,gpM=mfgRev>0?(gp/mfgRev*100):0;
+  const rentInc=G.reRent||0,divInc=G.divTotal||0,acqInc=G.acqRev||0;
+  const totalRev=G.earned;
+  const wExp=G.wagesPaid||0,intExp=G.intPaid||0;
+  const otherExp=Math.max(0,G.spent-wExp-G.matCost-intExp);
+  const totalOpex=wExp+otherExp;
+  const ebitda=gp-totalOpex;
+  const machVal=Object.entries(MACH).reduce((a,[id,m])=>a+(G.mach[id]||0)*m.cost,0);
+  const propVal=Object.entries(PROPS).reduce((a,[id,p])=>a+propCount(id)*p.cost,0);
+  const depn=(machVal+propVal)*0.05/12*Math.floor(G.time/GM);
+  const ebit=ebitda-depn,ebt=ebit-intExp,tax=Math.max(0,ebt*0.21),net=ebt-tax;
+  const netM=totalRev>0?(net/totalRev*100):0;
+  const PLR=(label,val,indent,bold,col)=>`<div class="plrow ${bold?"bold":""} ${indent?"ind":""}" style="color:${bold?"#0f172a":"#374151"}"><span>${label}</span><span style="font-weight:bold;color:${val>=0?(col||"#16a34a"):"#dc2626"}">${f(val)}</span></div>`;
+  let o=`<div class="card"><div style="text-align:center;padding-bottom:10px;border-bottom:2px solid #e2e8f0;margin-bottom:12px"><div style="font-weight:bold;font-size:14px">CUMULATIVE P&amp;L STATEMENT</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">All-time totals · USD</div></div>`;
+  o+=`<div style="font-size:11.5px;color:#16a34a;font-weight:bold;letter-spacing:1px;margin-bottom:6px">REVENUE</div>`;
+  [[mfgRev,"🏭 Manufacturing"],[rentInc,"🏠 Real Estate"],[acqInc,"🏢 Acquisitions"],[divInc,"📈 Dividends"]].filter(([v])=>v>0).forEach(([v,l])=>{o+=PLR(l,v,true,false,"#16a34a")});
+  o+=PLR("TOTAL REVENUE",totalRev,false,true,"#16a34a");
+  o+=`<div style="height:10px"></div>`;
+  o+=PLR("Cost of Goods Sold",-totalCOGS,true,false,"#dc2626");
+  o+=`<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:10px 12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:bold;font-size:11px">GROSS PROFIT</div><div style="font-size:11px;color:#94a3b8">${gpM.toFixed(1)}% margin</div></div><span style="font-weight:bold;font-size:16px;color:${gp>=0?"#16a34a":"#dc2626"}">${f(gp)}</span></div>`;
+  o+=PLR("Wages & Salaries",-wExp,true,false,"#f97316");
+  o+=PLR("Overhead & Admin",-otherExp,true,false,"#f97316");
+  o+=`<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:7px;padding:10px 12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:bold;font-size:11px">EBITDA</div></div><span style="font-weight:bold;font-size:16px;color:${ebitda>=0?"#0284c7":"#dc2626"}">${f(ebitda)}</span></div>`;
+  o+=PLR("Depreciation",-depn,true,false,"#9ca3af");
+  o+=`<div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:7px;padding:10px 12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:bold;font-size:11px">EBIT</div></div><span style="font-weight:bold;font-size:18px;color:${ebit>=0?"#2563eb":"#dc2626"}">${f(ebit)}</span></div>`;
+  o+=PLR("Interest expense",-intExp,true,false,"#9ca3af");
+  o+=PLR("EBT",ebt,false,true,ebt>=0?"#2563eb":"#dc2626");
+  o+=PLR("Corporate tax (21%)",-tax,true,false,"#9ca3af");
+  o+=`<div style="background:${net>=0?"#f0fdf4":"#fff1f2"};border:2px solid ${net>=0?"#86efac":"#fca5a5"};border-radius:8px;padding:12px;margin-top:10px"><div style="font-size:11px;letter-spacing:2px;color:${net>=0?"#16a34a":"#dc2626"};margin-bottom:4px">NET PROFIT — ALL TIME</div><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:11px;color:#64748b">Net margin ${netM.toFixed(1)}%</div><span style="font-weight:bold;font-size:24px;color:${net>=0?"#16a34a":"#dc2626"}">${f(net)}</span></div></div>`;
+  o+=`<div class="g3" style="margin-top:12px">${[[`Gross`,gpM.toFixed(1)+"%",gpM>=40?"#16a34a":"#f59e0b"],[`EBITDA`,totalRev>0?(ebitda/totalRev*100).toFixed(1)+"%":"—","#0284c7"],[`Net`,netM.toFixed(1)+"%",net>=0?"#16a34a":"#dc2626"]].map(([l,v,c])=>`<div class="sbox"><div class="slbl">${l} Margin</div><div class="sval" style="color:${c}">${v}</div></div>`).join("")}</div></div>`;
+  return o;
+}
+
+function rBalance(){
+  const machVal=Object.entries(MACH).reduce((a,[id,m])=>a+(G.mach[id]||0)*m.cost,0);
+  const propVal=Object.entries(PROPS).reduce((a,[id,p])=>a+propCount(id)*p.cost,0);
+  const equipVal=G.oequip.reduce((a,id)=>a+(OEQUIP[id]?OEQUIP[id].cost:0),0);
+  const shareVal=Object.entries(G.sHold).reduce((a,[t,q])=>a+q*(G.sPrices[t]||0),0);
+  const reVal=Object.entries(G.reProps).filter(([,p])=>p.owned).reduce((a,[id])=>a+(RE[id]?RE[id].cost:0),0);
+  const acqVal=G.acqs.reduce((a,id)=>a+(ACQ[id]?ACQ[id].cost:0),0);
+  const totalAssets=G.cash+machVal+propVal+equipVal+shareVal+reVal+acqVal;
+  const td=totalDebt(),nw=totalAssets-td;
+  const R=(l,v,col)=>`<div class="plrow"><span style="color:#374151;font-size:11px">${l}</span><span style="font-weight:bold;color:${col}">${f(v)}</span></div>`;
+  let o=`<div class="card" style="background:#f0fdf4;border:1px solid #bbf7d0;margin-bottom:12px"><div style="font-weight:bold;color:#16a34a;font-size:11px;letter-spacing:1px;margin-bottom:10px;border-bottom:1px solid #bbf7d0;padding-bottom:6px">ASSETS</div>`;
+  o+=`<div style="font-size:11px;color:#16a34a;letter-spacing:1px;margin-bottom:6px">CURRENT ASSETS</div>`;
+  [[G.cash,"Cash & Bank"],[shareVal,"Share Portfolio"]].forEach(([v,l])=>o+=R(l,v,"#16a34a"));
+  o+=`<div style="font-size:11px;color:#16a34a;letter-spacing:1px;margin:8px 0 6px">FIXED ASSETS</div>`;
+  [[propVal,"Factory Properties ("+Object.entries(PROPS).reduce((a,[id])=>a+propCount(id),0)+")"],[machVal,"Plant & Machinery"],[equipVal,"Office Equipment"],[reVal,"Real Estate Portfolio"],[acqVal,"Acquisitions (at cost)"]].forEach(([v,l])=>o+=R(l,v,"#16a34a"));
+  o+=`<div class="plrow bold" style="border-top:2px solid #bbf7d0;padding-top:6px"><span>TOTAL ASSETS</span><span style="color:#16a34a;font-size:15px;font-weight:bold">${f(totalAssets)}</span></div></div>`;
+  o+=`<div class="card" style="background:#fff1f2;border:1px solid #fecaca;margin-bottom:12px"><div style="font-weight:bold;color:#dc2626;font-size:11px;letter-spacing:1px;margin-bottom:10px;border-bottom:1px solid #fecaca;padding-bottom:6px">LIABILITIES</div>`;
+  if(!G.loans.length)o+=`<div style="font-size:11.5px;color:#94a3b8;padding:4px 0">No liabilities</div>`;
+  G.loans.forEach(l=>o+=R(l.name,l.remaining,"#dc2626"));
+  o+=`<div class="plrow bold" style="border-top:2px solid #fecaca;padding-top:6px"><span>TOTAL LIABILITIES</span><span style="color:#dc2626;font-size:15px;font-weight:bold">${f(td)}</span></div></div>`;
+  o+=`<div class="card" style="background:#faf5ff;border:1px solid #ddd6fe"><div style="font-weight:bold;color:#7c3aed;font-size:11px;letter-spacing:1px;margin-bottom:8px">EQUITY / NET WORTH</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:bold">Total Assets minus Liabilities</span><span style="color:${nw>=0?"#16a34a":"#dc2626"};font-size:20px;font-weight:bold">${f(nw)}</span></div></div>`;
+  return o;
+}
+
+function rObjectives(){
+  const MILES=[
+    {id:"m1",title:"Start the Engine",target:10000,metric:"cash",desc:"First $10K in the bank. The journey begins.",emoji:"🚀",tier:1},
+    {id:"m2",title:"First Machine Running",target:1,metric:"machines",desc:"Buy your first machine and start producing.",emoji:"⚙️",tier:1},
+    {id:"m3",title:"Hire Your First Worker",target:1,metric:"workers",desc:"Build a team. You can't do this alone.",emoji:"👷",tier:1},
+    {id:"m4",title:"$100K Cash",target:100000,metric:"cash",desc:"Six figures in the bank. Real business now.",emoji:"💰",tier:1},
+    {id:"m5",title:"First Property Upgrade",target:1,metric:"props",desc:"Move out of the garage. Expand your footprint.",emoji:"🏭",tier:1},
+    {id:"m6",title:"$500K Revenue",target:500000,metric:"revenue",desc:"Half a million earned. You're building something real.",emoji:"📈",tier:2},
+    {id:"m7",title:"Unlock Advanced Fabrication",target:"advanced",metric:"prodline",desc:"Open up Tier 2 products. Bigger margins ahead.",emoji:"⚙️",tier:2},
+    {id:"m8",title:"First Acquisition",target:1,metric:"acqs",desc:"You own another business. CEO territory.",emoji:"🏢",tier:2},
+    {id:"m9",title:"$1M Net Worth",target:1000000,metric:"networth",desc:"Your first million. Welcome to the 1%.",emoji:"💎",tier:2},
+    {id:"m10",title:"$5M Net Worth",target:5000000,metric:"networth",desc:"Five million. You're wealthy now.",emoji:"🏆",tier:2},
+    {id:"m11",title:"$10M Revenue",target:10000000,metric:"revenue",desc:"Eight figures. You're a serious manufacturer.",emoji:"📊",tier:3},
+    {id:"m12",title:"First Real Estate",target:1,metric:"realestate",desc:"Property diversification. Smart money.",emoji:"🏠",tier:3},
+    {id:"m13",title:"$50M Net Worth",target:50000000,metric:"networth",desc:"Fifty million. You're on the rich list.",emoji:"🌟",tier:3},
+    {id:"m14",title:"3 Companies Acquired",target:3,metric:"acqs",desc:"A portfolio of businesses. True conglomerate.",emoji:"🌐",tier:3},
+    {id:"m15",title:"$100M Revenue",target:100000000,metric:"revenue",desc:"One hundred million in revenue. Elite level.",emoji:"🚁",tier:3},
+    {id:"m16",title:"$100M Net Worth",target:100000000,metric:"networth",desc:"A hundred million. Private jet territory.",emoji:"✈️",tier:3},
+    {id:"m17",title:"$500M Net Worth",target:500000000,metric:"networth",desc:"Half a billion. Among the wealthiest people on earth.",emoji:"🏰",tier:4},
+    {id:"m18",title:"All Product Lines Unlocked",target:6,metric:"prodlines",desc:"Full portfolio of manufacturing divisions.",emoji:"🏗️",tier:4},
+    {id:"m18b",title:"Build the Super Factory",target:1,metric:"superFactory",desc:"200 machine slots. The largest plant on earth.",emoji:"🛰️",tier:4},
+    {id:"m19",title:"All Companies Acquired",target:6,metric:"acqs",desc:"You own them all. Total market domination.",emoji:"👑",tier:4},
+    {id:"m20",title:"$1 BILLION Net Worth",target:1000000000,metric:"networth",desc:"A billionaire. You made it to the very top.",emoji:"💫",tier:4},
+    {id:"m21",title:"Forbes Rich List",target:5000000000,metric:"networth",desc:"Top 500 richest people in the world.",emoji:"🌍",tier:4},
+    {id:"m22",title:"Top 100 Globally",target:20000000000,metric:"networth",desc:"One of the 100 wealthiest humans alive.",emoji:"🏆",tier:4},
+    {id:"m23",title:"Elon-Level Wealth",target:200000000000,metric:"networth",desc:"Among the richest people who ever lived.",emoji:"🌌",tier:4},
+  ];
+
+  const nw=netWorth();
+  const vals={
+    cash:G.cash,revenue:G.earned,networth:nw,
+    machines:Object.values(G.mach).reduce((a,v)=>a+v,0),
+    workers:Object.values(G.work).reduce((a,v)=>a+v,0),
+    props:Object.keys(G.props).filter(id=>id!=="starter").length,
+    acqs:G.acqs.length,
+    prodlines:G.plines.length,
+    realestate:Object.keys(G.reProps).filter(id=>G.reProps[id]&&G.reProps[id].owned).length,
+    superFactory:propCount("superFactory"),
+    prodline:(id)=>G.plines.includes(id),
+  };
+
+  const done=m=>{if(m.metric==="prodline")return vals.prodline(m.target);const v=vals[m.metric];return typeof v==="number"&&v>=m.target};
+  const prog=m=>{if(m.metric==="prodline")return done(m)?1:0;const v=vals[m.metric];if(typeof v!=="number")return 0;return Math.min(1,v/m.target)};
+
+  const completed=MILES.filter(done).length;
+  const next=MILES.find(m=>!done(m));
+  const TNAMES={1:"Foundations",2:"Growth",3:"Scale",4:"Billionaire Path"};
+  const TCOLS={1:"#2563eb",2:"#16a34a",3:"#f59e0b",4:"#dc2626"};
+
+  const rank=nw>=200e9?"Top 10 Globally":nw>=20e9?"Top 100 Globally":nw>=5e9?"Forbes Rich List":nw>=1e9?"Billionaire":nw>=100e6?"Ultra High Net Worth":nw>=10e6?"High Net Worth":nw>=1e6?"Millionaire":nw>=100000?"Wealthy":"Building Wealth";
+
+  let o=`<div style="background:linear-gradient(135deg,#1e3a8a,#3730a3);border-radius:10px;padding:16px 14px;margin-bottom:14px;color:#fff">
+    <div style="font-size:11px;letter-spacing:3px;opacity:0.6;margin-bottom:6px">YOUR EMPIRE</div>
+    <div class="g2" style="margin-bottom:12px">
+      <div><div style="font-size:11px;opacity:0.6;margin-bottom:2px">NET WORTH</div><div style="font-size:22px;font-weight:bold">${f(nw)}</div></div>
+      <div style="text-align:right"><div style="font-size:11px;opacity:0.6;margin-bottom:2px">RANK</div><div style="font-size:14px;font-weight:bold;color:${nw>=1e9?"#fde68a":nw>=1e6?"#86efac":"#93c5fd"}">${rank}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;font-size:11.5px">
+      ${[["Revenue",f(G.earned)],["Businesses",G.acqs.length+1],["Properties",Object.keys(G.props).length+vals.realestate],["Goals",completed+"/"+MILES.length]].map(([l,v])=>`<div style="background:rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;text-align:center"><div style="font-size:11.5px;opacity:0.6;margin-bottom:2px">${l}</div><div style="font-weight:bold">${v}</div></div>`).join("")}
+    </div>
+  </div>`;
+
+  if(next){
+    const p=prog(next);
+    o+=`<div class="card" style="background:#fffbeb;border:2px solid #fcd34d;margin-bottom:14px">
+      <div style="font-size:11px;color:#92400e;letter-spacing:2px;margin-bottom:4px">NEXT OBJECTIVE</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="font-size:14px;font-weight:bold">${next.emoji} ${h(next.title)}</div><div style="font-size:12px;color:#64748b;margin-top:2px">${h(next.desc)}</div></div>
+        ${next.metric!=="prodline"?`<div style="font-size:13px;font-weight:bold;color:#f59e0b;flex-shrink:0">${(p*100).toFixed(0)}%</div>`:""}
+      </div>
+      ${next.metric!=="prodline"&&next.target>100?`<div style="margin-top:8px"><div style="height:6px;background:#fde68a;border-radius:3px;overflow:hidden"><div style="height:100%;width:${p*100}%;background:#f59e0b;border-radius:3px"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#92400e;margin-top:3px"><span>${f(vals[next.metric]||0)}</span><span>Target: ${f(next.target)}</span></div></div>`:""}
+    </div>`;
+  }
+
+  [1,2,3,4].forEach(tier=>{
+    const tMs=MILES.filter(m=>m.tier===tier),tDone=tMs.filter(done).length;
+    o+=`<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:bold;font-size:12px;color:${TCOLS[tier]}">${TNAMES[tier]}</div><div style="font-size:11.5px;color:#94a3b8">${tDone}/${tMs.length}</div></div><div style="height:3px;background:#f1f5f9;border-radius:2px;margin-bottom:10px"><div style="height:100%;width:${tDone/tMs.length*100}%;background:${TCOLS[tier]};border-radius:2px"></div></div>`;
+    tMs.forEach(m=>{
+      const isDone=done(m),p=prog(m);
+      o+=`<div class="card" style="border:1px solid ${isDone?TCOLS[m.tier]+"44":"#e2e8f0"};opacity:${isDone?1:0.85}">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="font-size:20px;flex-shrink:0;filter:${isDone?"none":"grayscale(1)"}">${m.emoji}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div style="font-weight:${isDone?"bold":"normal"};color:${isDone?"#0f172a":"#374151"};font-size:12px">${h(m.title)}</div>
+              ${isDone?`<span style="font-size:11px;background:${TCOLS[m.tier]}22;color:${TCOLS[m.tier]};padding:2px 8px;border-radius:10px;font-weight:bold;flex-shrink:0">DONE</span>`:m.metric!=="prodline"&&m.target>100?`<span style="font-size:11.5px;color:${TCOLS[m.tier]};font-weight:bold;flex-shrink:0">${(p*100).toFixed(0)}%</span>`:""}
+            </div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">${h(m.desc)}</div>
+            ${!isDone&&m.target>100&&m.metric!=="prodline"?`<div style="margin-top:6px"><div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden"><div style="height:100%;width:${p*100}%;background:${TCOLS[m.tier]};border-radius:2px"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:2px"><span>${f(vals[m.metric]||0)}</span><span>${f(m.target)}</span></div></div>`:""}
+          </div>
+        </div>
+      </div>`;
+    });
+    o+=`</div>`;
+  });
+
+  // Wealth ladder
+  o+=`<div class="card"><div style="font-weight:bold;font-size:11px;margin-bottom:10px">🌍 Global Wealth Ladder</div>`;
+  [[1e4,"$10K","Starting out","#94a3b8"],[1e5,"$100K","Six figures","#64748b"],[1e6,"$1M","Millionaire","#16a34a"],[1e7,"$10M","Top 1% globally","#0284c7"],[1e8,"$100M","Ultra high net worth","#7c3aed"],[1e9,"$1B","Billionaire","#f59e0b"],[5e9,"$5B","Forbes Rich List","#f97316"],[2e10,"$20B","Top 100 globally","#dc2626"],[2e11,"$200B","Top 10 wealthiest ever","#991b1b"]].forEach(([val,lbl,title,col])=>{
+    const reached=nw>=val;
+    o+=`<div style="display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #f8fafc"><div style="width:8px;height:8px;border-radius:50%;background:${reached?col:"#e2e8f0"};flex-shrink:0"></div><div style="flex:1;font-size:11.5px;color:${reached?"#0f172a":"#9ca3af"};font-weight:${reached?"bold":"normal"}">${title}</div><div style="font-size:11.5px;color:${reached?col:"#9ca3af"};font-weight:bold">${lbl}</div>${reached&&nw<val*10?`<div style="font-size:11px;background:${col}22;color:${col};padding:1px 6px;border-radius:10px">NOW</div>`:""}</div>`;
+  });
+  o+=`</div>`;
+  return o;
+}
+
+function rLeaderboard(){
+  const myNW=netWorth();
+  const myRank=lbRank(myNW);
+  const isGlobal=!!LB_API;
+  const scores=lbCache||lbLocalScores();
+
+  // Where do I sit?
+  const myPos=scores.findIndex(s=>s.net_worth<=myNW);
+  const myPlace=myPos===-1?scores.length+1:myPos+1;
+
+  let o=`
+  <!-- My standing -->
+  <div style="background:linear-gradient(135deg,#7c3aed,#2563eb);border-radius:12px;padding:18px 16px;margin-bottom:14px;color:#fff">
+    <div style="font-size:11px;letter-spacing:2.5px;opacity:.65;margin-bottom:8px">YOUR STANDING</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px">
+      <div style="min-width:0">
+        <div class="display" style="font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h(G.company||"My Factory")}</div>
+        <div style="font-size:12.5px;opacity:.8;margin-top:3px">${myRank.e} ${myRank.t}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:10px;opacity:.65;letter-spacing:1.5px">NET WORTH</div>
+        <div class="display" style="font-size:24px;font-weight:700;color:#86efac">${f(myNW)}</div>
+      </div>
+    </div>
+    <button onclick="submitScore()" style="width:100%;min-height:48px;border-radius:10px;background:rgba(255,255,255,.16);color:#fff;font-weight:700;font-size:14px;font-family:var(--font-ui);border:1px solid rgba(255,255,255,.25)">
+      🏆 Submit My Score
+    </button>
+  </div>`;
+
+  // Mode banner
+  if(!isGlobal){
+    o+=`<div class="card" style="background:#fff7ed;border:1px solid #fed7aa;margin-bottom:12px">
+      <div style="font-size:12.5px;color:#92400e;line-height:1.6"><b>📍 Local board.</b> Scores are stored on this device only. The site owner can connect a backend to make this a worldwide leaderboard — see the Help tab.</div>
+    </div>`;
+  } else if(lbError){
+    o+=`<div class="card" style="background:#fff1f2;border:1px solid #fecaca;margin-bottom:12px">
+      <div style="font-size:12.5px;color:#991b1b;line-height:1.6">${h(lbError)}</div>
+    </div>`;
+  }
+
+  // Header + refresh
+  o+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div class="sl" style="margin:0">${isGlobal?"🌍 Global Top 100":"🏭 Local Rankings"}</div>
+    <button onclick="fetchLeaderboard(true)" style="min-height:38px;padding:0 13px;border-radius:8px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;font-size:12px;font-family:var(--font-ui);font-weight:600">${lbLoading?"⏳":"↻ Refresh"}</button>
+  </div>`;
+
+  if(lbLoading&&!scores.length){
+    return o+`<div style="text-align:center;padding:40px;color:#94a3b8;font-size:13px">Loading rankings…</div>`;
+  }
+  if(!scores.length){
+    return o+`<div class="card" style="text-align:center;padding:36px 20px">
+      <div style="font-size:36px;margin-bottom:10px;opacity:.5">🏆</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px">No scores yet</div>
+      <div style="font-size:12.5px;color:#64748b;line-height:1.6">Be the first. Build your empire, then hit <b>Submit My Score</b> above.</div>
+    </div>`;
+  }
+
+  // Podium — top 3
+  const podium=scores.slice(0,3);
+  if(podium.length>=1){
+    const medals=["🥇","🥈","🥉"];
+    const cols=["#f59e0b","#94a3b8","#b45309"];
+    o+=`<div class="card" style="padding:14px;margin-bottom:12px;background:linear-gradient(180deg,#fffbeb,#fff)">`;
+    podium.forEach((s,i)=>{
+      const r=lbRank(s.net_worth);
+      o+=`<div style="display:flex;align-items:center;gap:11px;padding:9px 0;${i<podium.length-1?"border-bottom:1px solid #f1f5f9":""}">
+        <div style="font-size:26px;flex-shrink:0">${medals[i]}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h(s.name||"Anonymous")}</div>
+          <div style="font-size:11.5px;color:${r.c};font-weight:600">${r.e} ${r.t}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="display" style="font-size:16px;font-weight:700;color:${cols[i]}">${f(s.net_worth||0)}</div>
+          <div style="font-size:11px;color:#94a3b8">${s.months||0} mo · ${s.machines||0} mach</div>
+        </div>
+      </div>`;
+    });
+    o+=`</div>`;
+  }
+
+  // Rest of the table
+  if(scores.length>3){
+    o+=`<div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:38px 1fr auto;padding:8px 12px;background:#f8fafc;font-size:11px;color:#94a3b8;font-weight:700;letter-spacing:.5px">
+        <div>#</div><div>COMPANY</div><div style="text-align:right">NET WORTH</div>
+      </div>`;
+    scores.slice(3,100).forEach((s,i)=>{
+      const pos=i+4;
+      const r=lbRank(s.net_worth);
+      const isMe=s.name===(G.company||"");
+      o+=`<div style="display:grid;grid-template-columns:38px 1fr auto;padding:10px 12px;border-bottom:1px solid #f1f5f9;background:${isMe?"#eff6ff":"#fff"};align-items:center">
+        <div style="font-size:12.5px;color:#94a3b8;font-weight:700">${pos}</div>
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:${isMe?"700":"600"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h(s.name||"Anonymous")}${isMe?' <span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 7px;border-radius:8px">YOU</span>':""}</div>
+          <div style="font-size:11px;color:${r.c}">${r.e} ${r.t} · ${s.months||0} months</div>
+        </div>
+        <div class="display" style="font-size:14px;font-weight:700;color:#16a34a;text-align:right">${f(s.net_worth||0)}</div>
+      </div>`;
+    });
+    o+=`</div>`;
+  }
+
+  o+=`<div style="text-align:center;padding:18px 10px;font-size:11.5px;color:#94a3b8;line-height:1.7">
+    Rankings by net worth: cash + machines + facilities + property + shares + acquisitions, minus debt.<br>
+    Submit any time — only your best run is kept.
+  </div>`;
+  return o;
+}
+
+function rHelp(){
+  const S=(emoji,title,col)=>`<div style="display:flex;align-items:center;gap:8px;margin:16px 0 6px"><span style="font-size:18px">${emoji}</span><div style="font-size:11px;font-weight:bold;color:${col};letter-spacing:1px;text-transform:uppercase">${title}</div></div>`;
+  const R=(emoji,title,body)=>`<div class="card" style="margin-bottom:7px;padding:10px 12px"><div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:18px;flex-shrink:0">${emoji}</span><div><div style="font-weight:bold;font-size:12px;margin-bottom:2px">${title}</div><div style="font-size:12.5px;color:#64748b;line-height:1.65">${body}</div></div></div></div>`;
+  return `
+  <!-- Hero -->
+  <div style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);border-radius:10px;padding:20px 16px;margin-bottom:16px;color:#fff;text-align:center">
+    <div style="font-size:36px;margin-bottom:8px">🏭</div>
+    <div style="font-size:18px;font-weight:bold;margin-bottom:4px">Manufacturing Tycoon</div>
+    <div style="font-size:11px;opacity:0.7;line-height:1.6;margin-bottom:14px">Build a factory empire from a garage workshop<br>to a billion-dollar global manufacturer.</div>
+    <button onclick="startTutorial()" style="min-height:44px;padding:0 20px;border-radius:10px;background:#f59e0b;color:#0f172a;font-weight:700;font-size:13px;font-family:var(--font-ui)">▶ Replay guided setup</button>
+  </div>
+
+  <!-- Goal -->
+  <div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin-bottom:14px;text-align:center;padding:12px">
+    <div style="font-size:13px;font-weight:bold;color:#92400e;margin-bottom:3px">🎯 The Goal</div>
+    <div style="font-size:11px;color:#92400e;line-height:1.6">Start with $5,000 cash. Build machines, hire workers, manufacture products and sell them. Unlock new product lines, acquire companies, buy real estate and invest in shares. Grow your net worth to <b>$1 Billion</b> and beyond.</div>
+  </div>
+
+  ${S("🚀","Getting Started","#2563eb")}
+  ${R("1️⃣","Take a Loan First","You start with $5K which isn't enough to buy machines. Head to <b>Finance → New Loan</b> and take a Working Capital loan or Business Loan to get started.")}
+  ${R("2️⃣","Buy a Machine","Go to <b>Factory → Tier 1</b> and buy a Sheet Metal Press, Injection Molder or Wire Drawing Machine. Each machine makes a different product.")}
+  ${R("3️⃣","Hire an Operator","Machines don't run themselves. Go to <b>Property → Workforce</b> and hire at least 1 Machine Operator per machine op requirement.")}
+  ${R("4️⃣","Start Selling","Turn on the <b>Trade Manager</b> (Trade tab) and it will automatically buy raw materials and sell finished products for you. Or manage it manually.")}
+
+  ${S("⚙️","Core Mechanics","#10b981")}
+  ${R("🏭","Production Loop","Machines consume raw materials → produce finished goods → Trade Manager sells them for revenue. Each machine has an ops requirement — you need enough operators to run them all.")}
+  ${R("📦","Warehouse Limits","Your property limits how much stock you can hold. Upgrade your factory (Property tab) to increase warehouse capacity and unlock more machine slots.")}
+  ${R("💰","Cash Flow","Revenue comes in when goods are sold. Wages, loan repayments and costs go out every second. Watch the <b>▲/▼ per second</b> in the header — keep it green.")}
+  ${R("📅","Game Time","1 game month = 90 real seconds. Events, loan repayments, rent income and financial snapshots all happen monthly.")}
+
+  ${S("🏗️","Tabs Explained","#7c3aed")}
+  ${R("🏭 Factory","Buy & sell machines","Purchase machines to produce goods. Tier 1 is basic, Tier 2 and 3 are higher value. You can sell machines back for 50% of cost.")}
+  ${R("🏗️ Property","Upgrade your facility","Buy bigger properties to unlock more machine slots and warehouse space. Hire factory workers here too.")}
+  ${R("🤖 Trade Mgr","Automate buying & selling","Set rules for when to buy materials and when to sell products. Turn it on and it runs automatically.")}
+  ${R("🏢 Office","Hire specialists","Sales Reps boost export prices, Procurement Officers cut import costs, a Financial Analyst unlocks the Share Market.")}
+  ${R("🚀 Expand","Unlock new product lines & acquire companies","Spend money to unlock Defense, Medical, Renewables and other high-margin divisions. Acquire companies for instant machines + monthly revenue.")}
+  ${R("🏠 Real Estate","Property investment","Buy residential and commercial properties that earn passive rental income every game month.")}
+  ${R("📈 Shares","Global stock market","Buy and sell 8 global stocks. Hire a Financial Analyst first to unlock this tab. Stocks drift in real time and pay quarterly dividends.")}
+  ${R("💰 Finance","Loans, P&L, Balance Sheet","Take on debt, make repayments, view your monthly income statements and full balance sheet.")}
+  ${R("🏆 Goals","Milestone objectives","24 milestones track your journey from $10K to $200 Billion. See where you rank on the Global Wealth Ladder.")}
+
+  ${S("📊","Financial Terms","#f97316")}
+  ${R("Gross Profit","Revenue minus COGS","What's left after paying for raw materials. A high gross margin means your products are valuable relative to their inputs.")}
+  ${R("EBITDA","Earnings before interest, tax, depreciation & amortisation","Your core operating profitability. Investors typically value businesses at 5–10× EBITDA.")}
+  ${R("EBIT","Earnings before interest & tax","EBITDA after accounting for asset depreciation. Your true operating result.")}
+  ${R("Net Profit","The bottom line","What's left after wages, overheads, depreciation, loan interest and corporate tax. This is the real score.")}
+  ${R("Net Worth","Assets minus liabilities","Cash + machines + properties + shares + acquisitions, minus all debt. The number that matters most.")}
+
+  ${S("⚡","Tips & Tricks","#dc2626")}
+  ${R("💡","Operators are critical","Each machine has an ops requirement. If you don't have enough operators, machines sit idle. Hire operators before buying more machines.")}
+  ${R("💡","Pay off high-rate loans first","In Finance → Loans, bulk repay your most expensive debt first (highest interest rate). This saves the most money long-term.")}
+  ${R("💡","Acquisitions unlock product lines for free","Buying Iron Valley Fabrication (Expand tab) unlocks the Advanced product line automatically — saving you $120K.")}
+  ${R("💡","Real estate is passive income","Once bought, properties earn rent every game month with no effort. Scale this up to build a solid income floor.")}
+  ${R("💡","Monthly events are random","Good and bad events fire every month. Keep some cash reserve for emergencies like machine breakdowns or compliance fines.")}
+
+  ${S("🏆","Leaderboard","#f59e0b")}
+  ${R("🌍","How rankings work","Your position is set by <b>net worth</b> — cash plus machines, facilities, property, shares and acquisitions, minus all debt. Submit any time; only your best run is kept.")}
+  ${R("⚙️","For site owners: going global","The board runs locally by default. To make it worldwide, create a free Supabase project, add a <code>scores</code> table, then paste your API URL and anon key into <code>LB_API</code> and <code>LB_KEY</code> near the top of the script. Full SQL is in the code comments.")}
+
+  <div style="text-align:center;padding:20px 10px;font-size:11.5px;color:#94a3b8;line-height:1.8">
+    Good luck, and enjoy the grind 💪<br>
+    <span style="font-size:11px">Your financial statements update every game month (90 real seconds).</span>
+  </div>`;
+}
+
+function rSupport(){
+  const TIERS=[
+    {id:"coffee",  emoji:"☕", name:"Buy Me a Coffee", price:"$5",  col:"#f59e0b",
+     desc:"A small thank you. Keeps the servers running and the coffee flowing.",
+     perks:["Warm fuzzy feeling","My genuine thanks","Supporting an indie dev"]},
+    {id:"supporter",emoji:"⚡", name:"Supporter", price:"$15", col:"#2563eb", popular:true,
+     desc:"For anyone who's sunk a few hours into building their empire.",
+     perks:["Everything above","Name in the supporters list","Early access to new features","Vote on what gets built next"]},
+    {id:"patron",  emoji:"👑", name:"Factory Owner", price:"$40", col:"#7c3aed",
+     desc:"For the true tycoons. You've clearly enjoyed this more than is reasonable.",
+     perks:["Everything above","Name a machine or company in-game","Direct line for feature requests","Credit in the game footer"]},
+  ];
+
+  let o=`
+  <!-- Hero -->
+  <div style="background:linear-gradient(135deg,#7c3aed,#2563eb);border-radius:12px;padding:22px 16px;margin-bottom:16px;color:#fff;text-align:center">
+    <div style="font-size:38px;margin-bottom:8px">💛</div>
+    <div style="font-size:19px;font-weight:bold;margin-bottom:6px">Support the Game</div>
+    <div style="font-size:11px;opacity:0.85;line-height:1.7;max-width:300px;margin:0 auto">
+      Manufacturing Tycoon is <b>completely free</b> and always will be. No ads, no paywalls, no locked content — everyone gets the full game.
+    </div>
+  </div>
+
+  <!-- Why -->
+  <div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin-bottom:16px;padding:14px">
+    <div style="font-size:12px;font-weight:bold;color:#92400e;margin-bottom:6px">🎯 Why support?</div>
+    <div style="font-size:11px;color:#92400e;line-height:1.7">
+      This was built by one person as a passion project — a way to make business finance genuinely fun to learn. Every dollar goes back into building new features, more product lines, better events and keeping it free for everyone who wants to play.
+    </div>
+  </div>
+
+  <div class="sl">Choose Your Tier</div>`;
+
+  TIERS.forEach(t=>{
+    o+=`
+    <div class="card" style="border:2px solid ${t.popular?t.col:"#e2e8f0"};padding:0;overflow:hidden;margin-bottom:10px;position:relative">
+      ${t.popular?`<div style="background:${t.col};color:#fff;text-align:center;font-size:11px;letter-spacing:2px;padding:4px;font-weight:bold">⭐ MOST POPULAR</div>`:""}
+      <div style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">
+          <div style="display:flex;gap:10px;align-items:center">
+            <span style="font-size:28px">${t.emoji}</span>
+            <div>
+              <div style="font-weight:bold;font-size:14px">${t.name}</div>
+              <div style="font-size:12px;color:#64748b">one-off payment</div>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:24px;font-weight:bold;color:${t.col}">${t.price}</div>
+            <div style="font-size:11px;color:#94a3b8">USD</div>
+          </div>
+        </div>
+        <div style="font-size:12.5px;color:#64748b;line-height:1.65;margin-bottom:10px">${t.desc}</div>
+        <div style="background:#f8fafc;border-radius:7px;padding:10px 12px;margin-bottom:12px">
+          ${t.perks.map(p=>`<div style="display:flex;gap:7px;align-items:flex-start;font-size:11px;color:#374151;padding:3px 0"><span style="color:${t.col};flex-shrink:0">✓</span><span>${p}</span></div>`).join("")}
+        </div>
+        <a href="${PAY_LINKS[t.id]}" target="_blank" rel="noopener" onclick="trackEvent('begin_checkout',{tier:'${t.id}',value:${t.price.replace('$','')},currency:'USD'})" style="display:block;text-decoration:none">
+          <button style="width:100%;padding:12px;border-radius:8px;background:${t.col};color:#fff;font-weight:bold;font-size:13px;font-family:inherit;cursor:pointer">
+            ${t.emoji} Support with ${t.price}
+          </button>
+        </a>
+      </div>
+    </div>`;
+  });
+
+  o+=`
+  <!-- Monthly option -->
+  <div class="card" style="background:#f0fdf4;border:1px solid #bbf7d0;margin-top:14px;padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="display:flex;gap:10px;align-items:center">
+        <span style="font-size:24px">🔁</span>
+        <div>
+          <div style="font-weight:bold;font-size:13px">Monthly Supporter</div>
+          <div style="font-size:12px;color:#64748b">Cancel anytime · from $3/month</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:#64748b;line-height:1.65;margin-bottom:12px">
+      Ongoing support means I can keep adding new content regularly rather than in bursts. Monthly supporters get everything in the Supporter tier plus a say in the roadmap.
+    </div>
+    <a href="${PAY_LINKS.monthly}" target="_blank" rel="noopener" onclick="trackEvent('begin_checkout',{tier:'monthly',currency:'USD'})" style="display:block;text-decoration:none">
+      <button style="width:100%;padding:11px;border-radius:8px;background:#16a34a;color:#fff;font-weight:bold;font-size:12px;font-family:inherit;cursor:pointer">
+        🔁 Become a Monthly Supporter
+      </button>
+    </a>
+  </div>
+
+  <!-- Free ways to help -->
+  <div class="sl" style="margin-top:20px">Free Ways to Help</div>
+  <div class="card" style="padding:12px">
+    ${[
+      ["📣","Share it","Send it to a mate who'd enjoy it. Word of mouth is everything for a small project like this."],
+      ["⭐","Leave feedback","Tell me what's broken, what's boring, and what you'd love to see added."],
+      ["🐛","Report bugs","Found something that doesn't work? Let me know and I'll fix it."],
+      ["💡","Suggest features","Got an idea for a new product line, event or mechanic? I'm all ears."],
+    ].map(([e,t,d])=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f1f5f9"><span style="font-size:18px;flex-shrink:0">${e}</span><div><div style="font-weight:bold;font-size:12px;margin-bottom:2px">${t}</div><div style="font-size:11px;color:#64748b;line-height:1.5">${d}</div></div></div>`).join("")}
+  </div>
+
+  <!-- Transparency -->
+  <div class="card" style="background:#f8fafc;margin-top:14px;padding:12px">
+    <div style="font-size:11px;font-weight:bold;color:#374151;margin-bottom:6px">🔍 Where the money goes</div>
+    <div style="font-size:12px;color:#64748b;line-height:1.8">
+      • Hosting and domain costs<br>
+      • Time to build new product lines, events and mechanics<br>
+      • Keeping the game free and ad-free for everyone<br>
+      • The occasional coffee at 11pm while debugging
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:22px 10px;font-size:11px;color:#9ca3af;line-height:1.8">
+    Thank you for playing — genuinely.<br>
+    <span style="font-size:11.5px">Whether you support or not, I'm glad you're here. 💛</span>
+  </div>`;
+
+  return o;
+}
+
+// ── GUIDED SETUP (first-run interactive coach) ────────────────
+const TUT_STEPS=[
+  {id:"loan",tab:"finance",title:"Step 1 · Get startup capital",
+   body:"You start with just <b>$5,000</b> — not enough for a machine. Tap <b>New Loan</b> and take the <b>Starter Micro Loan</b> (no requirements) to get going.",
+   done:()=>G.loans.length>0||G.cash>=8000},
+  {id:"machine",tab:"factory",title:"Step 2 · Buy your first machine",
+   body:"On the <b>Tier 1</b> list, buy any machine (the <b>Injection Molder</b> is a cheap start). Machines turn raw materials into products you can sell.",
+   done:()=>machineCount()>=1},
+  {id:"operator",tab:"property",title:"Step 3 · Hire an operator",
+   body:"Machines don't run themselves. Scroll to <b>Factory Workforce</b> and hire at least one <b>Machine Operator</b> (tap the + button).",
+   done:()=>(G.work.operator||0)>=1},
+  {id:"trade",tab:"trade",title:"Step 4 · Turn on auto-trading",
+   body:"Tap <b>START</b> on the Automated Trade Manager. It buys the raw materials your machines need and sells finished products for you — hands-free.",
+   done:()=>G.tmOn},
+];
+function startTutorial(){G.tut={active:true,step:0};switchTab(TUT_STEPS[0].tab);flash("👋 Let's set up your first factory");render()}
+function skipTutorial(){if(G.tut)G.tut.active=false;const e=document.getElementById("tutCoach");if(e)e.remove();flash("Tour skipped — replay it any time from 📖 Help");render()}
+function finishTutorial(){if(G.tut)G.tut.active=false;const e=document.getElementById("tutCoach");if(e)e.remove();showTutDone();render()}
+function tutGoto(t){switchTab(t)}
+// Advances the tutorial when the current step's goal is met. Called from tick() to avoid render recursion.
+function tutCheck(){
+  if(!G.tut||!G.tut.active)return;
+  const step=TUT_STEPS[G.tut.step];if(!step)return;
+  if(step.done()){
+    G.tut.step++;
+    if(G.tut.step>=TUT_STEPS.length){finishTutorial();return}
+    flash("✓ Nice — next step ↓");
+    switchTab(TUT_STEPS[G.tut.step].tab);
+  }
+}
+function renderTutorial(){
+  const ex=document.getElementById("tutCoach");
+  if(screen!=="game"||!G.tut||!G.tut.active){if(ex)ex.remove();return}
+  const step=TUT_STEPS[G.tut.step];if(!step){if(ex)ex.remove();return}
+  const el=ex||document.createElement("div");
+  if(!ex){el.id="tutCoach";document.body.appendChild(el)}
+  el.style.cssText="position:fixed;left:50%;bottom:14px;transform:translateX(-50%);width:calc(100% - 24px);max-width:496px;background:#0f172a;color:#fff;border-radius:14px;padding:14px 16px;z-index:9997;box-shadow:0 12px 40px rgba(0,0,0,.4)";
+  const onTab=tab===step.tab;
+  const tabLabel=(TABS.find(t=>t.id===step.tab)||{}).label||step.tab;
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;letter-spacing:2px;color:#93c5fd;font-weight:700">GUIDED SETUP · ${G.tut.step+1}/${TUT_STEPS.length}</span>
+      <button onclick="skipTutorial()" style="background:none;color:#94a3b8;font-size:11.5px;font-family:inherit">Skip tour ✕</button>
+    </div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px">${step.title}</div>
+    <div style="font-size:12.5px;color:#cbd5e1;line-height:1.6;margin-bottom:10px">${step.body}</div>
+    ${onTab
+      ? `<div style="font-size:12px;color:#86efac;font-weight:600;display:flex;align-items:center;gap:6px">✓ You're on the right screen — do the action above to continue.</div>`
+      : `<button onclick="tutGoto('${step.tab}')" style="width:100%;min-height:44px;border-radius:9px;background:#2563eb;color:#fff;font-weight:700;font-size:13.5px;font-family:inherit">Open ${tabLabel} →</button>`}
+    <div style="display:flex;gap:4px;margin-top:10px">${TUT_STEPS.map((_,i)=>`<div style="flex:1;height:4px;border-radius:2px;background:${i<G.tut.step?'#16a34a':i===G.tut.step?'#3b82f6':'#334155'}"></div>`).join("")}</div>`;
+}
+function showTutDone(){
+  closeModal();
+  const m=document.createElement("div");m.id="appModal";
+  m.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)";
+  m.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center">
+      <div style="font-size:46px;margin-bottom:8px">🎉</div>
+      <div class="display" style="font-size:19px;font-weight:700;margin-bottom:6px">You're up and running!</div>
+      <div style="font-size:12.5px;color:#64748b;line-height:1.7;margin-bottom:18px">Your factory is producing and the Trade Manager is selling for you. Watch your cash tick up, then reinvest in more machines and bigger premises. <b>New tabs unlock as you earn.</b><br><br>Goal: grow your net worth to <b>$1 Billion</b>. Full details are always in the <b>📖 Help</b> tab.</div>
+      <button onclick="closeModal()" style="width:100%;min-height:48px;border-radius:10px;background:#16a34a;color:#fff;font-weight:700;font-size:14px;font-family:var(--font-ui)">Let's build 🚀</button>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click",e=>{if(e.target===m)closeModal()});
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────
+function buyMach(id){
+  const m=MACH[id],us=usedSlots(),ms=maxSlots();
+  if(us+m.slots>ms){flash("🔒 Not enough slots — need "+(us+m.slots-ms)+" more. Upgrade your property.");return}
+  if(G.cash<m.cost){flash("Insufficient funds");return}
+  G.cash-=m.cost;G.spent+=m.cost;G.mach[id]=(G.mach[id]||0)+1;render();
+}
+function sellMach(id){
+  const m=MACH[id];if(!m||(G.mach[id]||0)<1)return;
+  const p=Math.floor(m.cost*.5);G.cash+=p;G.earned+=p;G.mach[id]--;
+  flash("Sold 1x "+m.name+" for "+f(p));render();
+}
+function buyExp(id){
+  const e=EXPS[id];if(G.cash<e.cost||G.exps.includes(id)){flash("Insufficient funds");return}
+  G.cash-=e.cost;G.spent+=e.cost;G.exps.push(id);flash(e.name+" installed");render();
+}
+function buyProp(id){
+  const p=PROPS[id];
+  if(p.unique&&propCount(id)>=1){flash("You only need one of these");return}
+  if(G.cash<p.cost){flash("Need "+f(p.cost)+" — "+f(p.cost-G.cash)+" short");return}
+  G.cash-=p.cost;G.spent+=p.cost;
+  G.props[id]=propCount(id)+1;
+  const n=propCount(id);
+  flash("🏭 "+p.name+(n>1?" #"+n:"")+" acquired — +"+p.slots+" slots");
+  trackEvent("buy_property",{property:id,count:n});
+  render();
+}
+function sellProp(id){
+  if(id==="starter"){flash("Can't sell the starter workshop");return}
+  const p=PROPS[id];
+  if(propCount(id)<1)return;
+  const slotsAfter=maxSlots()-p.slots;
+  if(usedSlots()>slotsAfter){
+    flash("⚠ Selling this leaves "+usedSlots()+" machines in "+slotsAfter+" slots. Sell machines first.");
+    return;
+  }
+  const pr=Math.floor(p.cost*.75);
+  G.props[id]=propCount(id)-1;
+  if(G.props[id]<=0)delete G.props[id];
+  G.cash+=pr;G.earned+=pr;
+  flash("Sold one "+p.name+" for "+f(pr));render();
+}
+function hireW(id,d){const n=Math.max(0,(G.work[id]||0)+d);G.work[id]=n;render()}
+function hireO(id,d){const n=Math.max(0,(G.ostaff[id]||0)+d);G.ostaff[id]=n;render()}
+function setW(id,val){const n=Math.max(0,parseInt(val)||0);G.work[id]=n;render()}
+function setO(id,val){const n=Math.max(0,parseInt(val)||0);G.ostaff[id]=n;render()}
+function buyOEquip(id){
+  const eq=OEQUIP[id];if(G.oequip.includes(id)||G.cash<eq.cost){flash("Insufficient funds");return}
+  G.cash-=eq.cost;G.spent+=eq.cost;G.oequip.push(id);flash(eq.name+" installed");render();
+}
+function takeLoan(id){
+  const lt=LOANS.find(l=>l.id===id);if(!lt)return;
+  const nw=netWorth();
+  const annualRev=G.finHist.slice(-12).length>=12
+    ? G.finHist.slice(-12).reduce((a,s)=>a+(s.totalRev||0),0)
+    : revPerSec()*GM*12;
+  if(annualRev<lt.minRev&&nw<lt.minNW){flash("Not eligible — need "+f(lt.minRev)+"/yr revenue or "+f(lt.minNW)+" net worth");return;}
+  const monthly=pmt(lt.amount,lt.rate,lt.months);
+  G.cash+=lt.amount;
+  G.loans.push({id:Date.now(),name:lt.name,rate:lt.rate,col:lt.col,principal:lt.amount,remaining:lt.amount,monthly,monthsLeft:lt.months});
+  flash(lt.name+" of "+f(lt.amount)+" approved");render();
+}
+function setPayA(lid,val){payA[lid]=val;render()}
+function doPayLoan(lid){
+  const loan=G.loans.find(l=>l.id==lid);if(!loan)return;
+  const pa=parseFloat(payA[lid]||0)||0,pv=Math.min(pa,loan.remaining,G.cash);
+  if(pv<1){flash("Not enough cash");return}
+  G.cash-=pv;G.spent+=pv;
+  loan.remaining=Math.max(0,loan.remaining-pv);
+  if(loan.remaining<0.01)G.loans=G.loans.filter(l=>l.id!=lid);
+  else loan.monthly=pmt(loan.remaining,loan.rate,loan.monthsLeft);
+  payA[lid]="";flash("Paid "+f(pv)+" off "+loan.name);render();
+}
+function payAll(){
+  let rem=Math.min(G.cash,totalDebt());if(rem<1){flash("Not enough cash");return}
+  const paid=rem;
+  G.loans=[...G.loans].sort((a,b)=>b.rate-a.rate).map(l=>{if(rem<=0)return l;const paying=Math.min(rem,l.remaining);rem-=paying;const nr=Math.max(0,l.remaining-paying);if(nr<0.01)return null;return{...l,remaining:nr,monthly:pmt(nr,l.rate,l.monthsLeft)}}).filter(Boolean);
+  G.cash-=paid;G.spent+=paid;flash("Bulk payment of "+f(paid)+" applied");render();
+}
+function bulkPay(amt){
+  let rem=Math.min(amt,totalDebt(),G.cash);if(rem<1){flash("Not enough cash");return}
+  const paid=rem;
+  G.loans=[...G.loans].sort((a,b)=>b.rate-a.rate).map(l=>{if(rem<=0)return l;const paying=Math.min(rem,l.remaining);rem-=paying;const nr=Math.max(0,l.remaining-paying);if(nr<0.01)return null;return{...l,remaining:nr,monthly:pmt(nr,l.rate,l.monthsLeft)}}).filter(Boolean);
+  G.cash-=paid;G.spent+=paid;flash("Paid "+f(paid)+" off loans");render();
+}
+function toggleTM(){G.tmOn=!G.tmOn;render()}
+function setTM(key,field,val){if(!G.tmCfg[key])G.tmCfg[key]={};G.tmCfg[key][field]=val;render()}
+function buySh(tick,qty){
+  const cost=qty*(G.sPrices[tick]||0);if(G.cash<cost){flash("Insufficient funds");return}
+  if((G.ostaff.analyst||0)<1){flash("Hire a Financial Analyst first");return}
+  const pb=G.sBasis[tick]||{totalCost:0,qty:0};
+  G.cash-=cost;G.spent+=cost;
+  G.sHold[tick]=(G.sHold[tick]||0)+qty;
+  G.sBasis[tick]={totalCost:pb.totalCost+cost,qty:pb.qty+qty};
+  flash("Bought "+qty+" "+tick);render();
+}
+function sellSh(tick,qty){
+  const held=G.sHold[tick]||0;if(qty>held){flash("Don't own that many");return}
+  const rev=qty*(G.sPrices[tick]||0),basis=G.sBasis[tick]||{totalCost:0,qty:held};
+  const avg=basis.qty>0?basis.totalCost/basis.qty:0,pnl=rev-avg*qty;
+  G.cash+=rev;G.earned+=rev;
+  G.sHold[tick]=held-qty;
+  const nq=held-qty;G.sBasis[tick]=nq>0?{totalCost:avg*nq,qty:nq}:{totalCost:0,qty:0};
+  flash("Sold "+qty+" "+tick+" P&L: "+(pnl>=0?"+":"")+f(pnl));render();
+}
+function buyRE(id){
+  const d=RE[id];if(G.reProps[id]&&G.reProps[id].owned){flash("Already owned");return}
+  if(G.cash<d.cost){flash("Need "+f(d.cost));return}
+  G.cash-=d.cost;G.spent+=d.cost;
+  G.reProps[id]={owned:true,upgrades:[],boughtTime:G.time};
+  flash(d.name+" purchased!");render();
+}
+// Resale value grows with how long you've held: 0.90x on day one → up to 1.08x after ~12 game months.
+// This removes the old instant buy/sell money loop while still rewarding long-term holders.
+function reSaleFactor(id){
+  const p=G.reProps[id];if(!p)return 0.9;
+  const held=Math.max(0,(G.time-(p.boughtTime||0))/GM); // months held
+  return Math.max(0.9,Math.min(1.08,0.9+held*0.015));
+}
+function reSaleValue(id){const d=RE[id];return d?Math.floor(d.cost*reSaleFactor(id)):0}
+function sellRE(id){
+  const d=RE[id];if(!d||!G.reProps[id])return;
+  const factor=reSaleFactor(id),gain=reSaleValue(id);
+  delete G.reProps[id];G.cash+=gain;G.earned+=gain;
+  flash("Sold "+d.name+" for "+f(gain)+(factor<1?" — early-sale loss":" (+"+Math.round((factor-1)*100)+"%)"));
+  editRE=null;render();
+}
+function addREUpg(propId,ugId){
+  const d=RE[propId],ug=REUPG[ugId];if(!d||!ug)return;
+  const cost=d.cost*ug.cm;
+  if(G.cash<cost){flash("Need "+f(cost));return}
+  if(G.reProps[propId].upgrades.includes(ugId)){flash("Already installed");return}
+  G.cash-=cost;G.spent+=cost;G.reProps[propId].upgrades.push(ugId);
+  flash(ug.name+" added");render();
+}
+function unlockPL(id){
+  const pl=PL[id];if(!pl)return;
+  if(G.plines.includes(id)){flash("Already unlocked");return}
+  if(pl.req&&!G.plines.includes(pl.req)){flash("Requires "+PL[pl.req].name+" first");return}
+  if(G.cash<pl.cost){flash("Need "+f(pl.cost));return}
+  G.cash-=pl.cost;G.spent+=pl.cost;G.plines.push(id);flash("Unlocked: "+pl.name+"!");render();
+}
+function acquire(id){
+  const acq=ACQ[id];if(!acq)return;
+  if(G.acqs.includes(id)){flash("Already acquired");return}
+  if(acq.req&&!G.plines.includes(acq.req)){flash("Requires "+PL[acq.req].name+" product line first");return}
+  if(G.cash<acq.cost){flash("Need "+f(acq.cost));return}
+  G.cash-=acq.cost;G.spent+=acq.cost;G.acqs.push(id);
+  if(acq.bonus){
+    if(acq.bonus.mach){
+      let skipped=0;
+      Object.entries(acq.bonus.mach).forEach(([mid,qty])=>{
+        const md=MACH[mid];if(!md)return;
+        for(let n=0;n<qty;n++){
+          if(usedSlots()+md.slots>maxSlots()){skipped++;continue}
+          G.mach[mid]=(G.mach[mid]||0)+1;
+        }
+      });
+      if(skipped>0)setTimeout(()=>flash("⚠ "+skipped+" acquired machine(s) couldn't be installed — no slots free"),1200);
+    }
+    if(acq.bonus.mats)Object.entries(acq.bonus.mats).forEach(([mid,qty])=>{G.mats[mid]=(G.mats[mid]||0)+qty});
+    if(acq.bonus.productLine&&!G.plines.includes(acq.bonus.productLine))G.plines.push(acq.bonus.productLine);
+  }
+  flash("Acquired "+acq.name+"! +"+f(acq.revenue)+"/month");render();
+}
+
+// ── START ─────────────────────────────────────────────────────
+G=freshState();
+// Save on tab close / navigate away
+window.addEventListener("beforeunload",()=>{if(screen==="game"&&activeSlot!=null)saveGame(activeSlot,true)});
+// Save when tab is backgrounded (mobile safe)
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&screen==="game"&&activeSlot!=null)saveGame(activeSlot,true)});
+initRoute();
+render();
+setInterval(tick, TICK);
+</script>
+</body>
+</html>
