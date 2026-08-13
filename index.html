@@ -288,6 +288,16 @@ const EXPS={
   sixSigma:{name:"Six Sigma Program",emoji:"⭐",cost:200000,desc:"+30% sell price",tag:"+30% PRICE"},
 };
 
+// ── GROWTH SHOP — repeatable, permanent boosts bought with in-game cash ──
+const SHOP={
+  speed:{name:"Overdrive Program", emoji:"🚀",desc:"Push every machine harder.",     per:"+12% production speed", base:25000, growth:1.7,  col:"#2563eb"},
+  sales:{name:"Brand & Marketing",  emoji:"📣",desc:"Command higher prices on sales.", per:"+8% sell prices",       base:40000, growth:1.7,  col:"#16a34a"},
+  proc: {name:"Supply Chain Deal",  emoji:"🤝",desc:"Better terms with suppliers.",    per:"-5% import costs",      base:30000, growth:1.65, col:"#f59e0b"},
+  rnd:  {name:"R&D Division",        emoji:"🔬",desc:"Compounding efficiency gains.",    per:"+6% production AND prices", base:150000, growth:1.8, col:"#7c3aed"},
+};
+function shopLevel(id){return (G.shop&&G.shop[id])||0}
+function shopCost(id){const s=SHOP[id];return Math.floor(s.base*Math.pow(s.growth,shopLevel(id)))}
+
 const LOANS=[
   // minRev = minimum annual revenue required, minNW = minimum net worth required
   {id:"starter",  name:"Starter Micro Loan",        amount:5000,      rate:0.22, months:6,   col:"#94a3b8",risk:"STARTER",     minRev:0,          minNW:0,           desc:"No requirements. Get your first machine running."},
@@ -363,6 +373,7 @@ function freshState(){
     work:{operator:0,engineer:0,manager:0},
     ostaff:{accountant:0,salesRep:0,procurement:0,analyst:0,itManager:0},
     oequip:[],exps:[],loans:[],
+    shop:{speed:0,sales:0,proc:0,rnd:0},
     matP:Object.fromEntries(Object.entries(MAT).map(([k,v])=>[k,v.bp])),
     prodP:Object.fromEntries(Object.entries(PROD).map(([k,v])=>[k,v.bp])),
     props:{starter:1},
@@ -396,9 +407,9 @@ function defaultTM(){
 }
 
 // ── COMPUTED ──────────────────────────────────────────────────
-function speed(){let s=1;if(G.exps.includes("autoLine"))s*=2;if(G.exps.includes("robotics2"))s*=2;s*=(1+(G.work.engineer||0)*0.05);G.acqs.forEach(id=>{const a=ACQ[id];if(a&&a.bonus&&a.bonus.speedBonus)s*=(1+a.bonus.speedBonus)});return s}
-function expB(){let b=1;if(G.exps.includes("isoQual"))b*=1.2;if(G.exps.includes("sixSigma"))b*=1.3;b*=(1+(G.ostaff.salesRep||0)*0.08);if(G.oequip.includes("crm"))b*=1.05;if(G.oequip.includes("comms"))b*=1.03;return b}
-function impD(){let d=1;if(G.exps.includes("logistics"))d*=0.9;d*=Math.pow(0.95,G.ostaff.procurement||0);if(G.oequip.includes("erp"))d*=0.92;return d}
+function speed(){let s=1;if(G.exps.includes("autoLine"))s*=2;if(G.exps.includes("robotics2"))s*=2;s*=(1+(G.work.engineer||0)*0.05);G.acqs.forEach(id=>{const a=ACQ[id];if(a&&a.bonus&&a.bonus.speedBonus)s*=(1+a.bonus.speedBonus)});if(G.shop){s*=(1+0.12*(G.shop.speed||0));s*=(1+0.06*(G.shop.rnd||0))}return s}
+function expB(){let b=1;if(G.exps.includes("isoQual"))b*=1.2;if(G.exps.includes("sixSigma"))b*=1.3;b*=(1+(G.ostaff.salesRep||0)*0.08);if(G.oequip.includes("crm"))b*=1.05;if(G.oequip.includes("comms"))b*=1.03;if(G.shop){b*=(1+0.08*(G.shop.sales||0));b*=(1+0.06*(G.shop.rnd||0))}return b}
+function impD(){let d=1;if(G.exps.includes("logistics"))d*=0.9;d*=Math.pow(0.95,G.ostaff.procurement||0);if(G.oequip.includes("erp"))d*=0.92;if(G.shop)d*=Math.pow(0.95,G.shop.proc||0);return d}
 function propCount(id){const v=G.props[id];return v===true?1:(v||0)}
 function maxSlots(){return Object.entries(PROPS).reduce((a,[id,p])=>a+propCount(id)*p.slots,0)}
 function usedSlots(){return Object.entries(MACH).reduce((a,[id,m])=>a+(G.mach[id]||0)*m.slots,0)}
@@ -640,13 +651,13 @@ const TABS=[
   {id:"finance",   label:"💰 Finance",     unlock:()=>true},
   {id:"trade",     label:"🤖 Trade",       unlock:()=>machineCount()>=1,        hint:"Buy your first machine"},
   {id:"objectives",label:"🏆 Goals",       unlock:()=>machineCount()>=1,        hint:"Buy your first machine"},
+  {id:"shop",      label:"🛒 Shop",        unlock:()=>machineCount()>=1,        hint:"Buy your first machine"},
   {id:"office",    label:"🏢 Office",      unlock:()=>G.earned>=25000,          hint:"Earn $25K revenue"},
   {id:"expand",    label:"🚀 Expand",      unlock:()=>G.earned>=75000,          hint:"Earn $75K revenue"},
   {id:"realestate",label:"🏠 Real Estate", unlock:()=>G.earned>=250000,         hint:"Earn $250K revenue"},
   {id:"shares",    label:"📈 Shares",      unlock:()=>(G.ostaff.analyst||0)>=1, hint:"Hire a Financial Analyst"},
   {id:"leaderboard",label:"🏆 Leaders",   unlock:()=>true},
   {id:"help",      label:"📖 Help",        unlock:()=>true},
-  {id:"support",   label:"💛 Support",     unlock:()=>true},
 ];
 function machEcon(id){
   const m=MACH[id],p=PROD[m.prod];if(!m||!p)return null;
@@ -705,7 +716,7 @@ const ROUTES={
   objectives:{title:"Objectives",      path:"/objectives"},
   leaderboard:{title:"Leaderboard",   path:"/leaderboard"},
   help:      {title:"How to Play",     path:"/help"},
-  support:   {title:"Support the Game",path:"/support"},
+  shop:      {title:"Growth Shop",     path:"/shop"},
 };
 const SITE_NAME="Manufacturing Tycoon";
 
@@ -926,8 +937,7 @@ function rHome(){
     </div>
 
     <div style="text-align:center;padding:20px 10px;font-size:11.5px;color:#94a3b8;line-height:1.8">
-      Free to play · No ads · No paywalls<br>
-      <a href="#support" onclick="screen='game';switchTab('support');return false" style="color:#7c3aed;text-decoration:none;font-weight:bold">💛 Support the game</a>
+      Free to play · No ads · No paywalls
     </div>
   </div>`;
 
@@ -1226,7 +1236,7 @@ function renderContent(){
   else if(tab==="objectives")el.innerHTML=rObjectives();
   else if(tab==="leaderboard"){el.innerHTML=rLeaderboard();if(!lbCache&&!lbLoading)fetchLeaderboard();}
   else if(tab==="help")el.innerHTML=rHelp();
-  else if(tab==="support")el.innerHTML=rSupport();
+  else if(tab==="shop")el.innerHTML=rShop();
 }
 
 // ── TAB RENDERERS ─────────────────────────────────────────────
@@ -2097,6 +2107,42 @@ function rLeaderboard(){
   return o;
 }
 
+function rShop(){
+  if(!G.shop)G.shop={speed:0,sales:0,proc:0,rnd:0};
+  const sLv=shopLevel("speed"),saLv=shopLevel("sales"),pLv=shopLevel("proc"),rLv=shopLevel("rnd");
+  const importCut=Math.round((1-Math.pow(0.95,pLv))*100);
+  let o=`<div class="card" style="background:linear-gradient(135deg,#7c3aed,#2563eb);border:none;color:#fff;margin-bottom:12px">
+    <div style="font-size:11px;letter-spacing:2px;opacity:.7;margin-bottom:6px">🛒 GROWTH SHOP</div>
+    <div style="font-size:12.5px;line-height:1.6;opacity:.95">Reinvest your cash into <b>permanent</b> upgrades that make your whole empire grow faster. Every level stacks and applies to all product lines — compound your profits here.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;font-size:11.5px">
+      ${[["⚡ Production speed","+"+(12*sLv+6*rLv)+"%"],["💹 Sell prices","+"+(8*saLv+6*rLv)+"%"],["📦 Import costs","-"+importCut+"%"],["🔬 R&D level",rLv]].map(([l,v])=>`<div style="background:rgba(255,255,255,.12);border-radius:6px;padding:7px 9px"><div style="opacity:.7">${l}</div><div style="font-weight:bold;font-size:13px">${v}</div></div>`).join("")}
+    </div>
+  </div>`;
+  Object.entries(SHOP).forEach(([id,s])=>{
+    const lv=shopLevel(id),cost=shopCost(id),can=G.cash>=cost;
+    const prog=Math.min(100,(G.cash/cost)*100);
+    o+=`<div class="card ${can?"affordable":""}" style="border:2px solid ${can?"#16a34a":lv>0?s.col+"55":"#e2e8f0"}">
+      <div style="display:flex;gap:11px;align-items:center">
+        <span style="font-size:26px;flex-shrink:0">${s.emoji}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+            <span style="font-weight:700;font-size:14px">${h(s.name)}</span>
+            ${lv>0?`<span style="font-size:11px;background:${s.col}22;color:${s.col};padding:1px 8px;border-radius:10px;font-weight:700">LV ${lv}</span>`:""}
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px">${h(s.desc)}</div>
+          <div style="font-size:11.5px;color:${s.col};font-weight:600;margin-top:3px">Next level: ${h(s.per)}</div>
+          ${!can?`<div class="mini-bar"><div class="mini-fill" style="width:${prog}%;background:${prog>75?"#16a34a":prog>40?"#f59e0b":"#cbd5e1"}"></div></div><div style="font-size:11px;color:#94a3b8;margin-top:3px">${prog.toFixed(0)}% · need ${f(cost-G.cash)} more</div>`:`<div style="margin-top:5px"><span class="aff-badge">✓ AFFORDABLE NOW</span></div>`}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:11.5px;color:#94a3b8;margin-bottom:5px">${f(cost)}</div>
+          <button onclick="buyShopItem('${id}')" style="padding:0 16px;min-height:46px;border-radius:8px;background:${can?s.col:"#f1f5f9"};color:${can?"#fff":"#94a3b8"};font-weight:700;font-size:13px;font-family:inherit">${lv>0?"UPGRADE":"BUY"}</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  return o;
+}
+
 function rHelp(){
   const S=(emoji,title,col)=>`<div style="display:flex;align-items:center;gap:8px;margin:16px 0 6px"><span style="font-size:18px">${emoji}</span><div style="font-size:11px;font-weight:bold;color:${col};letter-spacing:1px;text-transform:uppercase">${title}</div></div>`;
   const R=(emoji,title,body)=>`<div class="card" style="margin-bottom:7px;padding:10px 12px"><div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:18px;flex-shrink:0">${emoji}</span><div><div style="font-weight:bold;font-size:12px;margin-bottom:2px">${title}</div><div style="font-size:12.5px;color:#64748b;line-height:1.65">${body}</div></div></div></div>`;
@@ -2359,6 +2405,16 @@ function sellMach(id){
 function buyExp(id){
   const e=EXPS[id];if(G.cash<e.cost||G.exps.includes(id)){flash("Insufficient funds");return}
   G.cash-=e.cost;G.spent+=e.cost;G.exps.push(id);flash(e.name+" installed");render();
+}
+function buyShopItem(id){
+  const s=SHOP[id];if(!s)return;
+  if(!G.shop)G.shop={speed:0,sales:0,proc:0,rnd:0};
+  const cost=shopCost(id);
+  if(G.cash<cost){flash("Need "+f(cost)+" — "+f(cost-G.cash)+" short");return}
+  G.cash-=cost;G.spent+=cost;G.shop[id]=(G.shop[id]||0)+1;
+  flash(s.emoji+" "+s.name+" → Level "+G.shop[id]);
+  trackEvent("shop_buy",{item:id,level:G.shop[id]});
+  render();
 }
 function buyProp(id){
   const p=PROPS[id];
