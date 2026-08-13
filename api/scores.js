@@ -1,6 +1,10 @@
 // GET /api/scores — top 100 leaderboard entries
 const store = globalThis.__mfgScores || (globalThis.__mfgScores = new Map());
 
+// Accept either the Vercel KV or the Upstash-for-Redis env var names.
+const KV_URL   = process.env.KV_REST_API_URL   || process.env.UPSTASH_REDIS_REST_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -10,10 +14,10 @@ export default async function handler(req, res) {
 
   try {
     let rows = [];
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    if (KV_URL && KV_TOKEN) {
       const r = await fetch(
-        `${process.env.KV_REST_API_URL}/zrange/mfg:scores/0/99/REV/WITHSCORES`,
-        { headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` } }
+        `${KV_URL}/zrange/mfg:scores/0/99/REV/WITHSCORES`,
+        { headers: { Authorization: `Bearer ${KV_TOKEN}` } }
       );
       const j = await r.json();
       const arr = j.result || [];

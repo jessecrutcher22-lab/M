@@ -5,6 +5,10 @@ const hits  = globalThis.__mfgHits   || (globalThis.__mfgHits   = new Map());
 const MAX_NET_WORTH = 1e13;   // reject obvious tampering
 const RATE_LIMIT    = 10;     // submissions per minute per IP
 
+// Accept either the Vercel KV or the Upstash-for-Redis env var names.
+const KV_URL   = process.env.KV_REST_API_URL   || process.env.UPSTASH_REDIS_REST_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -47,12 +51,12 @@ export default async function handler(req, res) {
       created_at:   new Date().toISOString(),
     };
 
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-      const auth = { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` };
+    if (KV_URL && KV_TOKEN) {
+      const auth = { Authorization: `Bearer ${KV_TOKEN}` };
       const key  = `mfg:best:${name.toLowerCase()}`;
 
       // Only keep a player's best run
-      const prevRes = await fetch(`${process.env.KV_REST_API_URL}/get/${encodeURIComponent(key)}`, { headers: auth });
+      const prevRes = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, { headers: auth });
       const prevJson = await prevRes.json();
       if (prevJson.result) {
         try {
@@ -60,15 +64,15 @@ export default async function handler(req, res) {
           if (prev.net_worth >= net_worth) {
             return res.status(200).json({ ok: true, kept: 'previous' });
           }
-          await fetch(`${process.env.KV_REST_API_URL}/zrem/mfg:scores/${encodeURIComponent(prevJson.result)}`, { headers: auth });
+          await fetch(`${KV_URL}/zrem/mfg:scores/${encodeURIComponent(prevJson.result)}`, { headers: auth });
         } catch (e) {}
       }
 
       const member = JSON.stringify(entry);
-      await fetch(`${process.env.KV_REST_API_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(member)}`, { headers: auth });
-      await fetch(`${process.env.KV_REST_API_URL}/zadd/mfg:scores/${net_worth}/${encodeURIComponent(member)}`, { headers: auth });
+      await fetch(`${KV_URL}/set/${encodeURIComponent(key)}/${encodeURIComponent(member)}`, { headers: auth });
+      await fetch(`${KV_URL}/zadd/mfg:scores/${net_worth}/${encodeURIComponent(member)}`, { headers: auth });
       // Trim to top 200
-      await fetch(`${process.env.KV_REST_API_URL}/zremrangebyrank/mfg:scores/0/-201`, { headers: auth });
+      await fetch(`${KV_URL}/zremrangebyrank/mfg:scores/0/-201`, { headers: auth });
     } else {
       const key  = name.toLowerCase();
       const prev = store.get(key);
