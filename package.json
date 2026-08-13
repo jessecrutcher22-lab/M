@@ -2,5 +2,8 @@
   "name": "manufacturing-tycoon",
   "version": "1.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "ioredis": "^5.4.2"
+  }
 }

@@ -1,9 +1,18 @@
 // GET /api/scores — top 100 leaderboard entries
+import Redis from 'ioredis';
+
 const store = globalThis.__mfgScores || (globalThis.__mfgScores = new Map());
 
-// Accept either the Vercel KV or the Upstash-for-Redis env var names.
-const KV_URL   = process.env.KV_REST_API_URL   || process.env.UPSTASH_REDIS_REST_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// Reuse one Redis connection across warm invocations.
+function getRedis() {
+  const url = process.env.REDIS_URL || process.env.KV_URL || process.env.UPSTASH_REDIS_URL;
+  if (!url) return null;
+  if (!globalThis.__redis) {
+    globalThis.__redis = new Redis(url, { maxRetriesPerRequest: 3, enableReadyCheck: false });
+    globalThis.__redis.on('error', () => {}); // don't crash the function on transient errors
+  }
+  return globalThis.__redis;
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,17 +22,11 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    const redis = getRedis();
     let rows = [];
-    if (KV_URL && KV_TOKEN) {
-      const r = await fetch(
-        `${KV_URL}/zrange/mfg:scores/0/99/REV/WITHSCORES`,
-        { headers: { Authorization: `Bearer ${KV_TOKEN}` } }
-      );
-      const j = await r.json();
-      const arr = j.result || [];
-      for (let i = 0; i < arr.length; i += 2) {
-        try { rows.push(JSON.parse(arr[i])); } catch (e) {}
-      }
+    if (redis) {
+      const members = await redis.zrevrange('mfg:scores', 0, 99);
+      rows = members.map(m => { try { return JSON.parse(m); } catch (e) { return null; } }).filter(Boolean);
     } else {
       rows = [...store.values()].sort((a, b) => b.net_worth - a.net_worth).slice(0, 100);
     }
