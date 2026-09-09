@@ -188,3 +188,97 @@ table.results td.p { font-weight: 800; color: var(--amber); width: 3em; }
 #fatal { position: fixed; inset: 0; display: none; place-items: center; padding: 8vmin;
   background: #05070e; color: #ff8090; font-family: var(--mono); font-size: 14px;
   line-height: 1.6; white-space: pre-wrap; text-align: left; }
+
+/* ------------------------------------------------------- touch controls */
+
+#touch { position: absolute; inset: 0; display: none; pointer-events: none; z-index: 5; }
+#touch.on { display: block; }
+
+.tsteer {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 46%;
+  pointer-events: auto; touch-action: none;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 0 0 max(3vmin, env(safe-area-inset-bottom)) max(4vmin, env(safe-area-inset-left));
+}
+.tsteer-track {
+  width: min(230px, 42vw); height: 12px; border-radius: 8px;
+  background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.16);
+  position: relative; transition: background .15s;
+}
+.tsteer.active .tsteer-track { background: rgba(0,229,255,.18); border-color: rgba(0,229,255,.5); }
+.tsteer-knob {
+  position: absolute; left: 50%; top: 50%; width: 46px; height: 46px;
+  margin: -23px 0 0 -23px; border-radius: 50%;
+  background: rgba(255,255,255,.90); box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  transition: transform .05s linear;
+}
+.tsteer-hint {
+  font-size: 10px; letter-spacing: .3em; opacity: .35; margin-top: 16px;
+}
+
+.tpads {
+  position: absolute; right: max(4vmin, env(safe-area-inset-right));
+  bottom: max(3vmin, env(safe-area-inset-bottom));
+  display: flex; align-items: flex-end; gap: 2.4vmin; pointer-events: none;
+}
+.tbtn {
+  pointer-events: auto; touch-action: none; user-select: none;
+  display: grid; place-items: center; border-radius: 50%;
+  font-size: clamp(10px, 1.5vmin, 13px); font-weight: 800; letter-spacing: .16em;
+  border: 1.5px solid rgba(255,255,255,.22); color: rgba(255,255,255,.85);
+  background: rgba(10,14,24,.42); backdrop-filter: blur(6px);
+  transition: transform .08s, background .08s;
+}
+.tbtn.gas { width: min(112px, 22vw); height: min(112px, 22vw);
+  border-color: rgba(0,229,255,.5); background: rgba(0,229,255,.16); }
+.tbtn.brake { width: min(84px, 17vw); height: min(84px, 17vw);
+  border-color: rgba(255,46,106,.5); background: rgba(255,46,106,.14); }
+.tbtn.hand { width: min(70px, 15vw); height: min(70px, 15vw);
+  border-color: rgba(255,199,52,.5); background: rgba(255,199,52,.13); margin-bottom: 6vmin; }
+.tbtn.on { transform: scale(.93); background: rgba(255,255,255,.30); }
+#touch.autogas .tbtn.gas { opacity: .42; }
+
+#pauseBtn {
+  position: absolute; left: 50%; top: 2.2vmin; transform: translateX(-50%);
+  width: 40px; height: 40px; border-radius: 50%; display: none;
+  align-items: center; justify-content: center; pointer-events: auto;
+  border: 1px solid rgba(255,255,255,.2); background: rgba(8,12,22,.55);
+  color: #fff; font-size: 13px; font-weight: 800; letter-spacing: .1em;
+  font-family: var(--font); cursor: pointer; z-index: 6;
+}
+#hud.on #pauseBtn { display: flex; }
+
+/* Phones are short and wide: shrink the HUD so it does not eat the view. */
+@media (max-height: 480px), (pointer: coarse) {
+  .speedo { right: max(2vmin, env(safe-area-inset-right)); bottom: 1.6vmin; }
+  .speedo .val { font-size: clamp(34px, 8vmin, 64px); }
+  .tacho { display: none; }
+  .driftmeter { bottom: auto; top: 12vmin; }
+  #debug { display: none; }
+  .corner { padding: 1vmin 1.2vmin; }
+  .stat .v { font-size: clamp(16px, 3vmin, 28px); }
+  .screen { padding: 3vmin 4vmin; }
+  .card p { min-height: 0; }
+}
+
+#rotate {
+  position: fixed; inset: 0; display: none; place-items: center; text-align: center;
+  background: #05070e; z-index: 40; padding: 10vmin;
+  font-size: clamp(13px, 2vmin, 18px); letter-spacing: .2em; line-height: 2;
+}
+@media (orientation: portrait) and (pointer: coarse) { #rotate { display: grid; } }
+
+/* Results table reads better constrained than stretched across a 4K screen. */
+table.results { max-width: 900px; }
+table.results td:first-child { width: 3em; }
+
+@media (pointer: coarse) {
+  /* The gas pedal lives in the bottom-right corner, so the speed moves out
+     from under it. */
+  .speedo { right: auto; left: 50%; transform: translateX(-50%); bottom: 0.6vmin;
+    text-align: center; }
+  .speedo .val { font-size: clamp(30px, 7.5vmin, 54px); }
+  .tsteer-hint { position: absolute; bottom: calc(100% + 10px); left: 0; margin: 0; }
+  .tsteer { padding-bottom: max(4.5vmin, env(safe-area-inset-bottom)); }
+  .tbtn.hand { margin-bottom: 4vmin; }
+}

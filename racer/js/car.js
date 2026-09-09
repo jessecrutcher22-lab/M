@@ -234,16 +234,19 @@
       if (this.collisionFlash > 0) this.collisionFlash -= dt;
     }
 
-    /* Instant velocity change — barriers and car-to-car contact. */
-    impulse(wx, wz, restitution) {
+    /* Add a world-space velocity change — barriers and car-to-car contact. */
+    impulse(wx, wz) {
       const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
-      // world -> body
-      const du = wx * s + wz * c;
-      const dv = wx * c - wz * s;
-      this.u += du * (restitution === undefined ? 1 : restitution);
-      this.v += dv;
+      this.u += wx * s + wz * c;      // world -> body
+      this.v += wx * c - wz * s;
       this.collisionFlash = 0.25;
     }
+
+    /* Scrub forward speed off, as a wall scrape does. */
+    scrub(factor) { this.u *= factor; }
+
+    /* World-space velocity, for collision maths. */
+    get worldVel() { return [this.velX, this.velZ]; }
 
     get kmh() { return this.speed * 3.6; }
     get wheelRadius() { return WHEEL_RADIUS; }

@@ -35,7 +35,7 @@
       horizon: 0.40, sunScreen: [0.22, 0.86], sunGlow: [0.10, 0.11, 0.22],
       fogCol: [0.055, 0.06, 0.12], fogNear: 130, fogFar: 460, far: 1000,
       sunDir: norm([-0.35, 0.72, -0.30]), sunCol: [0.30, 0.33, 0.52],
-      hemiSky: [0.14, 0.16, 0.36], hemiGround: [0.16, 0.08, 0.20], ambient: 0.62,
+      hemiSky: [0.18, 0.20, 0.42], hemiGround: [0.20, 0.11, 0.26], ambient: 0.78,
       groundA: [0.10, 0.10, 0.14], groundB: [0.09, 0.09, 0.13],
       night: true
     },

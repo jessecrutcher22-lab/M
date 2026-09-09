@@ -5,10 +5,18 @@ A browser arcade racer. No build step, no downloads, no dependencies — open
 
 ## Running it
 
-Double-click `index.html`. That's it. (It also works served over HTTP if you
-prefer: `npx serve racer` from the repo root.)
+**On a computer:** double-click `index.html`.
 
-Requires WebGL2, which every current desktop browser has.
+**On a phone or tablet:** serve the folder over HTTP (`npx serve racer` from
+the repo root, or host it anywhere) and open it on the device. Then use
+*Add to Home Screen* — it installs as a full-screen app, runs offline after
+the first load, and locks to landscape.
+
+**As a single file:** `node racer/build.cjs` bundles everything into
+`racer/dist/apex-rush.html`, which is one self-contained page you can email,
+drop on a USB stick, or open from anywhere.
+
+Requires WebGL2, which every current browser has.
 
 ## The stack, and why
 
@@ -35,10 +43,17 @@ plain `<script>` tags.
 | Handbrake | `Space` |
 | Reset to track | `R` |
 | Camera | `C` |
+| Pause | `Esc` |
 | Debug readout | `F1` |
 
-Gamepad: left stick steers, `RT`/`LT` are throttle and brake, `A`/`X` is the
-handbrake, `B` resets.
+**Gamepad:** left stick steers, `RT`/`LT` are throttle and brake, `A`/`X` is
+the handbrake, `B` resets.
+
+**Touch:** put a thumb down anywhere on the left half of the screen and slide
+— steering is relative to where you started, so there is no wheel to find.
+The pedals are bottom-right. **Auto-gas is on by default**, because holding a
+throttle button and steering at the same time is miserable on a phone; turn
+it off (or switch on tilt steering) from the pause screen.
 
 ## Layout
 
@@ -55,8 +70,18 @@ js/car.js           the driving model
 js/carmodel.js      car body geometry
 js/camera.js        chase camera
 js/effects.js       skid marks, tyre smoke, shadows
+js/track.js         spline, resampling, checkpoints, racing line, queries
+js/tracks.js        >>> the circuits — add one here and nothing else <<<
+js/trackmesh.js     tarmac, kerbs, barriers, terrain from the spline
+js/scenery.js       roadside props, instanced
+js/race.js          laps, checkpoints, timing, standings, collisions
+js/ai.js            the opponents
+js/touch.js         phone and tablet controls
 js/ui.js            HUD and menu screens
 js/game.js          boot, game loop, game state
+build.cjs           bundles it all into one file
+sw.js               offline cache, so it works installed with no connection
+manifest.webmanifest
 ```
 
 ## Tuning the driving
@@ -75,14 +100,37 @@ The knobs worth reaching for first:
 
 Reload the page after editing; there is no build step.
 
-## Where it's up to
+## Adding a track
 
-Built in the order the brief asked for. Step 1 (scaffold + car on a flat
-plane) is in: the physics playground has a tarmac strip with 100 m boards for
-braking tests, a slalom, and a 55 m cone circle. Press `1`–`4` to swap
-between the four cars and feel the difference.
+Open `js/tracks.js` and add an entry. A layout is a list of
+`[bearing°, radius, height]` samples around a loop — because every point is
+placed by its angle from the centre, the closed curve is star-shaped and so
+*cannot* cross itself. Gentle radius swings give fast sweepers; sharp ones
+give hairpins. Everything else — tarmac, kerbs on the corners, barriers,
+terrain, checkpoints, the racing line the AI uses, the map on the menu card —
+is generated from those numbers.
 
-Measured behaviour of the four cars:
+## The cars
+
+| | top speed | 0–100 km/h | 60 m/s → 0 | peak lateral | 70 m corner |
+|---|---|---|---|---|---|
+| Bolt GT | 245 km/h | 3.7 s | 109 m | 1.53 g | 148 km/h |
+| Vypr X | 289 km/h | 4.1 s | 127 m | 1.45 g | 140 km/h |
+| Kite R | 209 km/h | 2.9 s | 86 m | 1.83 g | 166 km/h |
+| Onyx RS | 256 km/h | 2.9 s | 113 m | 1.46 g | 130 km/h |
+
+Kite R corners 36 km/h faster than Onyx RS but gives away 47 km/h on the
+straights — the choice is a real trade-off, not a cosmetic one.
+
+## The circuits
+
+| | length | tightest corner | character |
+|---|---|---|---|
+| Azure Coast | 3.14 km | 140 m radius | fast sweepers, sea haze, sand runoff |
+| Neon Mile | 2.41 km | 51 m radius | tight, angular, lit towers at midnight |
+| Ridge Pass | 3.46 km | 132 m radius | 9% grades, a climb and a plunge |
+
+## Old notes
 
 | | top speed | 0–100 km/h | 60 m/s → 0 | peak lateral | 70 m corner |
 |---|---|---|---|---|---|

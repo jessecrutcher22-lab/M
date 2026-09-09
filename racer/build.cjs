@@ -24,7 +24,10 @@ const js = srcs.map(s =>
 ).join('\n');
 
 const bootMatch = html.match(/<script>\n([\s\S]*?)<\/script>/);
-const boot = bootMatch ? bootMatch[1] : '';
+/* The single-file build has no sibling files, so the manifest link and the
+ * service-worker registration are dropped rather than left to 404. */
+const boot = (bootMatch ? bootMatch[1] : '')
+  .replace(/\n\s*\/\/ Installable on a phone[\s\S]*?\n  \}\n/, '\n');
 
 const title = (html.match(/<title>([^<]*)<\/title>/) || [, 'Apex Rush'])[1];
 const body = html
