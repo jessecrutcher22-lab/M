@@ -63,9 +63,16 @@
     /* ---- steering --------------------------------------------------------
      * The steering lock shrinks with speed. Without this the car is
      * undriveable on a straight at 250 km/h. */
-    STEER_MAX_LOW: 0.60,    // rad (~34deg) of lock at a standstill
-    STEER_MAX_HIGH: 0.115,  // rad (~6.6deg) of lock at STEER_FALLOFF_SPEED
-    STEER_FALLOFF_SPEED: 62,// m/s at which the lock has fully shrunk
+    /* Lock is deliberately close to what the front tyres can actually use.
+     * Give the car much more than this and the last third of the steering
+     * travel does nothing, because the fronts are already past their peak
+     * slip — which reads as vague, dead steering. */
+    STEER_MAX_LOW: 0.46,    // rad (~26deg) of lock at a standstill
+    /* Do not shrink the high-speed lock too far: catching a slide needs real
+     * counter-lock, and a car that cannot counter-steer at 170 km/h simply
+     * spins. This is the headroom, not the cornering lock. */
+    STEER_MAX_HIGH: 0.130,  // rad (~7.4deg) of lock at STEER_FALLOFF_SPEED
+    STEER_FALLOFF_SPEED: 55,// m/s at which the lock has fully shrunk
     STEER_FALLOFF_CURVE: 0.75, // <1 = tightens up early, >1 = late
     STEER_RATE: 6.2,        // rad/s the wheels turn toward your input
     STEER_RETURN: 9.0,      // rad/s they snap back to centre when you let go
@@ -78,7 +85,8 @@
 
     /* ---- arcade assists --------------------------------------------------
      * The bits that separate "fun in 5 seconds" from "simulator". */
-    COUNTER_ASSIST: 2.6,    // Auto counter-steer torque during a big slide.
+    COUNTER_ASSIST: 2.6,    // Auto counter-steer torque during a real slide
+                            // (rear tyre past its peak, not just any corner).
                             // 0 = raw and spinny, 4 = almost drives itself.
     GRIP_ASSIST: 0.22,      // Extra mu while you are near the grip limit, so
                             // small mistakes do not end the lap.
@@ -86,8 +94,15 @@
                             // the car feel planted rather than on ice.
     DRIFT_THROTTLE_BOOST: 0.30, // Extra rear slip when you are hard on the
                             // throttle mid-corner — power oversteer.
-    SPIN_DAMP: 1.35,        // Yaw-rate damping. Higher = harder to spin. Mostly
-                            // applied while sliding so turn-in stays sharp.
+    /* Yaw-rate damping. This is the single most important number for how
+     * SETTLED the steering feels. The bicycle model has an under-damped
+     * yaw/sideslip mode: too little damping and the car hunts under a
+     * steady steering input — it bites, washes out, bites again, which reads
+     * as vague, rubbery steering. Turn-in sharpness is tyre-limited, not
+     * damping-limited, so raising this costs nothing off the initial turn;
+     * it only trims how far the car will hang out in a slide.
+     *   2.0 = loose and lively   3.0 = planted and precise   */
+    SPIN_DAMP: 2.8,
     MAX_YAW_RATE: 3.2,      // rad/s hard cap, so you can never helicopter.
 
     /* ---- body movement (cosmetic, but it sells the weight) -------------- */
@@ -150,8 +165,8 @@
       phys: {
         TOP_SPEED: 68, ENGINE_FORCE: 9700,     // 245 km/h, 0-100 in ~3.4s
         GRIP_FRONT: 1.28, GRIP_REAR: 1.20,
-        MASS: 1150, YAW_INERTIA: 1500,
-        STEER_MAX_LOW: 0.60, STEER_RATE: 6.2
+        MASS: 1150, YAW_INERTIA: 1500, SPIN_DAMP: 2.8,
+        STEER_MAX_LOW: 0.46, STEER_RATE: 6.2
       },
       stats: { speed: 7, accel: 7, grip: 7, handling: 7 }
     },
@@ -164,8 +179,8 @@
       phys: {
         TOP_SPEED: 80.5, ENGINE_FORCE: 9750,   // 290 km/h, but heavy off the line
         GRIP_FRONT: 1.17, GRIP_REAR: 1.12,
-        MASS: 1320, YAW_INERTIA: 1900,
-        STEER_MAX_LOW: 0.52, STEER_RATE: 5.2,
+        MASS: 1320, YAW_INERTIA: 1900, SPIN_DAMP: 3.0,
+        STEER_MAX_LOW: 0.40, STEER_RATE: 5.2,
         DOWNFORCE: 1.6
       },
       stats: { speed: 10, accel: 6, grip: 5, handling: 5 }
@@ -178,9 +193,9 @@
       shape: { w: 0.87, l: 1.98, roof: 0.82, nose: 0.86, wing: 0.30 },
       phys: {
         TOP_SPEED: 58, ENGINE_FORCE: 10250,    // 209 km/h, 0-100 in ~2.6s
-        GRIP_FRONT: 1.46, GRIP_REAR: 1.40,
-        MASS: 940, YAW_INERTIA: 1140,
-        STEER_MAX_LOW: 0.68, STEER_RATE: 7.6,
+        GRIP_FRONT: 1.29, GRIP_REAR: 1.23,
+        MASS: 940, YAW_INERTIA: 1140, SPIN_DAMP: 3.2,   // precise, hard to unsettle
+        STEER_MAX_LOW: 0.53, STEER_RATE: 7.6,
         LATERAL_BLEED: 1.5
       },
       stats: { speed: 5, accel: 8, grip: 10, handling: 9 }
@@ -193,13 +208,14 @@
       shape: { w: 0.96, l: 2.24, roof: 0.70, nose: 0.74, wing: 0.95 },
       phys: {
         TOP_SPEED: 71, ENGINE_FORCE: 12600,    // 256 km/h, brutal launch
-        GRIP_FRONT: 1.42, GRIP_REAR: 1.03,     // big front/rear split = drift
-        MASS: 1210, YAW_INERTIA: 1380,
-        STEER_MAX_LOW: 0.64, STEER_RATE: 6.8,
+        GRIP_FRONT: 1.42, GRIP_REAR: 1.21,     // front/rear split = drift, but
+                                               // not so wide it just spins
+        MASS: 1210, YAW_INERTIA: 1380, SPIN_DAMP: 2.5,   // loose: hangs out in a slide
+        STEER_MAX_LOW: 0.50, STEER_RATE: 6.8,
         DRIFT_THROTTLE_BOOST: 0.52,
         COUNTER_ASSIST: 3.1
       },
-      stats: { speed: 8, accel: 10, grip: 5, handling: 8 }
+      stats: { speed: 8, accel: 10, grip: 6, handling: 8 }
     }
   ];
 
@@ -219,9 +235,9 @@
     OPPONENTS: 5,
     COUNTDOWN: 3.6,         // s of "3 2 1 GO"
     /* Rubber-banding keeps the pack close without being obvious. */
-    RUBBER_AHEAD: 0.90,     // power multiplier for AI well ahead of you
-    RUBBER_BEHIND: 1.14,    // power multiplier for AI well behind you
-    RUBBER_RANGE: 260,      // m of gap over which the multiplier ramps
+    RUBBER_AHEAD: 0.87,     // power multiplier for AI well ahead of you
+    RUBBER_BEHIND: 1.19,    // power multiplier for AI well behind you
+    RUBBER_RANGE: 330,      // m of gap over which the multiplier ramps
     RESET_HOLD: 0.35        // s you must hold R before the car is respawned
   };
 

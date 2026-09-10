@@ -174,13 +174,22 @@
 
       // Sideslip: how far the car is travelling sideways relative to its nose.
       const beta = Math.atan2(v, Math.max(Math.abs(u), 1));
-      // Auto counter-steer: gently rotates the nose back toward the direction
-      // of travel once the slide gets big. Recovery stays the driver's job,
-      // this just makes it possible without perfect inputs.
-      const excess = MX.clamp(Math.abs(beta) - 0.10, 0, 1.2);
-      yawAcc += P.COUNTER_ASSIST * MX.sign(beta) * excess * MX.clamp(speed / 12, 0, 1);
-      // Yaw damping, weighted toward slides so turn-in stays sharp.
-      yawAcc -= P.SPIN_DAMP * r * (0.3 + 0.7 * MX.clamp(Math.abs(beta) / 0.4, 0, 1));
+
+      /* Auto counter-steer. This is gated on the REAR TYRE actually being
+       * past its grip peak, not merely on sideslip: every ordinary corner
+       * carries a few degrees of sideslip, and an assist that fires on that
+       * fights the driver's own steering. */
+      const slideGate = MX.clamp(
+        (Math.abs(slipR) - P.SLIP_PEAK) / (P.SLIP_PEAK * 0.8), 0, 1);
+      const excess = MX.clamp(Math.abs(beta) - 0.16, 0, 1.0);
+      yawAcc += P.COUNTER_ASSIST * MX.sign(beta) * excess * slideGate *
+                MX.clamp(speed / 12, 0, 1);
+
+      /* Yaw damping. Deliberately a plain constant: scaling it by sideslip
+       * makes the damping depend on the very thing it is damping, and the
+       * car then hunts — it bites, washes out, bites again — under a steady
+       * steering input. */
+      yawAcc -= P.SPIN_DAMP * r;
 
       this.u = u + (ax + v * r) * dt;
       this.v = v + (ay - u * r) * dt;

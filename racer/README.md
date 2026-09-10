@@ -94,6 +94,7 @@ The knobs worth reaching for first:
 | `TOP_SPEED` / `ENGINE_FORCE` | top end and acceleration, independently — aero drag is solved from the two |
 | `GRIP_FRONT` / `GRIP_REAR` | how planted it is. The gap between them decides understeer vs oversteer |
 | `STEER_MAX_LOW` | steering lock at low speed |
+| `SPIN_DAMP` | **how settled the steering feels.** Too low and the car hunts under a steady input — bites, washes out, bites again. 2.0 loose, 3.0 planted |
 | `COUNTER_ASSIST` | how much the car helps you catch a slide. 0 is raw, 4 nearly drives itself |
 | `DRIFT_THROTTLE_BOOST` | power oversteer |
 | `CAM.FOV_SPEED` | the single biggest "it feels fast" lever |
@@ -112,15 +113,16 @@ is generated from those numbers.
 
 ## The cars
 
-| | top speed | 0–100 km/h | 60 m/s → 0 | peak lateral | 70 m corner |
-|---|---|---|---|---|---|
-| Bolt GT | 245 km/h | 3.7 s | 109 m | 1.53 g | 148 km/h |
-| Vypr X | 289 km/h | 4.1 s | 127 m | 1.45 g | 140 km/h |
-| Kite R | 209 km/h | 2.9 s | 86 m | 1.83 g | 166 km/h |
-| Onyx RS | 256 km/h | 2.9 s | 113 m | 1.46 g | 130 km/h |
+| | top speed | 0–100 km/h | 0–200 km/h | 60 m/s → 0 | peak lateral | 70 m corner |
+|---|---|---|---|---|---|---|
+| Bolt GT | 245 km/h | 3.7 s | 10.3 s | 109 m | 1.55 g | 140 km/h |
+| Vypr X | 289 km/h | 4.1 s | 10.1 s | 127 m | 1.46 g | 130 km/h |
+| Kite R | 209 km/h | 2.9 s | 11.6 s | 86 m | 1.64 g | 151 km/h |
+| Onyx RS | 256 km/h | 2.9 s | 7.9 s | 113 m | 1.66 g | 155 km/h |
 
-Kite R corners 36 km/h faster than Onyx RS but gives away 47 km/h on the
-straights — the choice is a real trade-off, not a cosmetic one.
+Kite R corners 21 km/h faster than Vypr X but gives away 80 km/h on the
+straights — the choice is a real trade-off, not a cosmetic one. Onyx RS has
+the grip on paper but the loosest rear, so it spends it sliding.
 
 ## The circuits
 

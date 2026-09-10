@@ -25,7 +25,12 @@
        * skill — a 0.86 driver corners ~12% slower than a 0.98 one. Kept
        * comfortably under the real limit, because an AI at the limit spends
        * the race catching slides instead of racing. */
-      this.latG = (P.GRIP_FRONT + P.GRIP_REAR) * 0.5 * 0.92 * this.p.skill;
+      /* The WEAKER axle sets how hard a car can be cornered — on an
+       * oversteering car the rear lets go long before the average grip
+       * suggests, and an AI that averages the two spins it every lap. */
+      this.gripLimit = Math.min(P.GRIP_FRONT, P.GRIP_REAR);
+      this.baseLatG = this.gripLimit * 1.02 * this.p.skill;
+      this.latG = this.baseLatG;
       this.steerSmooth = 0;
       this.mistakeTimer = 2 + Math.random() * 6;
       this.mistake = null;
@@ -164,6 +169,15 @@
       const P = this.r.car.P;
       P.ENGINE_FORCE = this.baseEngine * mult;
       P.TOP_SPEED = this.baseTop * MX.lerp(1, mult, 0.45);
+
+      /* Engine power alone is a weak lever: these circuits are corner-limited,
+       * not power-limited, so a car trailing by half a lap claws back almost
+       * nothing from extra thrust. Nudging how hard the driver is willing to
+       * corner is what actually closes a gap — and it reads as someone
+       * pushing harder rather than as a cheat. Capped at what the car's
+       * weaker axle can really do, so nobody rubber-bands into a spin. */
+      this.latG = Math.min(this.baseLatG * MX.lerp(1, mult, 0.85),
+                           this.gripLimit * 1.12);
     }
 
     /* Small, human errors. Not random twitching — a driver locking up into a
