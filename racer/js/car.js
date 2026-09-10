@@ -51,7 +51,7 @@
       this.pitchVel = 0; this.rollVel = 0;
       this.wheelSpin = 0;
       this.slipFront = 0; this.slipRear = 0;
-      this.driftAmount = 0;    // 0..1, drives smoke / skids / scoring
+      this.cornerLoad = 0;     // 0..1, how loaded up the car is in a corner
       this.rpm = 0.15;
       this.gear = 1;
       this.speed = 0;
@@ -128,12 +128,6 @@
       const surfGrip = surface.grip;
       let muF = P.GRIP_FRONT * surfGrip;
       let muR = P.GRIP_REAR * surfGrip;
-      if (handbrake) muR *= P.HANDBRAKE_GRIP;
-      // Power oversteer: standing on the throttle unsticks the rear.
-      if (throttle > 0.4 && speed > 4) {
-        muR *= 1 - P.DRIFT_THROTTLE_BOOST * (throttle - 0.4) / 0.6 *
-               MX.clamp(1 - speed / (P.TOP_SPEED * 0.75), 0.25, 1);
-      }
       /* Friction circle: force spent driving or braking is force the tyre
        * cannot spend cornering. */
       const longUse = MX.clamp(Math.abs(tractionForce) / (muR * loadR), 0, 1);
@@ -175,15 +169,10 @@
       // Sideslip: how far the car is travelling sideways relative to its nose.
       const beta = Math.atan2(v, Math.max(Math.abs(u), 1));
 
-      /* Auto counter-steer. This is gated on the REAR TYRE actually being
-       * past its grip peak, not merely on sideslip: every ordinary corner
-       * carries a few degrees of sideslip, and an assist that fires on that
-       * fights the driver's own steering. */
-      const slideGate = MX.clamp(
-        (Math.abs(slipR) - P.SLIP_PEAK) / (P.SLIP_PEAK * 0.8), 0, 1);
-      const excess = MX.clamp(Math.abs(beta) - 0.16, 0, 1.0);
-      yawAcc += P.COUNTER_ASSIST * MX.sign(beta) * excess * slideGate *
-                MX.clamp(speed / 12, 0, 1);
+      /* Stability: hold the nose on the direction of travel. Together with
+       * the sideslip ceiling below, this is what makes the car planted —
+       * it cannot rotate away from its line and start sliding. */
+      yawAcc += P.STABILITY * beta * MX.clamp(speed / 8, 0, 1);
 
       /* Yaw damping. Deliberately a plain constant: scaling it by sideslip
        * makes the damping depend on the very thing it is damping, and the
@@ -197,6 +186,13 @@
 
       // Direct lateral damping — the "arcade planted" feel on top of the tyres.
       this.v -= this.v * MX.clamp(P.LATERAL_BLEED * surfGrip * dt, 0, 0.9);
+
+      /* Hard sideslip ceiling. The tuning above makes a slide very unlikely;
+       * this makes it impossible. However the car is provoked — kerbs, a
+       * barrier, contact, a bootful of throttle — it is never allowed to
+       * travel more than MAX_SLIP off its own nose. */
+      const latCap = Math.max(Math.abs(this.u), 2) * Math.tan(P.MAX_SLIP);
+      this.v = MX.clamp(this.v, -latCap, latCap);
 
       if (Math.abs(this.u) < 0.06 && throttle < 0.02 && speed < 0.5) {
         this.u = 0; this.v = 0; this.r *= 0.7;
@@ -217,12 +213,9 @@
       this.speed = Math.hypot(this.u, this.v);
 
       /* ---- derived values for the visuals -------------------------------- */
-      // How sideways are we? Blend of rear slip and raw sideslip.
-      const slipMag = Math.max(Math.abs(slipR) / (P.SLIP_PEAK * 1.9),
-                               Math.abs(beta) / 0.45);
-      this.driftAmount = MX.clamp(slipMag, 0, 1.35) *
-                         MX.clamp(this.speed / 7, 0, 1);
-      if (handbrake && this.speed > 5) this.driftAmount = Math.max(this.driftAmount, 0.75);
+      // How hard the car is loaded up in a corner, 0..1. Drives body lean and
+      // the camera; there is no slide state to report any more.
+      this.cornerLoad = MX.clamp(Math.abs(this.ay) / (P.GRIP_FRONT * P.GRAVITY), 0, 1);
 
       // Body squat/dive and lean, critically damped toward the target angle.
       const pitchTarget = MX.clamp(-this.ax * P.PITCH_GAIN, -0.09, 0.09);
@@ -230,8 +223,8 @@
       this.pitch = MX.damp(this.pitch, pitchTarget, P.BODY_DAMP, dt);
       this.roll = MX.damp(this.roll, rollTarget, P.BODY_DAMP, dt);
 
-      // Wheels turn with road speed, plus a bit of spin-up when slipping.
-      const spinBoost = 1 + this.driftAmount * 0.6 + throttle * longUse * 0.9;
+      // Wheels turn with road speed, plus a bit of spin-up under power.
+      const spinBoost = 1 + throttle * longUse * 0.9;
       this.wheelSpin = (this.wheelSpin + (this.u / WHEEL_RADIUS) * spinBoost * dt) % MX.TAU;
 
       // A fake 6-speed box purely so the engine note and tacho have shape.
@@ -239,7 +232,7 @@
       const gearF = sr * 6;
       this.gear = Math.min(6, Math.floor(gearF) + 1);
       this.rpm = MX.clamp(0.18 + (gearF - Math.floor(gearF)) * 0.78 +
-                          this.driftAmount * 0.12 + throttle * 0.06, 0, 1);
+                          throttle * 0.06, 0, 1);
       if (this.collisionFlash > 0) this.collisionFlash -= dt;
     }
 

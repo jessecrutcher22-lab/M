@@ -35,11 +35,11 @@
       opts = opts || {};
       const speedRatio = MX.clamp(car.speed / car.topSpeed, 0, 1.1);
 
-      /* Heading: lag behind the car, and add a slice of the sideslip angle so
-       * the camera trails wide through a drift instead of staring at the
+      /* Heading: lag behind the car, plus a slice of the sideslip angle so
+       * the camera leads slightly into a corner rather than staring at the
        * side of the car. */
       const beta = Math.atan2(car.v, Math.max(Math.abs(car.u), 3));
-      const targetYaw = car.yaw + beta * C.DRIFT_OFFSET;
+      const targetYaw = car.yaw + beta * C.SLIP_OFFSET;
       this.yaw = MX.dampAngle(this.yaw, targetYaw, C.YAW_LAG, dt);
 
       const dist = C.DISTANCE + C.DISTANCE_SPEED * speedRatio +

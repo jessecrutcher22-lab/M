@@ -45,16 +45,24 @@
      * It rises steeply, peaks, then falls off — the fall-off is what makes a
      * slide keep sliding until you back off, which is the fun part. */
     GRIP_FRONT: 1.28,       // mu. Higher = the nose bites harder. ~1.3 gives
-                            // about 1.5 g of cornering: grippy, but you can
-                            // still feel and pass the limit.
-    GRIP_REAR: 1.20,        // mu. Slightly below front = friendly oversteer.
+                            // about 1.5 g of cornering.
+    GRIP_REAR: 1.34,        // mu. Deliberately ABOVE the front: the car is
+                            // set up to understeer and never step out. Drop
+                            // this below GRIP_FRONT and the tail will start
+                            // moving again.
     TYRE_STIFF: 9.5,        // How quickly grip builds with slip angle.
     TYRE_SHAPE: 1.62,       // Curve shape. ~1.6 gives a clear peak then fade.
-    SLIP_PEAK: 0.16,        // rad (~9deg). Slip past this = you are drifting.
+    SLIP_PEAK: 0.16,        // rad (~9deg) where the tyre makes peak grip.
+    MAX_SLIP: 0.085,        // rad (~4.9deg). Hard ceiling on sideslip — the
+                            // car is not allowed to travel further sideways
+                            // than this, whatever you do with the controls.
+                            // This is what makes slides impossible rather
+                            // than merely unlikely.
 
     /* Longitudinal force eats into the tyre's lateral budget (friction
-     * circle). This is what lets you power-slide out of a slow corner. */
-    FRICTION_CIRCLE: 0.85,  // 0 = no interaction, 1 = strict circle.
+     * circle). Kept mild: at full strength, braking into a corner unloads
+     * the rear enough to pitch the car sideways. */
+    FRICTION_CIRCLE: 0.35,  // 0 = no interaction, 1 = strict circle.
 
     /* ---- downforce -------------------------------------------------------
      * Fake aero load so the car is calm at 250 km/h but still loose at 80. */
@@ -78,22 +86,19 @@
     STEER_RETURN: 9.0,      // rad/s they snap back to centre when you let go
 
     /* ---- handbrake -------------------------------------------------------
-     * Space kills most of the rear grip. Tap it to snap the tail out, hold it
-     * to keep a long drift going. */
-    HANDBRAKE_GRIP: 0.30,   // rear mu multiplier while held
-    HANDBRAKE_DRAG: 5200,   // N of extra slowing
+     * Space is a plain emergency brake. It does not unstick the rear. */
+    HANDBRAKE_DRAG: 9000,   // N of extra slowing
 
     /* ---- arcade assists --------------------------------------------------
      * The bits that separate "fun in 5 seconds" from "simulator". */
-    COUNTER_ASSIST: 2.6,    // Auto counter-steer torque during a real slide
-                            // (rear tyre past its peak, not just any corner).
-                            // 0 = raw and spinny, 4 = almost drives itself.
+    STABILITY: 5.5,         // Pulls the nose onto the direction of travel.
+                            // This is the main "planted" lever: higher means
+                            // the car simply refuses to rotate off its line.
     GRIP_ASSIST: 0.22,      // Extra mu while you are near the grip limit, so
                             // small mistakes do not end the lap.
-    LATERAL_BLEED: 1.1,     // Direct sideways-velocity damping (1/s). Makes
-                            // the car feel planted rather than on ice.
-    DRIFT_THROTTLE_BOOST: 0.30, // Extra rear slip when you are hard on the
-                            // throttle mid-corner — power oversteer.
+    LATERAL_BLEED: 3.2,     // Direct sideways-velocity damping (1/s). Scrubs
+                            // off any sideways motion almost as fast as it
+                            // appears.
     /* Yaw-rate damping. This is the single most important number for how
      * SETTLED the steering feels. The bicycle model has an under-damped
      * yaw/sideslip mode: too little damping and the car hunts under a
@@ -102,7 +107,7 @@
      * damping-limited, so raising this costs nothing off the initial turn;
      * it only trims how far the car will hang out in a slide.
      *   2.0 = loose and lively   3.0 = planted and precise   */
-    SPIN_DAMP: 2.8,
+    SPIN_DAMP: 4.2,
     MAX_YAW_RATE: 3.2,      // rad/s hard cap, so you can never helicopter.
 
     /* ---- body movement (cosmetic, but it sells the weight) -------------- */
@@ -128,7 +133,7 @@
     LOOK_AHEAD: 8.2,        // m in front of the car that the camera aims at
     LAG: 7.2,               // position follow rate (1/s). Lower = floatier.
     YAW_LAG: 5.4,           // heading follow rate. Lower = more drift drama.
-    DRIFT_OFFSET: 0.55,     // how much the camera swings wide in a slide
+    SLIP_OFFSET: 0.30,      // how far the camera leads the car's sideslip
     FOV_BASE: 60,           // degrees at a standstill
     FOV_SPEED: 22,          // extra degrees at top speed — the speed rush
     FOV_LAG: 3.4,
@@ -140,16 +145,7 @@
 
   /* ---- effects ----------------------------------------------------------- */
   const FX = {
-    SKID_THRESHOLD: 0.22,   // tyre slip (0..1) before marks are laid down
-    SKID_LIFETIME: 9.0,     // s before a mark fades away
-    SKID_MAX_SEGMENTS: 900, // ring buffer size per car
-    SKID_WIDTH: 0.30,
-    SKID_ALPHA: 0.55,
-    SMOKE_RATE: 46,         // puffs per second at full slide
-    SMOKE_LIFE: 1.05,       // s
-    SMOKE_RISE: 1.6,        // m/s upward drift
-    SMOKE_GROW: 1.15,       // m/s of expansion
-    SMOKE_MAX: 260
+    SHADOW_ALPHA: 0.38      // opacity of the blob shadow under each car
   };
 
   /* ---- the roster --------------------------------------------------------
@@ -164,8 +160,8 @@
       shape: { w: 0.94, l: 2.18, roof: 0.74, nose: 0.80, wing: 0.55 },
       phys: {
         TOP_SPEED: 68, ENGINE_FORCE: 9700,     // 245 km/h, 0-100 in ~3.4s
-        GRIP_FRONT: 1.28, GRIP_REAR: 1.20,
-        MASS: 1150, YAW_INERTIA: 1500, SPIN_DAMP: 2.8,
+        GRIP_FRONT: 1.28, GRIP_REAR: 1.34,
+        MASS: 1150, YAW_INERTIA: 1500, SPIN_DAMP: 4.2,
         STEER_MAX_LOW: 0.46, STEER_RATE: 6.2
       },
       stats: { speed: 7, accel: 7, grip: 7, handling: 7 }
@@ -178,8 +174,8 @@
       shape: { w: 0.99, l: 2.34, roof: 0.66, nose: 0.66, wing: 0.85 },
       phys: {
         TOP_SPEED: 80.5, ENGINE_FORCE: 9750,   // 290 km/h, but heavy off the line
-        GRIP_FRONT: 1.17, GRIP_REAR: 1.12,
-        MASS: 1320, YAW_INERTIA: 1900, SPIN_DAMP: 3.0,
+        GRIP_FRONT: 1.17, GRIP_REAR: 1.24,
+        MASS: 1320, YAW_INERTIA: 1900, SPIN_DAMP: 4.5,
         STEER_MAX_LOW: 0.40, STEER_RATE: 5.2,
         DOWNFORCE: 1.6
       },
@@ -193,29 +189,27 @@
       shape: { w: 0.87, l: 1.98, roof: 0.82, nose: 0.86, wing: 0.30 },
       phys: {
         TOP_SPEED: 58, ENGINE_FORCE: 10250,    // 209 km/h, 0-100 in ~2.6s
-        GRIP_FRONT: 1.29, GRIP_REAR: 1.23,
-        MASS: 940, YAW_INERTIA: 1140, SPIN_DAMP: 3.2,   // precise, hard to unsettle
+        GRIP_FRONT: 1.29, GRIP_REAR: 1.36,
+        MASS: 940, YAW_INERTIA: 1140, SPIN_DAMP: 4.8,   // the most precise of the four
         STEER_MAX_LOW: 0.53, STEER_RATE: 7.6,
-        LATERAL_BLEED: 1.5
+        LATERAL_BLEED: 3.8
       },
       stats: { speed: 5, accel: 8, grip: 10, handling: 9 }
     },
     {
       id: 'onyx',
       name: 'ONYX RS',
-      tagline: 'Loose rear, huge power. Built to be sideways.',
+      tagline: 'Huge power and the most grip. Point it and go.',
       body: '#7b5cff', accent: '#12101c', glass: '#150f2a',
       shape: { w: 0.96, l: 2.24, roof: 0.70, nose: 0.74, wing: 0.95 },
       phys: {
         TOP_SPEED: 71, ENGINE_FORCE: 12600,    // 256 km/h, brutal launch
-        GRIP_FRONT: 1.42, GRIP_REAR: 1.21,     // front/rear split = drift, but
-                                               // not so wide it just spins
-        MASS: 1210, YAW_INERTIA: 1380, SPIN_DAMP: 2.5,   // loose: hangs out in a slide
+        GRIP_FRONT: 1.42, GRIP_REAR: 1.46,     // the most grip of the four
+        MASS: 1210, YAW_INERTIA: 1380, SPIN_DAMP: 4.0,
         STEER_MAX_LOW: 0.50, STEER_RATE: 6.8,
-        DRIFT_THROTTLE_BOOST: 0.52,
-        COUNTER_ASSIST: 3.1
+        STABILITY: 5.0
       },
-      stats: { speed: 8, accel: 10, grip: 6, handling: 8 }
+      stats: { speed: 8, accel: 10, grip: 9, handling: 8 }
     }
   ];
 

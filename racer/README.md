@@ -40,14 +40,14 @@ plain `<script>` tags.
 |---|---|
 | Steer | `←` `→` or `A` `D` |
 | Throttle / brake | `↑` `↓` or `W` `S` |
-| Handbrake | `Space` |
+| Emergency brake | `Space` |
 | Reset to track | `R` |
 | Camera | `C` |
 | Pause | `Esc` |
 | Debug readout | `F1` |
 
 **Gamepad:** left stick steers, `RT`/`LT` are throttle and brake, `A`/`X` is
-the handbrake, `B` resets.
+the emergency brake, `B` resets.
 
 **Touch:** put a thumb down anywhere on the left half of the screen and slide
 — steering is relative to where you started, so there is no wheel to find.
@@ -69,7 +69,7 @@ js/input.js         keyboard + gamepad
 js/car.js           the driving model
 js/carmodel.js      car body geometry
 js/camera.js        chase camera
-js/effects.js       skid marks, tyre smoke, shadows
+js/effects.js       blob shadows under the cars
 js/track.js         spline, resampling, checkpoints, racing line, queries
 js/tracks.js        >>> the circuits — add one here and nothing else <<<
 js/trackmesh.js     tarmac, kerbs, barriers, terrain from the spline
@@ -92,11 +92,11 @@ The knobs worth reaching for first:
 | Constant | Does what |
 |---|---|
 | `TOP_SPEED` / `ENGINE_FORCE` | top end and acceleration, independently — aero drag is solved from the two |
-| `GRIP_FRONT` / `GRIP_REAR` | how planted it is. The gap between them decides understeer vs oversteer |
+| `GRIP_FRONT` / `GRIP_REAR` | how planted it is. Rear is set ABOVE front on every car, so they understeer and never step out |
 | `STEER_MAX_LOW` | steering lock at low speed |
-| `SPIN_DAMP` | **how settled the steering feels.** Too low and the car hunts under a steady input — bites, washes out, bites again. 2.0 loose, 3.0 planted |
-| `COUNTER_ASSIST` | how much the car helps you catch a slide. 0 is raw, 4 nearly drives itself |
-| `DRIFT_THROTTLE_BOOST` | power oversteer |
+| `SPIN_DAMP` | **how settled the steering feels.** Too low and the car hunts under a steady input — bites, washes out, bites again |
+| `STABILITY` | how hard the nose is held onto the direction of travel |
+| `MAX_SLIP` | hard ceiling on sideslip. This is what makes slides impossible rather than merely unlikely |
 | `CAM.FOV_SPEED` | the single biggest "it feels fast" lever |
 
 Reload the page after editing; there is no build step.
@@ -115,14 +115,25 @@ is generated from those numbers.
 
 | | top speed | 0–100 km/h | 0–200 km/h | 60 m/s → 0 | peak lateral | 70 m corner |
 |---|---|---|---|---|---|---|
-| Bolt GT | 245 km/h | 3.7 s | 10.3 s | 109 m | 1.55 g | 140 km/h |
-| Vypr X | 289 km/h | 4.1 s | 10.1 s | 127 m | 1.46 g | 130 km/h |
-| Kite R | 209 km/h | 2.9 s | 11.6 s | 86 m | 1.64 g | 151 km/h |
-| Onyx RS | 256 km/h | 2.9 s | 7.9 s | 113 m | 1.66 g | 155 km/h |
+| Bolt GT | 245 km/h | 3.7 s | 10.3 s | 109 m | 1.53 g | 137 km/h |
+| Vypr X | 289 km/h | 4.1 s | 10.1 s | 127 m | 1.44 g | 126 km/h |
+| Kite R | 209 km/h | 2.9 s | 11.6 s | 86 m | 1.58 g | 148 km/h |
+| Onyx RS | 256 km/h | 2.9 s | 7.9 s | 113 m | 1.74 g | 151 km/h |
 
-Kite R corners 21 km/h faster than Vypr X but gives away 80 km/h on the
-straights — the choice is a real trade-off, not a cosmetic one. Onyx RS has
-the grip on paper but the loosest rear, so it spends it sliding.
+Kite R corners 22 km/h faster than Vypr X but gives away 80 km/h on the
+straights — the choice is a real trade-off, not a cosmetic one.
+
+## Handling model
+
+The cars are **planted**. Every one of them is set up to understeer: rear
+grip is above front grip, the nose is actively held onto the direction of
+travel, and sideslip is capped at `MAX_SLIP` (~5°) so a slide cannot develop
+however you provoke it — kerbs, barriers, contact, or a bootful of throttle.
+`Space` is a plain emergency brake, not a way to unstick the tail.
+
+Push too hard into a corner and the car runs wide rather than stepping out.
+Measured: 3–9° of peak sideslip and zero time sideways under handbrake,
+full-throttle and trail-brake entries at 151 km/h.
 
 ## The circuits
 

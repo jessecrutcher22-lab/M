@@ -94,9 +94,7 @@
       Game.ai.push(r.ai);
     }
 
-    for (const r of Game.racers) {
-      Game.fx.trackCar(r.car, { quality: r.isPlayer ? 1 : Game.quality * 0.7 });
-    }
+    for (const r of Game.racers) Game.fx.trackCar(r.car);
   }
 
   /* ================================================================ draw */
@@ -255,7 +253,7 @@
     const c = Game.player.car, p = Game.player;
     Game.hud.setDebug(
       'fps ' + Game.fps.toFixed(0) + '   q ' + Game.quality.toFixed(2) + '\n' +
-      'kmh ' + c.kmh.toFixed(0) + '  drift ' + c.driftAmount.toFixed(2) + '\n' +
+      'kmh ' + c.kmh.toFixed(0) + '  load ' + c.cornerLoad.toFixed(2) + '\n' +
       's ' + p.s.toFixed(0) + '/' + Game.path.length.toFixed(0) +
       '  lat ' + p.lateral.toFixed(1) + '\n' +
       'cp ' + p.nextCp + '/' + Game.path.checkpoints.length + '  lap ' + p.lap);

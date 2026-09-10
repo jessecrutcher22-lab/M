@@ -25,11 +25,9 @@
       this.pos = $('hPos'); this.lap = $('hLap');
       this.time = $('hTime'); this.best = $('hBest');
       this.speed = $('hSpeed'); this.gear = $('hGear'); this.rpm = $('hRpm');
-      this.drift = $('hDrift'); this.driftBar = $('hDriftBar');
       this.flash = $('lapflash'); this.warn = $('warn');
       this.count = $('countdown'); this.debug = $('debug');
       this._last = {};
-      this._driftOn = false;
       this._warnOn = false;
       this._countTxt = '';
     }
@@ -49,11 +47,6 @@
       this._set(this.speed, 'sp', String(kmh));
       this._set(this.gear, 'g', String(car.gear));
       this.rpm.style.width = (car.rpm * 100).toFixed(1) + '%';
-
-      const d = MX.clamp((car.driftAmount - TUNE.FX.SKID_THRESHOLD) / 0.75, 0, 1);
-      const on = d > 0.02 && car.speed > 5;
-      if (on !== this._driftOn) { this._driftOn = on; this.drift.classList.toggle('on', on); }
-      if (on) this.driftBar.style.width = (d * 100).toFixed(0) + '%';
 
       if (info) {
         if (info.position) this._set(this.pos, 'p', info.position + '<small>/' + info.total + '</small>');
