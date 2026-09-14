@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#05070e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Apex Rush">
+<link rel="manifest" href="manifest.webmanifest">
+<title>APEX RUSH — arcade circuit racing</title>
+<meta name="description" content="A browser arcade racer: three circuits, four cars, five rivals, three laps.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏎️</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="view"></canvas>
+
+<div id="overlay">
+
+  <div id="hud">
+    <div class="corner tl">
+      <div class="stat pos"><div class="k">POSITION</div><div class="v" id="hPos">1<small>/6</small></div></div>
+      <div class="stat"><div class="k">LAP</div><div class="v" id="hLap">1<small>/3</small></div></div>
+    </div>
+    <div class="corner tr">
+      <div class="stat"><div class="k">LAP TIME</div><div class="v" id="hTime">0:00.00</div></div>
+      <div class="stat best"><div class="k">BEST</div><div class="v" id="hBest">—</div></div>
+    </div>
+
+    <div class="tacho"><i id="hRpm"></i></div>
+    <div class="speedo">
+      <span class="unit">KM/H</span><span class="gear" id="hGear">1</span>
+      <div class="val" id="hSpeed">0</div>
+    </div>
+
+    <div id="lapflash"></div>
+    <div id="warn">WRONG WAY</div>
+    <div id="countdown"></div>
+    <div id="debug"></div>
+    <button id="pauseBtn" aria-label="Pause">II</button>
+  </div>
+
+  <div id="menu"></div>
+</div>
+
+<div id="rotate">↻<br>ROTATE YOUR DEVICE<br><span style="opacity:.5;letter-spacing:.14em">Apex Rush plays in landscape</span></div>
+
+<div id="fatal"></div>
+
+<script src="js/mathx.js"></script>
+<script src="js/gl.js"></script>
+<script src="js/geom.js"></script>
+<script src="js/tune.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/input.js"></script>
+<script src="js/car.js"></script>
+<script src="js/carmodel.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/track.js"></script>
+<script src="js/tracks.js"></script>
+<script src="js/trackmesh.js"></script>
+<script src="js/scenery.js"></script>
+<script src="js/race.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/touch.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script>
+  window.addEventListener('error', function (e) {
+    var f = document.getElementById('fatal');
+    f.style.display = 'grid';
+    f.textContent = 'Apex Rush failed to start.\n\n' +
+      (e.error && e.error.stack ? e.error.stack : e.message);
+  });
+  Game.boot(document.getElementById('view'));
+
+  // Installable on a phone: cache everything so it runs with no connection.
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

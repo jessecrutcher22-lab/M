@@ -1,0 +1,14 @@
+{
+  "name": "Apex Rush",
+  "short_name": "Apex Rush",
+  "description": "Arcade circuit racing. Three tracks, four cars, five rivals.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#05070e",
+  "theme_color": "#05070e",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
