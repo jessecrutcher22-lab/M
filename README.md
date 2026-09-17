@@ -32,6 +32,12 @@ That injects `KV_REST_API_URL` and `KV_REST_API_TOKEN` automatically, and both f
 switch to persistent, shared storage — no code change needed. If those env vars are absent,
 the game still works and falls back to a local (this-device) board.
 
+## Also in this repo
+
+`warfare-1945/index.html` — **Warfare 1945**, a self-contained WWII lane-battle strategy
+game (no build step, no API, no storage beyond `localStorage`). Deploys alongside
+Manufacturing Tycoon at `/warfare-1945/`.
+
 ## Deploy
 
 1. Push this folder to a GitHub repo.
