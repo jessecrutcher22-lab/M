@@ -902,27 +902,6 @@ button.badge:hover { background: var(--accent-soft); color: var(--accent); }
 table[data-table="rankspan"] .up { color: var(--accent); font-weight: 700; }
 table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 
-/* ------------------------------------------------------- transfer market */
-
-.mkt-filters {
-  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
-  padding: 12px 14px; border-bottom: 1px solid var(--border-soft);
-}
-.mkt-filters input[type="text"] { flex: 1 1 200px; min-width: 0; }
-.mkt-filters select { width: auto; min-width: 130px; }
-
-table[data-table="market"] .btn,
-table[data-table="budgets"] .btn { white-space: nowrap; }
-table[data-table="budgets"] .up, table[data-table="translog"] .up,
-table[data-table="market"] .up { color: var(--accent); font-weight: 700; }
-table[data-table="budgets"] .down, table[data-table="translog"] .down,
-table[data-table="market"] .down { color: var(--red); font-weight: 700; }
-
-@media (max-width: 560px) {
-  .mkt-filters { padding: 10px 12px; }
-  .mkt-filters select { flex: 1 1 auto; min-width: 0; }
-}
-
 </style>
 
 
@@ -3791,7 +3770,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
       season: null
     };
     if (!settings.zones) settings.zones = defaultZones(comp.teams.length, settings);
-    if (LS.transfers) LS.transfers.ensure(comp);
     comp.rngState = rng.s;
     if (comp.format === 'worldcup') {
       E.initRankings(comp);
@@ -3941,7 +3919,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
       }
     }
     comp.season = E.newSeason(comp, rec.n + 1);
-    if (LS.transfers) LS.transfers.newSeasonBudgets(comp);
     return true;
   }
 
@@ -4081,7 +4058,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
     if (LS.milestones) LS.milestones.onTeamRemoved(comp, gone);
     comp.teams.splice(k, 1);
     if (LS.managers) LS.managers.onTeamRemoved(comp, gone);
-    if (LS.transfers) LS.transfers.onTeamRemoved(comp, gone);
     if (comp.rankings) {
       delete comp.rankings[gone];
       delete comp.rankPeak[gone];
@@ -5574,468 +5550,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
 })(window.LS = window.LS || {});
 
 
-/* ===== transfers.js ===== */
-/* Sideline — the transfer market.
-
-   Squads used to be scenery: a player's skill decided who scored, but a club's
-   attack and defence were set by hand and never heard about it. Here they are
-   joined up. Every squad has an index read off the players who would actually
-   take the field, and moving a player shifts his old and new club's ratings by
-   the amount the squad genuinely changed — bounded, so a window nudges a club
-   rather than rewriting the league.
-
-   Money is in thousands: 42500 is 42.5M. Selling funds buying, and a club can
-   only spend what it holds, so the bottom side cannot simply buy the best
-   player in the competition. */
-(function (LS) {
-  'use strict';
-
-  var E = LS.engine, D = LS.data;
-
-  // Ratings a single window can move a club, up or down. A marquee signing is
-  // worth a few points, not twenty — the league still has to look like itself
-  // the next morning.
-  var SHIFT_CAP = 8;
-  // Every club keeps enough players to field a side plus cover, and nobody gets
-  // to stockpile a competition's worth of talent on the bench.
-  var SQUAD_SPARE = 2;
-  var SQUAD_HEADROOM = 6;
-
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-  function sportOf(comp) { return D.sports[comp && comp.sport] || D.sports.football; }
-
-  /* ------------------------------------------------------------- money */
-
-  // Thousands in, a readable string out: 42500 -> "42.5M", 850 -> "850k".
-  function money(n) {
-    n = Math.round(n || 0);
-    if (Math.abs(n) >= 100000) return (n / 1000).toFixed(0) + 'M';
-    if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'M';
-    return n + 'k';
-  }
-
-  /* ------------------------------------------------- squads and ratings */
-
-  // How much each position leans towards attack. A sport's position table
-  // carries a goal weight and an assist weight per slot, and attacking means
-  // both: a quarterback throws far more than he runs in, so scoring alone
-  // would file him with the defence. Nobody is pure either way, which is why
-  // the split never reaches 0 or 1.
-  function positionLean(sport) {
-    var slots = sport.positions || D.sports.football.positions;
-    var max = 0;
-    slots.forEach(function (s) { if (s[2] + s[3] > max) max = s[2] + s[3]; });
-    var lean = {};
-    slots.forEach(function (s) {
-      var a = max ? (s[2] + s[3]) / max : 0.5;
-      lean[s[0]] = 0.15 + 0.7 * a;
-    });
-    return lean;
-  }
-
-  // How many of each position a side puts on the field, scaled from the sport's
-  // own squad shape to its line-up size. Picking the best eleven by skill alone
-  // would let a club field eleven strikers, and then signing one would move its
-  // defence — so the line-up is picked position by position.
-  function lineupShape(sport) {
-    var slots = sport.positions || D.sports.football.positions;
-    var total = 0;
-    slots.forEach(function (s) { total += s[1]; });
-    var lineup = sport.lineup || 11;
-    var shape = {}, used = 0;
-    slots.forEach(function (s) {
-      var want = Math.max(1, Math.round((s[1] / (total || 1)) * lineup));
-      shape[s[0]] = want;
-      used += want;
-    });
-    // rounding rarely lands exactly on the line-up size; trim or pad the
-    // biggest group so the two agree
-    var names = Object.keys(shape);
-    while (used !== lineup && names.length) {
-      var pick = names.slice().sort(function (a, b) { return shape[b] - shape[a]; })[0];
-      if (used > lineup) { if (shape[pick] <= 1) break; shape[pick]--; used--; }
-      else { shape[pick]++; used++; }
-    }
-    return shape;
-  }
-
-  // The side a club would actually pick: the best in each position, up to that
-  // position's share of the line-up. Depth beyond that is worth having but does
-  // not carry a rating.
-  function lineupOf(team, sport) {
-    var shape = lineupShape(sport);
-    var byPos = {};
-    team.players.forEach(function (p) { (byPos[p.pos] = byPos[p.pos] || []).push(p); });
-    var out = [];
-    Object.keys(shape).forEach(function (pos) {
-      var pool = (byPos[pos] || []).slice().sort(function (x, y) { return y.skill - x.skill; });
-      out = out.concat(pool.slice(0, shape[pos]));
-    });
-    // a squad missing a position entirely still fields someone
-    if (out.length < Math.min(sport.lineup || 11, team.players.length)) {
-      var have = {};
-      out.forEach(function (p) { have[p.id] = true; });
-      var rest = team.players.filter(function (p) { return !have[p.id]; })
-        .sort(function (x, y) { return y.skill - x.skill; });
-      out = out.concat(rest.slice(0, (sport.lineup || 11) - out.length));
-    }
-    return out;
-  }
-
-  function squadIndex(team, sport) {
-    sport = sport || D.sports.football;
-    if (!team.players.length) return { att: 0, def: 0 };
-    var lean = positionLean(sport);
-    var sa = 0, wa = 0, sd = 0, wd = 0;
-    lineupOf(team, sport).forEach(function (p) {
-      var a = lean[p.pos] == null ? 0.5 : lean[p.pos];
-      var d = 1 - a;
-      sa += p.skill * a; wa += a;
-      sd += p.skill * d; wd += d;
-    });
-    return { att: wa ? sa / wa : 0, def: wd ? sd / wd : 0 };
-  }
-
-  /* -------------------------------------------------------- valuations */
-
-  // What a player is worth. Ability is worth far more than linearly — the gap
-  // between a good player and a great one is most of the fee — and a career
-  // has a shape: cheap and rising, expensive in the middle, fading at the end.
-  function ageMultiplier(seasons) {
-    var s = seasons || 0;
-    if (s <= 1) return 1.08;
-    if (s <= 3) return 1.0;
-    if (s <= 5) return 0.88;
-    if (s <= 7) return 0.7;
-    if (s <= 9) return 0.5;
-    if (s <= 12) return 0.32;
-    return 0.2;
-  }
-
-  function valueOf(comp, p) {
-    var sport = sportOf(comp);
-    var lean = positionLean(sport);
-    var t = clamp((p.skill - 25) / 74, 0, 1);
-    var base = Math.pow(t, 3.1) * 92000;
-    // the positions that score cost more, the way they do everywhere
-    var posMult = 0.72 + 0.5 * (lean[p.pos] == null ? 0.5 : lean[p.pos]);
-    // a season in front of goal puts money on a player
-    var form = 1 + Math.min(0.3, (p.g || 0) * 0.012 + (p.a || 0) * 0.006);
-    // a generational talent is not for sale at the usual price
-    var wild = p.wild ? 1.45 : 1;
-    var v = base * ageMultiplier(p.seasons) * posMult * form * wild;
-    return Math.max(120, Math.round(v / 10) * 10);
-  }
-
-  /* ---------------------------------------------------------- budgets */
-
-  // What a club is worth spending. Money follows standing, which is the thing
-  // that stops the bottom side assembling the best squad in the competition.
-  // The slope is set so the strongest few clubs can just about reach the most
-  // expensive player in a fresh competition and the rest plainly cannot — a
-  // market where nobody can afford anybody is not a market.
-  function baseBudget(team) {
-    var rating = (team.att + team.def) / 2;
-    return Math.max(8000, Math.round((30 + (rating - 50) * 2.6) * 1000));
-  }
-
-  function ensure(comp) {
-    if (!comp || !comp.teams) return comp;
-    comp.teams.forEach(function (t) {
-      if (typeof t.budget !== 'number' || !isFinite(t.budget)) t.budget = baseBudget(t);
-      if (!t.shift) t.shift = { n: comp.season ? comp.season.number : 1, att: 0, def: 0 };
-    });
-    if (!Array.isArray(comp.transfers)) comp.transfers = [];
-    return comp;
-  }
-
-  function budgetOf(comp, teamId) {
-    ensure(comp);
-    var t = teamById(comp, teamId);
-    return t ? t.budget : 0;
-  }
-
-  // A new season brings new money: what a club already holds, plus a share of
-  // what its standing earns it, capped so nobody hoards a decade of budgets.
-  function newSeasonBudgets(comp) {
-    ensure(comp);
-    var season = comp.season ? comp.season.number : 1;
-    comp.teams.forEach(function (t) {
-      var base = baseBudget(t);
-      t.budget = Math.min(base * 2.2, Math.round(t.budget + base * 0.45));
-      t.shift = { n: season, att: 0, def: 0 };
-    });
-  }
-
-  /* --------------------------------------------------------- transfers */
-
-  function teamById(comp, id) {
-    var found = null;
-    comp.teams.forEach(function (t) { if (t.id === id) found = t; });
-    return found;
-  }
-
-  function findPlayer(comp, playerId) {
-    var out = null;
-    comp.teams.forEach(function (t) {
-      t.players.forEach(function (p) { if (p.id === playerId) out = { team: t, player: p }; });
-    });
-    return out;
-  }
-
-  // The floor a squad cannot be sold below. Football carries eighteen for an
-  // eleven, but rugby league names exactly seventeen for a seventeen — so the
-  // floor is the line-up where a sport has depth to spare, and a couple below
-  // the whole squad where it does not. Otherwise those sports could never
-  // sell anybody.
-  function squadTotal(comp) {
-    var slots = sportOf(comp).positions || D.sports.football.positions;
-    var total = 0;
-    slots.forEach(function (s) { total += s[1]; });
-    return total;
-  }
-
-  function minSquad(comp) {
-    var lineup = sportOf(comp).lineup || 11;
-    return Math.max(5, Math.min(lineup, squadTotal(comp) - SQUAD_SPARE));
-  }
-
-  // The sport's own squad shape, plus room to sign without selling first.
-  function maxSquad(comp) { return squadTotal(comp) + SQUAD_HEADROOM; }
-
-  // Everything that has to be true before a deal can happen, and why it is not.
-  function canSign(comp, playerId, toTeamId) {
-    ensure(comp);
-    var at = findPlayer(comp, playerId);
-    var to = teamById(comp, toTeamId);
-    if (!at || !to) return { ok: false, reason: 'That player or club is no longer here.' };
-    if (at.team.id === to.id) return { ok: false, reason: at.player.name + ' already plays for them.' };
-    var fee = valueOf(comp, at.player);
-    if (at.team.players.length <= minSquad(comp)) {
-      return { ok: false, fee: fee, from: at.team, to: to,
-               reason: at.team.name + ' cannot go below ' + minSquad(comp) + ' players.' };
-    }
-    if (to.players.length >= maxSquad(comp)) {
-      return { ok: false, fee: fee, from: at.team, to: to,
-               reason: to.name + ' already carry ' + to.players.length + ' players, the most a ' +
-                       'squad can hold. Sell someone first.' };
-    }
-    if (to.budget < fee) {
-      return { ok: false, fee: fee, from: at.team, to: to,
-               reason: to.name + ' can only spend ' + money(to.budget) + ', and the fee is ' +
-                       money(fee) + '.' };
-    }
-    return { ok: true, fee: fee, from: at.team, to: to, player: at.player };
-  }
-
-  // Apply a squad change to a club's rating, within what one season allows.
-  // The shift is the amount the squad actually moved, so selling your best
-  // player costs you exactly what he was adding.
-  function applyShift(comp, team, before) {
-    var season = comp.season ? comp.season.number : 1;
-    if (!team.shift || team.shift.n !== season) team.shift = { n: season, att: 0, def: 0 };
-    var after = squadIndex(team, sportOf(comp));
-    var out = {};
-    ['att', 'def'].forEach(function (k) {
-      var want = Math.round(after[k] - before[k]);
-      // whatever is left of this season's allowance, in the direction being asked
-      var room = want > 0 ? SHIFT_CAP - team.shift[k] : -SHIFT_CAP - team.shift[k];
-      var move = want > 0 ? Math.min(want, Math.max(0, room)) : Math.max(want, Math.min(0, room));
-      team.shift[k] += move;
-      team[k] = clamp(team[k] + move, 20, 99);
-      out[k] = move;
-    });
-    return out;
-  }
-
-  function transfer(comp, playerId, toTeamId) {
-    var check = canSign(comp, playerId, toTeamId);
-    if (!check.ok) return null;
-
-    var sport = sportOf(comp);
-    var from = check.from, to = check.to, p = check.player, fee = check.fee;
-    var fromBefore = squadIndex(from, sport), toBefore = squadIndex(to, sport);
-
-    from.players = from.players.filter(function (x) { return x.id !== p.id; });
-    to.players.push(p);
-    from.budget += fee;
-    to.budget -= fee;
-
-    var fromMove = applyShift(comp, from, fromBefore);
-    var toMove = applyShift(comp, to, toBefore);
-
-    var rec = {
-      n: comp.season ? comp.season.number : 1,
-      md: comp.season ? comp.season.round : 0,
-      player: p.id, name: p.name, pos: p.pos, skill: p.skill,
-      from: from.id, to: to.id, fee: fee,
-      fromMove: fromMove, toMove: toMove
-    };
-    ensure(comp);
-    comp.transfers.push(rec);
-    if (comp.transfers.length > 400) comp.transfers.shift();
-    if (LS.milestones) LS.milestones.onTransfer(comp, rec);
-    return rec;
-  }
-
-  // The deals on record, newest first, optionally for one club or one season.
-  function history(comp, opts) {
-    ensure(comp);
-    opts = opts || {};
-    var list = comp.transfers.slice();
-    if (opts.teamId) {
-      list = list.filter(function (r) { return r.from === opts.teamId || r.to === opts.teamId; });
-    }
-    if (opts.season != null) list = list.filter(function (r) { return r.n === opts.season; });
-    list.reverse();
-    return opts.limit ? list.slice(0, opts.limit) : list;
-  }
-
-  // Everyone who could be signed, priced, with the club they are at.
-  function market(comp, opts) {
-    ensure(comp);
-    opts = opts || {};
-    var rows = [];
-    comp.teams.forEach(function (t) {
-      t.players.forEach(function (p) {
-        rows.push({ player: p, team: t, value: valueOf(comp, p) });
-      });
-    });
-    if (opts.pos) rows = rows.filter(function (r) { return r.player.pos === opts.pos; });
-    if (opts.exclude) rows = rows.filter(function (r) { return r.team.id !== opts.exclude; });
-    if (opts.maxFee != null) rows = rows.filter(function (r) { return r.value <= opts.maxFee; });
-    if (opts.q) {
-      var q = String(opts.q).toLowerCase();
-      rows = rows.filter(function (r) {
-        return r.player.name.toLowerCase().indexOf(q) >= 0 ||
-               r.team.name.toLowerCase().indexOf(q) >= 0;
-      });
-    }
-    rows.sort(function (a, b) { return b.value - a.value || b.player.skill - a.player.skill; });
-    return opts.limit ? rows.slice(0, opts.limit) : rows;
-  }
-
-  /* ------------------------------------------ the two-player window */
-
-  /* With two managers the market is a turn: each signs one player, then hands
-     over, so neither can empty the shelf while the other is deciding. Passing
-     ends your involvement; the window closes when both have passed or both
-     have used their moves. */
-  var WINDOW_MOVES = 3;
-
-  function openWindow(comp, moves) {
-    var M = LS.managers;
-    if (!M || !M.ready(comp)) return null;
-    ensure(comp);
-    var list = M.ensure(comp);
-    var rng = new E.RNG(Date.now() >>> 0);
-    var order = rng.next() < 0.5 ? [list[0].id, list[1].id] : [list[1].id, list[0].id];
-    var left = {};
-    order.forEach(function (id) { left[id] = moves || WINDOW_MOVES; });
-    comp.transferWindow = {
-      order: order, turn: 0, left: left, passed: [], done: [],
-      n: comp.season ? comp.season.number : 1
-    };
-    return comp.transferWindow;
-  }
-
-  function closeWindow(comp) { comp.transferWindow = null; }
-
-  function windowManager(comp) {
-    var w = comp.transferWindow;
-    if (!w || !LS.managers) return null;
-    return LS.managers.managerOf(comp, w.order[w.turn]);
-  }
-
-  function windowOver(comp) {
-    var w = comp.transferWindow;
-    if (!w) return true;
-    return w.order.every(function (id) {
-      return w.passed.indexOf(id) >= 0 || w.left[id] <= 0;
-    });
-  }
-
-  // Hand over to whoever still has a move left; close the window if nobody has.
-  function advanceWindow(comp) {
-    var w = comp.transferWindow;
-    if (!w) return;
-    if (windowOver(comp)) { comp.transferWindow = null; return; }
-    for (var i = 0; i < w.order.length; i++) {
-      w.turn = (w.turn + 1) % w.order.length;
-      var id = w.order[w.turn];
-      if (w.passed.indexOf(id) < 0 && w.left[id] > 0) return;
-    }
-    comp.transferWindow = null;
-  }
-
-  function windowSign(comp, playerId) {
-    var w = comp.transferWindow;
-    var mgr = windowManager(comp);
-    if (!w || !mgr || !mgr.teamId) return null;
-    if (w.passed.indexOf(mgr.id) >= 0 || w.left[mgr.id] <= 0) return null;
-    var rec = transfer(comp, playerId, mgr.teamId);
-    if (!rec) return null;
-    w.left[mgr.id]--;
-    w.done.push({ manager: mgr.id, name: rec.name, fee: rec.fee, from: rec.from });
-    advanceWindow(comp);
-    return rec;
-  }
-
-  function windowPass(comp) {
-    var w = comp.transferWindow;
-    var mgr = windowManager(comp);
-    if (!w || !mgr) return false;
-    if (w.passed.indexOf(mgr.id) < 0) w.passed.push(mgr.id);
-    advanceWindow(comp);
-    return true;
-  }
-
-  /* ------------------------------------------------------------ tidy up */
-
-  // A club leaving takes its squad and its money with it; deals it was part of
-  // stay on record but can no longer be opened.
-  function onTeamRemoved(comp, teamId) {
-    if (comp.transferWindow) {
-      var M = LS.managers;
-      var stillOk = M && M.ready(comp);
-      if (!stillOk) comp.transferWindow = null;
-    }
-  }
-
-  LS.transfers = {
-    SHIFT_CAP: SHIFT_CAP,
-    SQUAD_SPARE: SQUAD_SPARE,
-    SQUAD_HEADROOM: SQUAD_HEADROOM,
-    WINDOW_MOVES: WINDOW_MOVES,
-    money: money,
-    ensure: ensure,
-    squadIndex: squadIndex,
-    positionLean: positionLean,
-    valueOf: valueOf,
-    baseBudget: baseBudget,
-    budgetOf: budgetOf,
-    newSeasonBudgets: newSeasonBudgets,
-    minSquad: minSquad,
-    maxSquad: maxSquad,
-    squadTotal: squadTotal,
-    lineupOf: lineupOf,
-    lineupShape: lineupShape,
-    findPlayer: findPlayer,
-    canSign: canSign,
-    transfer: transfer,
-    history: history,
-    market: market,
-    openWindow: openWindow,
-    closeWindow: closeWindow,
-    windowManager: windowManager,
-    windowOver: windowOver,
-    windowSign: windowSign,
-    windowPass: windowPass,
-    onTeamRemoved: onTeamRemoved
-  };
-})(window.LS = window.LS || {});
-
-
 /* ===== milestones.js ===== */
 /* Sideline — the milestone engine.
    The save file already holds the history: every champion, table, scorer and
@@ -6197,7 +5711,7 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
   // A save from before this module existed: read what the archive can tell us.
   function seed(comp) {
     var n = comp.season ? comp.season.number : 1;
-    var R = { v: 1, big: [], high: [], best: [], hauls: [], pairs: {}, club: {}, marks: {}, fee: 0,
+    var R = { v: 1, big: [], high: [], best: [], hauls: [], pairs: {}, club: {}, marks: {},
               played: 0, cur: blankCur(n), partial: comp.history.length > 0 };
     var cr = careerOf(comp);
     comp.teams.forEach(function (t) {
@@ -6228,7 +5742,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
         });
       });
     }
-    (comp.transfers || []).forEach(function (x) { if (x.fee > R.fee) R.fee = x.fee; });
     return R;
   }
 
@@ -6592,17 +6105,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
         moment(3, 'club-record', p.name + ' passes ' + poss(top.name) + ' ' + big(top.g) + ' to become ' +
           poss(t.name) + ' leading ' + who + ' of all time.', passed);
       }
-
-      // first for a new club, straight off the transfer log
-      if (!clubBefore && comp.transfers) {
-        var move = null;
-        comp.transfers.forEach(function (r) { if (r.player === p.id && r.to === t.id) move = r; });
-        if (move) {
-          var from = ctx.byId[move.from];
-          moment(1, 'debut', poss(p.name) + ' first ' + wd.one + ' for ' + t.name + ' since the move' +
-            (from ? ' from ' + from.name : '') + '.', x.evs[0]);
-        }
-      }
     });
   }
 
@@ -6858,22 +6360,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
     R.cur = blankCur(rec.n + 1);
   }
 
-  /* ------------------------------------------------------- transfers */
-
-  function onTransfer(comp, rec) {
-    var R = ensure(comp);
-    if (rec.fee <= R.fee) return;
-    var prev = R.fee;
-    R.fee = rec.fee;
-    if (!prev || (comp.transfers || []).length < 4) return;
-    var map = E.teamsById(comp), from = map[rec.from], to = map[rec.to];
-    var money = LS.transfers ? LS.transfers.money(rec.fee) : rec.fee;
-    push(comp, { at: 'transfer', k: 'fee', w: 3, keep: true, md: rec.md,
-      teams: [rec.from, rec.to].filter(function (x) { return map[x]; }),
-      text: 'A record fee: ' + money + ' takes ' + rec.name + ' from ' +
-        (from ? from.name : 'their club') + ' to ' + (to ? to.name : 'a new club') + '.' });
-  }
-
   /* --------------------------------------------------- restarts, removals */
 
   function onRestart(comp) {
@@ -7095,7 +6581,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
     teamSeason: teamSeason,
     squads: squads,
     onArchive: onArchive,
-    onTransfer: onTransfer,
     onRestart: onRestart,
     onTeamRemoved: onTeamRemoved,
     ordinal: ordinal
@@ -7126,10 +6611,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
       wagerTab: 'board',
       wagerMd: null,
       histTab: 'honours',
-      teamTab: 'squads',     // squads | market
-      mktPos: '',            // position filter on the transfer market
-      mktQ: '',              // search text
-      mktClub: '',           // limit to one club's players
       rankTab: 'ladder',     // ladder | history
       rankMode: 'position',  // position | rating
       rankTeams: null,       // nations plotted, null = the current top six
@@ -7421,8 +6902,8 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
       'tipping competition against six computer tipsters.'],
     ['history', 'History', 'The roll of honour, every completed season, an all-time table, ' +
       'all-time scorers, a head-to-head grid and the rivalries that have built up.'],
-    ['teams', 'Teams', 'Attack and defence for every side, kit colours, buttons to add or ' +
-      'remove a team \u2014 and the transfer market, where players move for a fee.'],
+    ['teams', 'Teams', 'Attack and defence for every side, kit colours and buttons to add or ' +
+      'remove a team.'],
     ['settings', 'Settings', 'Points for a win, tiebreakers, home advantage, table zones, ' +
       'a finals series, how ratings change between seasons, two-player mode, and export or ' +
       'import as JSON.']
@@ -7468,12 +6949,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
      'Click any column heading to rank by it, again to reverse, a third time to go back to ' +
      'the table\u2019s own order. On a phone a \u201cSort by\u201d picker reaches the columns that are hidden.',
      'Any table, anywhere in the app'],
-    ['\u{1F501}', 'Players move for a fee',
-     'Every player is valued on ability, age, position and form; every club has a budget it ' +
-     'cannot exceed. Move anyone between any two clubs and both ratings shift by what the ' +
-     'squad genuinely gained or lost \u2014 bounded, so a window nudges a club rather than ' +
-     'rewriting the league. With two managers the market runs as alternating turns.',
-     'Teams \u2192 Transfers'],
     ['\u{1F4BE}', 'It saves itself',
      'Competitions live in this browser and save after every action. Export to JSON in ' +
      'Settings to move one to another device, or to keep a copy.',
@@ -7550,13 +7025,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
      'priced from hundreds of full-season simulations and repriced as the season moves.',
      'Betting \u2192 Outrights',
      'betting'],
-    ['\u{1F501}', 'A transfer market',
-     'Squads used to be scenery \u2014 a player\u2019s skill decided who scored, but a club\u2019s attack ' +
-     'and defence never heard about it. Now moving a player shifts both clubs by however much ' +
-     'the squad really changed, so a marquee signing lifts you and losing your best player ' +
-     'hurts. Every player is priced, every club has a budget, and selling funds buying.',
-     'Teams \u2192 Transfers \u00b7 History \u2192 Transfers for the full log',
-     'teams'],
     ['\u{1F4CA}', 'Ranking history and charts',
      'The world ranking is snapshotted at the end of every edition, so it can be read as a ' +
      'story rather than a single number: chart any nation\u2019s position or rating across the ' +
@@ -8724,9 +8192,9 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
 
   var STORY_ICON = {
     title: '\u{1F3C6}', record: '\u{1F4C8}', h2h: '⚔️', haul: '\u{1F3A9}', career: '\u{1F4AF}',
-    'club-record': '\u{1F451}', debut: '✍️', apps: '\u{1F455}', minor: '\u{1F947}',
+    'club-record': '\u{1F451}', apps: '\u{1F455}', minor: '\u{1F947}',
     heartbreak: '\u{1F494}', decider: '⚖️', unbeaten: '\u{1F6E1}️', finish: '⬆️',
-    fall: '⬇️', qual: '✈️', retire: '\u{1F44B}', rank: '\u{1F30D}', fee: '\u{1F4B8}',
+    fall: '⬇️', qual: '✈️', retire: '\u{1F44B}', rank: '\u{1F30D}',
     dynasty: '\u{1F451}', drought: '⏳', nearly: '\u{1F948}', stake: '\u{1F525}'
   };
   function storyIcon(k) { return STORY_ICON[k] || '\u{1F4F0}'; }
@@ -8734,7 +8202,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
   // Where in the season a moment landed, as a reader would say it.
   function storyWhen(comp, e) {
     if (e.at === 'season') return 'S' + e.n + ' · season’s end';
-    if (e.at === 'transfer') return 'S' + e.n + ' · transfer';
     return 'S' + e.n + (e.md != null ? ' · MD ' + (e.md + 1) : '');
   }
 
@@ -9216,32 +8683,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
       '<p class="tiny muted" style="margin:6px 0 0">Position by edition, 1st at the top.</p>';
   }
 
-  // Every deal on record, with the ones worth remembering pulled out in front.
-  function histTransfers(comp) {
-    var all = LS.transfers.history(comp);
-    if (!all.length) return transferLog(comp, { title: 'Every transfer' });
-    var map = E.teamsById(comp);
-    var biggest = all.slice().sort(function (a, b) { return b.fee - a.fee; })[0];
-    var busiest = {};
-    all.forEach(function (r) {
-      busiest[r.to] = (busiest[r.to] || 0) + 1;
-      busiest[r.from] = (busiest[r.from] || 0) + 1;
-    });
-    var busyId = Object.keys(busiest).sort(function (a, b) { return busiest[b] - busiest[a]; })[0];
-    var spend = {};
-    all.forEach(function (r) { spend[r.to] = (spend[r.to] || 0) + r.fee; });
-    var bigSpendId = Object.keys(spend).sort(function (a, b) { return spend[b] - spend[a]; })[0];
-
-    var tiles = '<div class="grid grid-3">' +
-      tile('Record fee', LS.transfers.money(biggest.fee),
-           esc(biggest.name) + ' \u00b7 season ' + biggest.n) +
-      tile('Biggest spender', map[bigSpendId] ? esc(map[bigSpendId].abbr) : '\u2014',
-           LS.transfers.money(spend[bigSpendId] || 0) + ' out') +
-      tile('Busiest club', map[busyId] ? esc(map[busyId].abbr) : '\u2014',
-           (busiest[busyId] || 0) + ' deals in or out') +
-      '</div>';
-    return '<div class="stack">' + tiles + transferLog(comp, { title: 'Every transfer' }) + '</div>';
-  }
 
   function rankingMovers(comp) {
     var rows = E.rankingTable(comp).filter(function (r) { return r.was != null; });
@@ -10553,10 +9994,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
   function viewHistory(comp) {
     var ui = app.ui;
     if (!comp.history.length) {
-      // Transfers happen from the first season, before anything is archived, so
-      // the log is shown here rather than being unreachable until season two.
-      var early = (comp.transfers || []).length
-        ? transferLog(comp, { title: 'Every transfer' }) : '';
       return '<div class="stack">' +
         '<div class="card"><div class="card-body empty">' +
         '<div class="big">📚</div><h2>No seasons archived yet</h2>' +
@@ -10564,12 +10001,12 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
         'the next one. Every completed season is stored here in full — final table, every result, ' +
         'award winners and scorers — and rolls up into all-time records.</p>' +
         '<button class="btn btn-primary" data-act="go" data-view="overview">Back to the season</button>' +
-        '</div></div>' + early + '</div>';
+        '</div></div></div>';
     }
 
     var histTabs = [['honours', 'Honours'], ['seasons', 'Seasons'], ['alltime', 'All-time'],
        ['scorers', 'Scorers'], ['h2h', 'H2H'], ['rivals', 'Rivalries'],
-       ['transfers', 'Transfers'], ['story', 'Story']];
+       ['story', 'Story']];
     if (comp.format === 'worldcup') histTabs.splice(3, 0, ['qualifying', 'Qualifying']);
     // the Qualifying tab only exists for a World Cup, so fall back if it is not here
     var histTab = histTabs.some(function (t) { return t[0] === ui.histTab; }) ? ui.histTab : 'honours';
@@ -10587,7 +10024,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
     else if (histTab === 'scorers') body = histScorers(comp);
     else if (histTab === 'h2h') body = histH2H(comp);
     else if (histTab === 'rivals') body = rivalriesCard(comp);
-    else if (histTab === 'transfers') body = histTransfers(comp);
     else if (histTab === 'story') body = histStory(comp);
     else body = histHonours(comp);
 
@@ -11346,31 +10782,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
 
     var rankBlock = teamRankBlock(comp, id);
 
-    LS.transfers.ensure(comp);
-    var deals = LS.transfers.history(comp, { teamId: id, limit: 6 });
-    var moneyBlock = '<div class="section-title">Money and squad</div>' +
-      '<div class="grid grid-3" style="margin-bottom:14px">' +
-        tile('Budget', LS.transfers.money(team.budget), 'to spend on transfers') +
-        tile('Squad', team.players.length + ' players',
-             'value ' + LS.transfers.money(squadWorth(comp, team))) +
-        tile('Moved this season',
-             (team.shift && (team.shift.att || team.shift.def))
-               ? signed(team.shift.att) + ' / ' + signed(team.shift.def)
-               : 'nothing',
-             'attack / defence, from deals') +
-      '</div>' +
-      (deals.length
-        ? '<div class="table-wrap"><table class="data"><tbody>' + deals.map(function (r) {
-            var other = r.from === id ? map[r.to] : map[r.from];
-            return '<tr><td class="l muted tiny">S' + r.n + '</td>' +
-              '<td class="l tiny ' + (r.from === id ? 'down' : 'up') + '">' +
-                (r.from === id ? 'out' : 'in') + '</td>' +
-              '<td class="l strong">' + esc(r.name) + '</td>' +
-              '<td class="l small muted">' + (other ? esc(other.abbr) : '\u2014') + '</td>' +
-              '<td class="right strong">' + LS.transfers.money(r.fee) + '</td></tr>';
-          }).join('') + '</tbody></table></div>'
-        : '<p class="small muted" style="margin:0">No transfers yet.</p>');
-
     var history = all && all.positions.length ?
       '<div class="section-title">Season by season</div>' +
       '<div class="table-wrap"><table class="data"><thead><tr><th class="l">Season</th><th>Finish</th>' +
@@ -11444,282 +10855,16 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
         esc(id) + '">Club history</button>' : '') + '</div>' +
       (team.surge ? '<p class="small" style="margin:-6px 0 14px">' + esc(surgeNote(team)) + '</p>' : '');
 
-    modal(team.name, head + seasonBlock + qualBlock + rankBlock + moneyBlock + history +
+    modal(team.name, head + seasonBlock + qualBlock + rankBlock + history +
       squadHtml + h2hHtml);
   }
 
   /* ------------------------------------------------------------ teams view */
 
-  /* ---------------------------------------------------------- transfers */
-
-  function T() { return LS.transfers; }
-
-  function moneyCell(n) { return T().money(n); }
-
-  // A club's line: what it can spend, how big its squad is, and how much
-  // talent is sitting in it.
-  function squadWorth(comp, team) {
-    return team.players.reduce(function (a, p) { return a + T().valueOf(comp, p); }, 0);
-  }
-
-  function budgetStrip(comp) {
-    var rows = comp.teams.map(function (t) {
-      return { t: t, budget: t.budget, worth: squadWorth(comp, t), n: t.players.length };
-    }).sort(function (a, b) { return b.budget - a.budget; });
-    var minS = T().minSquad(comp), maxS = T().maxSquad(comp);
-
-    return '<div class="card"><div class="card-head"><h3>Money and squads</h3>' +
-      '<span class="tiny muted">squads run ' + minS + '–' + maxS + ' players</span></div>' +
-      '<div class="table-wrap"><table class="data sticky-team" data-table="budgets"><thead><tr>' +
-      '<th class="l stick">Club</th><th>Budget</th><th class="col-hide-sm">Squad</th>' +
-      '<th class="col-hide-sm">Squad value</th><th>ATT</th><th>DEF</th>' +
-      '<th class="col-hide-sm" title="Rating this season’s deals have already moved">Moved</th>' +
-      '</tr></thead><tbody>' +
-      rows.map(function (r) {
-        var sh = r.t.shift || { att: 0, def: 0 };
-        var movedTxt = (sh.att || sh.def)
-          ? '<span class="' + ((sh.att + sh.def) > 0 ? 'up' : 'down') + '">' +
-            signed(sh.att) + ' / ' + signed(sh.def) + '</span>'
-          : '<span class="muted">–</span>';
-        return '<tr class="clickable" data-act="team" data-id="' + r.t.id + '">' +
-          '<td class="l stick">' + teamCell(r.t) + managerBadge(comp, r.t.id) + '</td>' +
-          '<td class="strong" data-v="' + r.budget + '">' + moneyCell(r.budget) + '</td>' +
-          '<td class="col-hide-sm ' + (r.n <= minS ? 'down' : r.n >= maxS ? 'down' : 'muted') + '" ' +
-            'data-v="' + r.n + '">' + r.n + '</td>' +
-          '<td class="muted col-hide-sm" data-v="' + r.worth + '">' + moneyCell(r.worth) + '</td>' +
-          '<td data-v="' + r.t.att + '">' + r.t.att + '</td>' +
-          '<td data-v="' + r.t.def + '">' + r.t.def + '</td>' +
-          '<td class="col-hide-sm" data-v="' + (sh.att + sh.def) + '">' + movedTxt + '</td></tr>';
-      }).join('') + '</tbody></table></div>' +
-      '<div class="zone-key">A club can only spend what it holds, and selling pays for buying. ' +
-      'Money follows standing, so the strongest clubs have the most of it. Each club’s rating ' +
-      'can move at most ' + T().SHIFT_CAP + ' points a season through transfers.</div></div>';
-  }
-
-  function marketFilters(comp) {
-    var ui = app.ui;
-    var sport = sportOf(comp);
-    var posOpts = '<option value="">Any position</option>' +
-      (sport.positions || []).map(function (sl) {
-        return '<option value="' + esc(sl[0]) + '"' + (ui.mktPos === sl[0] ? ' selected' : '') +
-          '>' + esc(sl[0]) + '</option>';
-      }).join('');
-    var clubOpts = '<option value="">Every club</option>' +
-      comp.teams.slice().sort(function (a, b) { return a.name.localeCompare(b.name); })
-        .map(function (t) {
-          return '<option value="' + t.id + '"' + (ui.mktClub === t.id ? ' selected' : '') +
-            '>' + esc(t.name) + '</option>';
-        }).join('');
-    return '<div class="mkt-filters">' +
-      '<input type="text" id="mktQ" value="' + esc(ui.mktQ) + '" data-act="mkt-q" ' +
-        'placeholder="Search a player or club" aria-label="Search players">' +
-      '<select data-act="mkt-pos" aria-label="Position">' + posOpts + '</select>' +
-      '<select data-act="mkt-club" aria-label="Club">' + clubOpts + '</select>' +
-      (ui.mktQ || ui.mktPos || ui.mktClub
-        ? '<button class="btn btn-sm" data-act="mkt-clear">Clear</button>' : '') +
-      '</div>';
-  }
-
-  function marketTable(comp) {
-    var ui = app.ui;
-    var rows = T().market(comp, { pos: ui.mktPos, q: ui.mktQ, limit: 400 });
-    if (ui.mktClub) rows = rows.filter(function (r) { return r.team.id === ui.mktClub; });
-    var shown = rows.slice(0, 60);
-    var wc = isWorldCup(comp);
-
-    if (!shown.length) {
-      return '<div class="card"><div class="card-head"><h3>Players</h3></div><div class="card-body">' +
-        '<p class="small muted" style="margin:0">Nobody matches that. Clear the filters to see ' +
-        'the whole market.</p></div></div>';
-    }
-
-    return '<div class="card"><div class="card-head"><h3>Players</h3>' +
-      '<span class="badge">' + rows.length + ' listed</span>' +
-      (rows.length > shown.length
-        ? '<span class="tiny muted">showing the ' + shown.length + ' most valuable</span>' : '') +
-      '</div>' + marketFilters(comp) +
-      '<div class="table-wrap"><table class="data sticky-team" data-table="market"><thead><tr>' +
-      '<th class="l stick">Player</th><th class="l">Pos</th><th class="l col-hide-sm">Club</th>' +
-      '<th>Rating</th><th class="col-hide-sm" title="Seasons played">Age</th>' +
-      '<th class="col-hide-sm">' + esc(wc ? 'Finals' : sportOf(comp).scoreWord) + '</th>' +
-      '<th class="strong">Value</th><th></th>' +
-      '</tr></thead><tbody>' +
-      shown.map(function (r) {
-        var p = r.player;
-        return '<tr>' +
-          '<td class="l stick strong">' + esc(p.name) +
-            (p.wild ? ' <span class="badge tiny" title="A generational talent">★</span>' : '') +
-            '</td>' +
-          '<td class="l muted">' + esc(p.pos) + '</td>' +
-          '<td class="l col-hide-sm">' + teamCell(r.team, { abbr: true }) + '</td>' +
-          '<td data-v="' + p.skill + '">' + p.skill + '</td>' +
-          '<td class="muted col-hide-sm" data-v="' + (p.seasons || 0) + '">' + (p.seasons || 0) + '</td>' +
-          '<td class="muted col-hide-sm" data-v="' + (p.g || 0) + '">' + (p.g || 0) + '</td>' +
-          '<td class="strong" data-v="' + r.value + '">' + moneyCell(r.value) + '</td>' +
-          '<td><button class="btn btn-sm" data-act="transfer" data-id="' + esc(p.id) + '">Move</button></td>' +
-          '</tr>';
-      }).join('') + '</tbody></table></div></div>';
-  }
-
-  // Choosing where a player goes. Every club is listed with what it would cost
-  // them and why they cannot do it, so a blocked deal explains itself.
-  function showTransfer(comp, playerId) {
-    var at = T().findPlayer(comp, playerId);
-    if (!at) return;
-    var p = at.player, from = at.team;
-    var fee = T().valueOf(comp, p);
-    var sport = sportOf(comp);
-    var lean = T().positionLean(sport);
-    var leans = (lean[p.pos] == null ? 0.5 : lean[p.pos]) >= 0.55 ? 'attack' : 'defence';
-
-    var head = '<div class="grid grid-3" style="margin-bottom:14px">' +
-      tile('Value', moneyCell(fee), p.pos + ' · rating ' + p.skill) +
-      tile('At', from.abbr, from.name + ' · ' + moneyCell(from.budget) + ' to spend') +
-      tile('This season', (p.g || 0) + ' / ' + (p.a || 0),
-           esc(sport.scoreWordOne) + 's and assists in ' + (p.apps || 0)) +
-      '</div>' +
-      '<p class="small muted">Signing him mainly moves a club’s <b>' + leans + '</b>. ' +
-      'The fee moves with him: ' + esc(from.name) + ' receive ' + moneyCell(fee) + '.</p>';
-
-    var options = comp.teams.filter(function (t) { return t.id !== from.id; })
-      .map(function (t) {
-        var chk = T().canSign(comp, playerId, t.id);
-        return { t: t, ok: chk.ok, reason: chk.reason };
-      })
-      .sort(function (a, b) {
-        return (b.ok ? 1 : 0) - (a.ok ? 1 : 0) || b.t.budget - a.t.budget;
-      });
-
-    var list = '<div class="section-title">Move him to</div>' +
-      '<div class="table-wrap"><table class="data"><tbody>' +
-      options.map(function (o) {
-        return '<tr' + (o.ok ? ' class="clickable"' : '') + '>' +
-          '<td class="l">' + teamCell(o.t) + managerBadge(comp, o.t.id) + '</td>' +
-          '<td class="muted small">' + moneyCell(o.t.budget) + '</td>' +
-          '<td class="l small ' + (o.ok ? 'muted' : '') + '">' +
-            (o.ok ? o.t.players.length + ' players' : '<span class="muted">' + esc(o.reason) + '</span>') +
-            '</td>' +
-          '<td class="right">' + (o.ok
-            ? '<button class="btn btn-sm btn-primary" data-act="do-transfer" data-id="' +
-              esc(playerId) + '" data-to="' + o.t.id + '">Sign</button>'
-            : '<span class="muted tiny">—</span>') + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
-
-    modal(p.name, head + list);
-  }
-
-  function transferLog(comp, opts) {
-    opts = opts || {};
-    var list = T().history(comp, opts);
-    if (!list.length) {
-      return '<div class="card"><div class="card-head"><h3>' + esc(opts.title || 'Transfers') +
-        '</h3></div><div class="card-body"><p class="small muted" style="margin:0">' +
-        'Nothing has moved yet. Every deal is recorded here with the fee and what it did to ' +
-        'both clubs’ ratings.</p></div></div>';
-    }
-    var map = E.teamsById(comp);
-    function moveCell(m) {
-      if (!m || (!m.att && !m.def)) return '<span class="muted">–</span>';
-      return '<span class="' + ((m.att + m.def) > 0 ? 'up' : 'down') + '">' +
-        signed(m.att) + ' / ' + signed(m.def) + '</span>';
-    }
-    return '<div class="card"><div class="card-head"><h3>' + esc(opts.title || 'Transfers') + '</h3>' +
-      '<span class="badge">' + list.length + ' deal' + (list.length === 1 ? '' : 's') + '</span></div>' +
-      '<div class="table-wrap"><table class="data" data-table="translog"><thead><tr>' +
-      '<th class="l">Season</th><th class="l">Player</th><th class="l">From</th><th class="l">To</th>' +
-      '<th class="strong">Fee</th><th class="col-hide-sm">Seller</th><th class="col-hide-sm">Buyer</th>' +
-      '</tr></thead><tbody>' +
-      list.map(function (r) {
-        var f = map[r.from], t = map[r.to];
-        return '<tr><td class="l muted">S' + r.n + '</td>' +
-          '<td class="l strong">' + esc(r.name) +
-            '<span class="tiny muted"> ' + esc(r.pos) + ' ' + r.skill + '</span></td>' +
-          '<td class="l">' + (f ? teamCell(f, { abbr: true }) : '<span class="muted">gone</span>') + '</td>' +
-          '<td class="l">' + (t ? teamCell(t, { abbr: true }) : '<span class="muted">gone</span>') + '</td>' +
-          '<td class="strong" data-v="' + r.fee + '">' + moneyCell(r.fee) + '</td>' +
-          '<td class="col-hide-sm">' + moveCell(r.fromMove) + '</td>' +
-          '<td class="col-hide-sm">' + moveCell(r.toMove) + '</td></tr>';
-      }).join('') + '</tbody></table></div></div>';
-  }
-
-  /* ------------------------------------------ the two-player window */
-
-  function windowCard(comp) {
-    var M = LS.managers;
-    if (!M || !M.ready(comp)) return '';
-    var w = comp.transferWindow;
-    if (!w) {
-      return '<div class="card"><div class="card-head"><h3>Transfer window</h3>' +
-        '<button class="btn btn-sm btn-primary" data-act="open-window">Open the window</button>' +
-        '</div><div class="card-body"><p class="small" style="margin:0">' +
-        'With two managers the market runs as turns: each of you signs one player, then hands ' +
-        'over, so neither can empty the shelf while the other is deciding. ' +
-        T().WINDOW_MOVES + ' moves each, and you can pass at any point.</p></div></div>';
-    }
-    var turn = T().windowManager(comp);
-    var rows = w.order.map(function (id) {
-      var m = M.managerOf(comp, id);
-      if (!m) return '';
-      var club = E.teamsById(comp)[m.teamId];
-      var passed = w.passed.indexOf(id) >= 0;
-      return '<div class="mgr-row">' +
-        '<span class="mgr-dot" style="background:' + esc(m.color) + '"></span>' +
-        '<span class="strong">' + esc(m.name) + '</span>' +
-        '<span class="small muted">' + (club ? esc(club.name) + ' · ' + moneyCell(club.budget) : '') + '</span>' +
-        '<span style="margin-left:auto" class="small ' + (passed ? 'muted' : '') + '">' +
-          (passed ? 'passed' : w.left[id] + ' move' + (w.left[id] === 1 ? '' : 's') + ' left') + '</span>' +
-        (turn && turn.id === id ? '<span class="badge badge-accent tiny">their turn</span>' : '') +
-        '</div>';
-    }).join('');
-
-    var done = w.done.length
-      ? '<div class="section-title" style="margin-top:14px">Signed in this window</div>' +
-        w.done.map(function (d) {
-          var m = M.managerOf(comp, d.manager);
-          return '<div class="tiny muted" style="padding:3px 0">' +
-            (m ? esc(m.name) : '?') + ' — ' + esc(d.name) + ' for ' + moneyCell(d.fee) + '</div>';
-        }).join('')
-      : '';
-
-    return '<div class="card" style="border-color:var(--accent)"><div class="card-head">' +
-      '<h3>Transfer window</h3>' +
-      (turn ? '<span class="badge badge-accent">' + esc(turn.name) + ' to move</span>' : '') +
-      '<button class="btn btn-sm" data-act="window-pass">Pass</button>' +
-      '<button class="btn btn-sm btn-ghost" data-act="close-window">End the window</button>' +
-      '</div><div class="card-body">' + rows +
-      '<p class="small muted" style="margin:12px 0 0">' +
-      (turn ? esc(turn.name) + ', pick anyone below and press <b>Move</b> — he goes straight to ' +
-        'your club if you can afford him.' : 'Both managers are done.') + '</p>' + done +
-      '</div></div>';
-  }
-
-  function transferMarket(comp) {
-    T().ensure(comp);
-    return '<div class="stack">' + windowCard(comp) + budgetStrip(comp) + marketTable(comp) +
-      transferLog(comp, { season: comp.season.number, title: 'This season’s deals' }) +
-      '</div>';
-  }
-
   function viewTeams(comp) {
     var started = comp.season.matches.some(function (m) { return m.played; });
-    var seg = '<div class="seg">' +
-      [['squads', 'Squads &amp; ratings'], ['market', 'Transfers']].map(function (t) {
-        return '<button data-act="team-tab" data-tab="' + t[0] + '" aria-pressed="' +
-          (app.ui.teamTab === t[0]) + '">' + t[1] + '</button>';
-      }).join('') + '</div>';
-    if (app.ui.teamTab === 'market') {
-      return '<div class="stack">' +
-        '<div class="card"><div class="card-head"><h2>Transfer market</h2>' + seg +
-        '<span class="badge">' + comp.teams.length + ' clubs</span></div>' +
-        '<div class="card-body" style="padding-bottom:6px"><p class="small" style="margin:0">' +
-        'Move any player between any two clubs. The buying club pays the fee and the selling ' +
-        'club banks it, and both ratings shift by however much the squad really changed — so a ' +
-        'marquee signing lifts you and losing your best player hurts. Deals can be done at any ' +
-        'point in the season; a player takes his figures with him.</p></div></div>' +
-        transferMarket(comp) + '</div>';
-    }
     return '<div class="stack">' +
-      '<div class="card"><div class="card-head"><h2>Teams &amp; ratings</h2>' + seg +
+      '<div class="card"><div class="card-head"><h2>Teams &amp; ratings</h2>' +
         '<span class="badge">' + comp.teams.length + ' teams</span>' +
         '<button class="btn btn-sm btn-primary" data-act="add-team">+ Add team</button>' +
         '<button class="btn btn-sm" data-act="randomise">Randomise ratings</button>' +
@@ -12560,48 +11705,8 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
         render();
         return;
 
-      case 'team-tab': app.ui.teamTab = el.dataset.tab; render(); return;
       case 'rank-tab': app.ui.rankTab = el.dataset.tab; render(); return;
 
-      case 'transfer': showTransfer(comp, el.dataset.id); return;
-
-      case 'do-transfer': {
-        var moved = comp.transferWindow
-          ? LS.transfers.windowSign(comp, el.dataset.id)
-          : LS.transfers.transfer(comp, el.dataset.id, el.dataset.to);
-        if (!moved) {
-          var why = LS.transfers.canSign(comp, el.dataset.id, el.dataset.to);
-          toast(why.reason || 'That move is not allowed.');
-          return;
-        }
-        persist();
-        closeModal();
-        render();
-        var map = E.teamsById(comp);
-        toast(moved.name + ' joins ' + (map[moved.to] ? map[moved.to].name : 'them') +
-              ' for ' + LS.transfers.money(moved.fee));
-        popMoments(comp, seq);
-        return;
-      }
-
-      case 'mkt-clear':
-        app.ui.mktQ = ''; app.ui.mktPos = ''; app.ui.mktClub = '';
-        render();
-        return;
-
-      case 'open-window':
-        if (LS.transfers.openWindow(comp)) { persist(); render(); }
-        return;
-
-      case 'close-window':
-        LS.transfers.closeWindow(comp);
-        persist(); render();
-        return;
-
-      case 'window-pass':
-        LS.transfers.windowPass(comp);
-        persist(); render();
-        return;
       case 'rank-mode': app.ui.rankMode = el.dataset.mode; render(); return;
 
       case 'toggle-series': {
@@ -12878,15 +11983,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
 
   function onInput(ev) {
     if (ev.target && ev.target.id === 'betStake') { updateBetReturn(); return; }
-    if (ev.target && ev.target.id === 'mktQ') {
-      app.ui.mktQ = ev.target.value;
-      var caret = ev.target.selectionStart;
-      render();
-      // the whole view is rebuilt, so put the cursor back where it was
-      var again = $('#mktQ');
-      if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch (e) {} }
-      return;
-    }
     var el = ev.target.closest('[data-act]');
     if (!el) return;
     var comp = S.active();
@@ -13034,8 +12130,6 @@ table[data-table="market"] .down { color: var(--red); font-weight: 700; }
       if (act === 'md-pick') { app.ui.md = parseInt(el.value, 10); render(); return; }
       if (act === 'wager-md') { app.ui.wagerMd = parseInt(el.value, 10); render(); return; }
       if (act === 'fixture-team') { app.ui.fixtureTeam = el.value; render(); return; }
-      if (act === 'mkt-pos') { app.ui.mktPos = el.value; render(); return; }
-      if (act === 'mkt-club') { app.ui.mktClub = el.value; render(); return; }
       if (act === 'set' || act === 'zone-from' || act === 'zone-to' ||
           act === 'finals-on' || act === 'finals-system' || act === 'finals-size' ||
           act === 'wager-enabled' || act === 'wager-tipping' || act === 'wager-bankroll' ||
