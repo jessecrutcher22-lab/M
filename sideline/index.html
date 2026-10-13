@@ -8929,7 +8929,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 
   function whyOut(p) {
     return p.sus > 0 ? 'Suspended · ' + p.sus + (p.sus === 1 ? ' match' : ' matches')
-      : (p.inj > 15 ? 'Long-term injury' : p.inj > 6 ? 'Injured' : 'Knock') + ' · ' +
+      : (p.inj > 15 ? 'Long-term injury' : p.inj > 2 ? 'Injured' : 'Knock') + ' · ' +
         p.inj + (p.inj === 1 ? ' match' : ' matches');
   }
 
