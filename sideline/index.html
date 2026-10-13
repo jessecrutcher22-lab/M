@@ -850,6 +850,7 @@ tr.z-rel td.pos { box-shadow: inset 3px 0 0 var(--z-rel); }
 
 .honour-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
 .club-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.live-inc .le-name { font-weight: 600; color: var(--text-2); }
 button.badge { border: 0; cursor: pointer; font-family: inherit; }
 button.badge:hover { background: var(--accent-soft); color: var(--accent); }
 .timeline-season { padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
@@ -2740,14 +2741,123 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     return expectedPlays(LS.data.sports.football, attacker, defender, mult);
   }
 
+  /* ------------------------------------------------ injuries & suspensions */
+
+  /* Players get hurt and sent off. Whoever is out misses the next few of his
+     side's matches: he cannot score or appear, and the side is weaker by the
+     gap between him and whoever comes in. A club with depth shrugs it off; a
+     one-star side feels it. Rates are per player in the line-up, per match. */
+  var INJURY_RATE = {
+    football: 0.009, hockey: 0.007, basketball: 0.006, baseball: 0.004,
+    american: 0.012, rugbyleague: 0.016, rugby: 0.016
+  };
+  // bookings, sendings-off, and how many bookings earn a one-match ban
+  var DISCIPLINE = {
+    football: { yellow: 0.09, red: 0.004, yellowBan: 5, redBan: [1, 3] },
+    rugby: { red: 0.0025, redBan: [2, 4] },
+    rugbyleague: { red: 0.002, redBan: [1, 3] },
+    hockey: { red: 0.002, redBan: [1, 2] }
+  };
+  // how far a missing player drags his side down, per point of line-up quality lost
+  var ABSENCE_IMPACT = 1.5;
+
+  function injuriesOn(settings) { return !settings || settings.injuries !== false; }
+
+  function isOut(p) { return (p.inj || 0) > 0 || (p.sus || 0) > 0; }
+
+  // Who can take the field. A squad stretched thinner than a line-up sends the
+  // walking wounded out anyway, the least hurt first.
+  function available(team, sport) {
+    var need = Math.min((sport && sport.lineup) || 11, team.players.length);
+    var fit = team.players.filter(function (p) { return !isOut(p); });
+    if (fit.length >= need) return fit;
+    var hurt = team.players.filter(function (p) { return isOut(p) && !(p.sus > 0); })
+      .sort(function (x, y) { return (x.inj || 0) - (y.inj || 0); });
+    return fit.concat(hurt.slice(0, need - fit.length));
+  }
+
+  function topMean(list, n) {
+    var top = list.map(function (p) { return p.skill; }).sort(function (x, y) { return y - x; }).slice(0, n);
+    return top.length ? top.reduce(function (s, v) { return s + v; }, 0) / top.length : 0;
+  }
+
+  // The side's ratings for today, with whoever is missing taken out.
+  function strengthNow(team, sport, settings) {
+    if (!team || !injuriesOn(settings) || !team.players.some(isOut)) return team;
+    var n = Math.min((sport && sport.lineup) || 11, team.players.length);
+    var d = (topMean(available(team, sport), n) - topMean(team.players, n)) * ABSENCE_IMPACT;
+    return { id: team.id, att: clamp(team.att + d, 20, 99), def: clamp(team.def + d, 20, 99) };
+  }
+
+  // A short signature of who is out, so cached prices know when to move.
+  function absenceKey(team) {
+    if (!team) return '';
+    return team.players.filter(isOut).map(function (p) { return p.id + (p.inj || 0) + 's' + (p.sus || 0); }).join(',');
+  }
+
+  function injuryWord(n) {
+    return n <= 2 ? 'knock' : n <= 6 ? 'strain' : n <= 15 ? 'ligament damage' : 'serious injury';
+  }
+
+  // After the whistle: those who sat it out have served a match, and the line-up
+  // takes its knocks and its cards for the matches to come.
+  function incidents(match, team, side, lineup, out, sport, rng) {
+    out.forEach(function (p) {
+      if (p.sus > 0) p.sus--;
+      else if (p.inj > 0) p.inj--;
+    });
+    var rate = INJURY_RATE[sport.id] || 0.008;
+    var disc = DISCIPLINE[sport.id] || null;
+    var end = regulationEnd(clockOf(sport));
+    lineup.forEach(function (p) {
+      if (disc && disc.red && rng.next() < disc.red) {
+        var ban = rng.int(disc.redBan[0], disc.redBan[1]);
+        p.sus = (p.sus || 0) + ban;
+        match.inc.push({ min: rng.int(10, end), side: side, p: p.id, k: 'red', out: ban });
+        return;
+      }
+      if (disc && disc.yellow && rng.next() < disc.yellow) {
+        p.yc = (p.yc || 0) + 1;
+        if (disc.yellowBan && p.yc % disc.yellowBan === 0) {
+          p.sus = (p.sus || 0) + 1;
+          match.inc.push({ min: rng.int(5, end), side: side, p: p.id, k: 'ban', out: 1, yc: p.yc });
+        }
+      }
+      if (rng.next() < rate) {
+        var r = rng.next();
+        var len = r < 0.55 ? rng.int(1, 2) : r < 0.85 ? rng.int(3, 6) : r < 0.97 ? rng.int(7, 15) : rng.int(16, 30);
+        p.inj = Math.max(p.inj || 0, len);
+        match.inc.push({ min: rng.int(1, end), side: side, p: p.id, k: 'inj', out: len, what: injuryWord(len) });
+      }
+    });
+  }
+
   function simulateMatch(match, teamsById, settings, rng, sport, norm) {
     sport = sport || LS.data.sports.football;
     var h = teamsById[match.h], a = teamsById[match.a];
     var neutral = match.stage === 'ko' && settings.neutralKo;
     var mult = homeMultipliers(sport, settings, neutral);
+    var hurt = injuriesOn(settings);
 
-    var lh = expectedPlays(sport, h, a, mult[0], norm);
-    var la = expectedPlays(sport, a, h, mult[1], norm);
+    // whoever is missing is decided before kick-off
+    if (hurt) {
+      h._avail = available(h, sport); a._avail = available(a, sport);
+      match.absent = [h, a].map(function (t) {
+        return t.players.filter(function (p) { return t._avail.indexOf(p) < 0; }).map(function (p) { return p.id; });
+      });
+    }
+    var lh = expectedPlays(sport, hurt ? strengthNow(h, sport, settings) : h,
+      hurt ? strengthNow(a, sport, settings) : a, mult[0], norm);
+    var la = expectedPlays(sport, hurt ? strengthNow(a, sport, settings) : a,
+      hurt ? strengthNow(h, sport, settings) : h, mult[1], norm);
+    try {
+      return playOut(match, h, a, lh, la, sport, settings, rng);
+    } finally {
+      delete h._avail; delete a._avail;
+    }
+  }
+
+  function playOut(match, h, a, lh, la, sport, settings, rng) {
 
     match.played = true;
     match.xg = [Math.round(lh * 100) / 100, Math.round(la * 100) / 100];
@@ -2767,7 +2877,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         match.shootoutWinner = match.pens[0] > match.pens[1] ? match.h : match.a;
         match.ot = true;
         match.events.sort(function (x, y) { return x.min - y.min; });
-        countApps(h, rng, sport); countApps(a, rng, sport);
+        afterWhistle(match, h, a, sport, settings, rng, false);
         return match;
       }
       var team = side === 'h' ? h : a;
@@ -2783,9 +2893,19 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     }
 
     match.events.sort(function (x, y) { return x.min - y.min; });
-    countApps(h, rng, sport, match.stage === 'qual');
-    countApps(a, rng, sport, match.stage === 'qual');
+    afterWhistle(match, h, a, sport, settings, rng, match.stage === 'qual');
     return match;
+  }
+
+  function afterWhistle(match, h, a, sport, settings, rng, isQual) {
+    var lh = countApps(h, rng, sport, isQual), la = countApps(a, rng, sport, isQual);
+    match.inc = [];
+    if (!injuriesOn(settings)) return;
+    var outH = h.players.filter(function (p) { return h._avail.indexOf(p) < 0; });
+    var outA = a.players.filter(function (p) { return a._avail.indexOf(p) < 0; });
+    incidents(match, h, 'h', lh, outH, sport, rng);
+    incidents(match, a, 'a', la, outA, sport, rng);
+    match.inc.sort(function (x, y) { return x.min - y.min; });
   }
 
   /* ---------------------------------------------------------- match clock */
@@ -2861,8 +2981,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     for (var i = 0; i < plays; i++) {
       var value = pickUnit(sport, rng);
       total += value;
-      var scorer = weightedPick(rng, team.players, scoringWeight, null);
-      var assist = rng.next() < 0.68 ? weightedPick(rng, team.players, assistWeight, scorer) : null;
+      var squad = team._avail || team.players;
+      var scorer = weightedPick(rng, squad, scoringWeight, null);
+      var assist = rng.next() < 0.68 ? weightedPick(rng, squad, assistWeight, scorer) : null;
       var isQual = match.stage === 'qual';
       if (scorer) {
         scorer.g += value; scorer.cg += value;
@@ -2884,14 +3005,17 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 
   // Credit an appearance to a plausible line-up: the best players, lightly rotated.
   function countApps(team, rng, sport, isQual) {
-    var n = Math.min((sport && sport.lineup) || 11, team.players.length);
-    var pool = team.players.slice().sort(function (x, y) { return y.skill - x.skill; })
-      .slice(0, Math.min(n + 2, team.players.length));
+    var squad = team._avail || team.players;
+    var n = Math.min((sport && sport.lineup) || 11, squad.length);
+    var pool = squad.slice().sort(function (x, y) { return y.skill - x.skill; })
+      .slice(0, Math.min(n + 2, squad.length));
     rng.shuffle(pool);
-    pool.slice(0, n).forEach(function (p) {
+    var lineup = pool.slice(0, n);
+    lineup.forEach(function (p) {
       p.apps++; p.capps++;
       if (isQual) p.qapps = (p.qapps || 0) + 1;
     });
+    return lineup;
   }
 
   function shootout(rng) {
@@ -3590,6 +3714,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         p.seasons++;
         p.g = 0; p.a = 0; p.apps = 0;
         p.qg = 0; p.qa = 0; p.qapps = 0;
+        // the summer clears bans and bookings and heals all but the worst
+        p.sus = 0; p.yc = 0;
+        if (p.inj) p.inj = Math.max(0, p.inj - 8);
       });
       t.players.sort(function (x, y) { return x.skill - y.skill; });
       for (var i = 0; i < 2 && i < t.players.length; i++) {
@@ -3653,6 +3780,11 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     expectedGoals: expectedGoals,
     expectedPlays: expectedPlays,
     simulateMatch: simulateMatch,
+    available: available,
+    strengthNow: strengthNow,
+    absenceKey: absenceKey,
+    injuriesOn: injuriesOn,
+    isOut: isOut,
     homeMultipliers: homeMultipliers,
     samplePlays: samplePlays,
     pickUnit: pickUnit,
@@ -3688,6 +3820,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     tiebreak: 'gd',
     evolution: 'performance',
     wildcards: true,
+    injuries: true,
     finals: { enabled: false, system: 'final8', size: 8 },
     zones: null
   };
@@ -3908,7 +4041,10 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     E.evolveTeams(comp, table);
     // retirements and ranking firsts, before the ladder is snapshotted
     if (MS) MS.onArchive(comp, rec, squads);
-    if (comp.format === 'worldcup') {
+    if (comp.format === 'worldcup' && comp.continental && LS.continental) {
+      // a continental field comes from the leagues' latest tables
+      LS.continental.draw(comp, rec.n + 1);
+    } else if (comp.format === 'worldcup') {
       // work out who holds a place for the next edition before the draw is made
       E.snapshotRankings(comp);
       var next = E.nextEditionPlaces(comp);
@@ -3932,6 +4068,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         p.cg -= p.g; p.ca -= p.a; p.capps -= p.apps;
         p.g = 0; p.a = 0; p.apps = 0;
         p.qg = 0; p.qa = 0; p.qapps = 0;
+        p.inj = 0; p.sus = 0; p.yc = 0;
       });
     });
   }
@@ -4631,14 +4768,18 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 
   // Monte Carlo the fixture. Deterministic per match, so the board never flickers.
   function distribution(comp, match, runs) {
-    var key = comp.id + '|' + comp.season.number + '|' + match.id + '|' + runs;
+    var map = E.teamsById(comp);
+    var h0 = map[match.h], a0 = map[match.a];
+    if (!h0 || !a0) return null;
+    // a price moves when a side's absentees do
+    var key = comp.id + '|' + comp.season.number + '|' + match.id + '|' + runs + '|' +
+      E.absenceKey(h0) + '|' + E.absenceKey(a0);
     if (distCache[key]) return distCache[key];
 
     var sport = E.sportOf(comp);
     var norm = E.leagueNorm(comp.teams);
-    var map = E.teamsById(comp);
-    var h = map[match.h], a = map[match.a];
-    if (!h || !a) return null;
+    var h = match.played ? h0 : E.strengthNow(h0, sport, comp.settings);
+    var a = match.played ? a0 : E.strengthNow(a0, sport, comp.settings);
 
     var neutral = (match.stage === 'ko') && comp.settings.neutralKo;
     var mult = E.homeMultipliers(sport, comp.settings, neutral);
@@ -5622,8 +5763,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   function hasFinals(comp) {
     return comp.format === 'league' && !!(comp.settings.finals && comp.settings.finals.enabled);
   }
-  function unit(comp) { return comp.format === 'worldcup' ? 'editions' : 'seasons'; }
-  function side(comp) { return comp.format === 'worldcup' ? 'nation' : 'club'; }
+  function national(comp) { return comp.format === 'worldcup' && !comp.continental; }
+  function unit(comp) { return national(comp) ? 'editions' : 'seasons'; }
+  function side(comp) { return national(comp) ? 'nation' : 'club'; }
   // Brooklyn Nets' record, not Brooklyn Nets's
   function poss(name) { return /s$/i.test(name) ? name + '\u2019' : name + '\u2019s'; }
 
@@ -5951,7 +6093,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var R = ensure(comp);
     var ctx = context(comp);
     due.forEach(function (m) { if (m.played) atFullTime(comp, R, ctx, m, snap); });
-    if (snap.stage === 'qual' && comp.season.stage !== 'qual') atQualified(comp, ctx);
+    if (snap.stage === 'qual' && comp.season.stage !== 'qual') {
+      atQualified(comp, ctx.n, (comp.season.qualified || []).map(function (q) { return q.id; }));
+    }
     if (!snap.complete && comp.season.complete) atSeasonEnd(comp, R, ctx);
     else atRoundEnd(comp, R);
   }
@@ -6010,6 +6154,25 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 
     playerMoments(comp, R, ctx, m, h, a);
     appearanceMoments(comp, ctx, m, h, a, snap);
+    incidentMoments(comp, ctx, m, h, a);
+  }
+
+  // A star's long lay-off is news; a sending-off is worth a line.
+  function incidentMoments(comp, ctx, m, h, a) {
+    (m.inc || []).forEach(function (x) {
+      var t = x.side === 'h' ? h : a, opp = x.side === 'h' ? a : h, p = ctx.players[x.p];
+      if (!p) return;
+      var best = t.players.slice().sort(function (y, z) { return z.skill - y.skill; }).slice(0, 3);
+      var star = best.indexOf(p) >= 0;
+      if (x.k === 'inj' && x.out >= 8 && star) {
+        push(comp, { at: 'match', k: 'injury', w: 2, mid: m.id, md: m.md, teams: [t.id],
+          text: 'Blow for ' + t.name + ': ' + p.name + ' is out for ' + x.out + ' matches with ' + x.what + '.' });
+      } else if (x.k === 'red') {
+        push(comp, { at: 'match', k: 'red', w: 1, mid: m.id, md: m.md, teams: [t.id],
+          text: p.name + ' sent off against ' + opp.name + ', banned for ' + x.out +
+            (x.out === 1 ? ' match.' : ' matches.') });
+      }
+    });
   }
 
   function playerMoments(comp, R, ctx, m, h, a) {
@@ -6273,31 +6436,33 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 
   /* -------------------------------------------------- World Cup qualifying */
 
-  function atQualified(comp, ctx) {
-    var q = comp.season.qualified || [];
-    if (!q.length || !LS.store) return;
+  // `ids` are the sides through to edition `n`; the archive says what that means.
+  function atQualified(comp, n, ids) {
+    if (!ids.length || !LS.store) return;
     var runs = LS.store.qualificationRuns(comp, false);
     if (!runs.length || runs[0].editions < 2) return;
     var through = {};
-    q.forEach(function (x) { through[x.id] = true; });
-    var C = comp.name;
+    ids.forEach(function (id) { through[id] = true; });
+    var C = comp.name, U = unit(comp);
+    var ctx = { n: n };
+    function say(e) { e.n = n; push(comp, e); }
     runs.forEach(function (row) {
       var T = row.team.name;
       if (through[row.id]) {
         if (!row.apps) {
           if (row.editions < 3) return;
-          push(comp, { at: 'round', k: 'qual', w: row.editions >= 8 ? 3 : 2, teams: [row.id],
+          say({ at: 'round', k: 'qual', w: row.editions >= 8 ? 3 : 2, teams: [row.id],
             text: T + ' qualify for the ' + C + ' for the first time.' });
         } else if (ctx.n - row.last >= 5) {
-          push(comp, { at: 'round', k: 'qual', w: 2, teams: [row.id],
-            text: T + ' are back at the ' + C + ' for the first time in ' + (ctx.n - row.last) + ' editions.' });
+          say({ at: 'round', k: 'qual', w: 2, teams: [row.id],
+            text: T + ' are back at the ' + C + ' for the first time in ' + (ctx.n - row.last) + ' ' + U + '.' });
         } else if (row.current + 1 >= 10 && (row.current + 1) % 5 === 0) {
-          push(comp, { at: 'round', k: 'qual', w: 2, teams: [row.id],
+          say({ at: 'round', k: 'qual', w: 2, teams: [row.id],
             text: T + ' reach the ' + C + ' for the ' + ordinal(row.current + 1) + ' time in a row.' });
         }
       } else if (row.current >= 5) {
-        push(comp, { at: 'round', k: 'qual', w: row.current >= 8 ? 3 : 2, teams: [row.id],
-          text: T + ' miss the ' + C + ' for the first time in ' + (row.current + 1) + ' editions.' });
+        say({ at: 'round', k: 'qual', w: row.current >= 8 ? 3 : 2, teams: [row.id],
+          text: T + ' miss the ' + C + ' for the first time in ' + (row.current + 1) + ' ' + U + '.' });
       }
     });
   }
@@ -6318,12 +6483,13 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var cr = careerOf(comp), wd = words(sportOf(comp));
 
     // retirements: the summer turnover clears out the weakest, legends included
+    var bigCareer = 300 * Math.max(1, Math.round(seasonGames(comp) / 38));
     if (before) {
       comp.teams.forEach(function (t) {
-        var now = {};
-        t.players.forEach(function (p) { now[p.id] = true; });
+        // a newcomer inherits the old player's slot and id, so it is the
+        // player object itself that tells who has gone
         (before[t.id] || []).forEach(function (p) {
-          if (now[p.id] || (p.capps < 250 && p.cg < cr.step * 2)) return;
+          if (t.players.indexOf(p) >= 0 || (p.capps < bigCareer && p.cg < cr.step * 2)) return;
           var top = clubTop(R, t.id, null);
           var legend = top && top.name === p.name && top.g >= cr.step;
           push(comp, { at: 'season', k: 'retire', w: legend ? 3 : 2, teams: [t.id],
@@ -6426,6 +6592,19 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         } else if (dry >= 6) {
           out.push({ w: 2, text: me.name + ' haven’t beaten ' + them.name + ' in ' + dry + ' meetings.' });
         }
+      });
+    }
+
+    // a side without its best player
+    if (E.injuriesOn(comp.settings)) {
+      [h, a].forEach(function (t) {
+        var best = t.players.slice().sort(function (x, y) { return y.skill - x.skill; }).slice(0, 2);
+        best.forEach(function (p) {
+          if (!E.isOut(p)) return;
+          var why = p.sus > 0 ? 'suspended' : (p.inj > 6 ? 'long-term injury' : 'injured');
+          out.push({ w: 2, text: t.name + ' are without ' + p.name + ' (' + why + ', ' +
+            (p.sus || p.inj) + (((p.sus || p.inj) === 1) ? ' match' : ' matches') + ' to go).' });
+        });
       });
     }
 
@@ -6581,9 +6760,224 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     teamSeason: teamSeason,
     squads: squads,
     onArchive: onArchive,
+    atQualified: atQualified,
     onRestart: onRestart,
     onTeamRemoved: onTeamRemoved,
     ordinal: ordinal
+  };
+})(window.LS = window.LS || {});
+
+
+/* ===== continental.js ===== */
+/* Sideline — continental competition.
+
+   A Champions League of your own: it has no clubs of its own, only the
+   leagues that feed it. Each season the top finishers from every linked
+   league are drawn into groups, then a knockout, the way the World Cup runs
+   its finals. Clubs arrive as good as they are at home: their ratings and
+   squads are synced from the domestic side at every draw, while what they do
+   on the continent (titles, scorers, streaks of appearances) is this
+   competition's own history.
+
+   Under the hood it is the World Cup format with qualifying replaced by the
+   league tables, so groups, brackets, qualification records and the story
+   all come for free. */
+(function (LS) {
+  'use strict';
+
+  var E = LS.engine, S = LS.store, D = LS.data;
+
+  // Which of each sport's presets make up its continent, when there is
+  // nothing to link yet.
+  var DEFAULT_LEAGUES = {
+    football: ['premier', 'laliga', 'seriea', 'bundesliga', 'ligue1']
+  };
+  var NAMES = { football: 'Champions League' };
+
+  function isCont(comp) { return !!(comp && comp.continental); }
+
+  function find(id) {
+    var out = null;
+    S.state.competitions.forEach(function (c) { if (c.id === id) out = c; });
+    return out;
+  }
+
+  // Leagues of this sport that could feed a continental competition.
+  function candidates(sport) {
+    return S.state.competitions.filter(function (c) {
+      return c.sport === sport && c.format === 'league' && !isCont(c);
+    });
+  }
+
+  function leagues(comp) {
+    return ((comp.continental || {}).leagues || []).map(find).filter(Boolean);
+  }
+
+  // The continental competitions a league feeds, for its own pages.
+  function fedBy(league) {
+    return S.state.competitions.filter(function (c) {
+      return isCont(c) && (c.continental.leagues || []).indexOf(league.id) >= 0;
+    });
+  }
+
+  // A league's order as it last finished: its latest archived table, or the
+  // live one if it has not finished a season yet (best squads first if it
+  // has not even started).
+  function standing(L) {
+    var last = L.history[L.history.length - 1];
+    if (last) {
+      return { n: last.n, done: true, ids: last.table.map(function (r) {
+        return L.teams[r.t] ? L.teams[r.t].id : null;
+      }).filter(Boolean) };
+    }
+    var t = E.computeTable(L.teams, L.season.matches, L.settings, function (m) { return m.stage === 'league'; });
+    var played = t.some(function (r) { return r.p; });
+    var ids = played ? t.map(function (r) { return r.id; })
+      : L.teams.slice().sort(function (x, y) { return (y.att + y.def) - (x.att + x.def); })
+          .map(function (x) { return x.id; });
+    return { n: L.season.number, done: false, live: played, ids: ids };
+  }
+
+  function nextId(comp) {
+    var max = -1;
+    comp.teams.forEach(function (t) {
+      var n = parseInt(String(t.id).replace(/^t/, ''), 10);
+      if (!isNaN(n) && n > max) max = n;
+    });
+    return 't' + (max + 1);
+  }
+
+  function copyPlayer(p, id) {
+    return { id: id, name: p.name, pos: p.pos, gw: p.gw, aw: p.aw, skill: p.skill,
+             g: 0, a: 0, apps: 0, qg: 0, qa: 0, qapps: 0, cg: 0, ca: 0, capps: 0, seasons: 0 };
+  }
+
+  // The domestic squad, carried over by name: whoever is still at the club keeps
+  // his continental record, newcomers join it, and anyone gone is dropped.
+  function syncSquad(team, src) {
+    var mine = {};
+    team.players.forEach(function (p) { mine[p.name] = p; });
+    var n = 0;
+    team.players.forEach(function (p) {
+      var k = parseInt(String(p.id).split('-p')[1], 10);
+      if (!isNaN(k) && k >= n) n = k + 1;
+    });
+    team.players = src.players.map(function (sp) {
+      var p = mine[sp.name];
+      if (p) { p.skill = sp.skill; p.pos = sp.pos; p.gw = sp.gw; p.aw = sp.aw; return p; }
+      return copyPlayer(sp, team.id + '-p' + (n++));
+    });
+  }
+
+  // This competition's entry for a domestic club, made the first time it qualifies.
+  function entryFor(comp, L, src) {
+    var found = null;
+    comp.teams.forEach(function (t) {
+      if (t.src && t.src.c === L.id && t.src.t === src.id) found = t;
+    });
+    if (!found) {
+      found = { id: nextId(comp), players: [], src: { c: L.id, t: src.id } };
+      comp.teams.push(found);
+    }
+    found.name = src.name; found.abbr = src.abbr;
+    found.att = src.att; found.def = src.def;
+    found.c1 = src.c1; found.c2 = src.c2;
+    found.conf = L.name;
+    syncSquad(found, src);
+    return found;
+  }
+
+  // Fill next season's field from the feeder leagues' tables. Called at
+  // creation, at every season's end, and on demand before a ball is kicked.
+  function draw(comp, n) {
+    var cfg = comp.continental, out = [];
+    var notes = [];
+    leagues(comp).forEach(function (L) {
+      var st = standing(L), map = E.teamsById(L), taken = 0;
+      st.ids.forEach(function (id, i) {
+        if (taken >= cfg.places) return;
+        var src = map[id];
+        if (!src) return;
+        var t = entryFor(comp, L, src);
+        out.push({ id: t.id, via: 'league',
+          note: ordinal(i + 1) + ' in ' + L.name + (st.done ? ', season ' + st.n : st.live ? ', as it stands' : ', on paper') });
+        taken++;
+      });
+      notes.push({ id: L.id, name: L.name, n: st.n, done: st.done, live: st.live });
+    });
+    cfg.lastDraw = { n: n, from: notes };
+    comp.autoQualified = out;
+    comp.host = null;
+    tellDraw(comp, n);
+    return out;
+  }
+
+  // The story of a draw: who is here for the first time, who is back, who has missed out.
+  function tellDraw(comp, n) {
+    if (!LS.milestones) return;
+    comp.story = (comp.story || []).filter(function (e) { return !(e.k === 'qual' && e.n === n); });
+    LS.milestones.atQualified(comp, n, (comp.autoQualified || []).map(function (q) { return q.id; }));
+  }
+
+  function ordinal(n) { return LS.milestones ? LS.milestones.ordinal(n) : n + '.'; }
+
+  // Build the competition, creating the feeder leagues first if there are none.
+  function create(opts) {
+    var sport = opts.sport || 'football';
+    var ids = (opts.leagues || []).filter(function (id) { return !!find(id); });
+    var made = [];
+    if (!ids.length) {
+      (DEFAULT_LEAGUES[sport] || D.sports[sport].presets.filter(function (k) {
+        return (D.presets[k].format || 'league') === 'league';
+      })).forEach(function (k) {
+        var L = S.fromPreset(k, {});
+        S.state.competitions.push(L);
+        made.push(L);
+        ids.push(L.id);
+      });
+    }
+    var settings = { groupSize: 4, qualifyPerGroup: 2, neutralKo: true };
+    Object.keys(opts.settings || {}).forEach(function (k) { settings[k] = opts.settings[k]; });
+    var comp = S.createCompetition({
+      name: opts.name || NAMES[sport] || 'Continental Cup',
+      format: 'worldcup', sport: sport, teams: [], seed: opts.seed, settings: settings
+    });
+    // no world ranking or hosts: the leagues decide who comes
+    delete comp.rankings; delete comp.rankPeak; delete comp.rankPlayed; delete comp.rankHistory;
+    comp.hostHistory = [];
+    comp.continental = { leagues: ids, places: Math.max(1, opts.places || 4) };
+    draw(comp, 1);
+    comp.season = E.newSeason(comp, 1);
+    S.add(comp);
+    return { comp: comp, made: made };
+  }
+
+  // Draw again from the tables as they are now. Only before a ball is kicked.
+  function redraw(comp) {
+    if (comp.season.matches.some(function (m) { return m.played; })) return false;
+    draw(comp, comp.season.number);
+    S.restartSeason(comp);      // clears this season's story, so tell the draw again
+    tellDraw(comp, comp.season.number);
+    return true;
+  }
+
+  function setLeagues(comp, ids, places) {
+    comp.continental.leagues = ids.filter(function (id) { return !!find(id); });
+    if (places) comp.continental.places = Math.max(1, places);
+  }
+
+  LS.continental = {
+    DEFAULT_LEAGUES: DEFAULT_LEAGUES,
+    NAMES: NAMES,
+    isCont: isCont,
+    candidates: candidates,
+    leagues: leagues,
+    fedBy: fedBy,
+    standing: standing,
+    draw: draw,
+    redraw: redraw,
+    create: create,
+    setLeagues: setLeagues
   };
 })(window.LS = window.LS || {});
 
@@ -6792,7 +7186,16 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     if (comp.format === 'groups' || comp.format === 'worldcup') {
       def = function (m) { return m.stage === 'group'; };
     }
-    return E.computeTable(comp.teams, comp.season.matches, comp.settings, filter || def);
+    var rows = E.computeTable(comp.teams, comp.season.matches, comp.settings, filter || def);
+    // a continental cup keeps every club that has ever qualified; only this
+    // season's field belongs in its table
+    if (comp.continental && comp.season.qualified && comp.season.qualified.length) {
+      var inField = {};
+      comp.season.qualified.forEach(function (q) { inField[q.id] = true; });
+      rows = rows.filter(function (r) { return inField[r.id]; });
+      rows.forEach(function (r, i) { r.pos = i + 1; });
+    }
+    return rows;
   }
 
   function isWorldCup(comp) { return comp.format === 'worldcup' && !!comp.season.qualifying; }
@@ -6980,6 +7383,20 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
      feature nobody can find may as well not be there. The fourth field is the
      tab to jump to, when there is one obvious place to start. */
   var WHATS_NEW = [
+    ['\u{1F3C6}', 'A Champions League of your own',
+     'Link your leagues and their top finishers are drawn into a continental cup every season: ' +
+     'groups, then a knockout. Clubs come with their domestic ratings and squads, refreshed at ' +
+     'every draw, and their league pages show where the continental places go. No leagues yet? ' +
+     'It sets up the big five for you.',
+     'New \u2192 Football \u2192 Champions League',
+     'overview'],
+    ['\u{1F691}', 'Injuries and suspensions',
+     'Players pick up knocks and, where the sport has them, red cards and bans. Whoever is out ' +
+     'misses matches and the side is weaker by the gap to their replacement, so a deep squad ' +
+     'copes and a one-star side suffers. Team news before kick-off, a treatment room on the ' +
+     'overview, and incidents in the live ticker.',
+     'Overview \u2192 Treatment room \u00b7 open any match or team \u00b7 Settings to switch off',
+     'overview'],
     ['\u{1F4F0}', 'Every season tells its story',
      'Sideline now notices when something worth a headline happens: a first title, a drought ' +
      'ending, three in a row, a record win, a player\u2019s hundredth, a club\u2019s all-time scorer ' +
@@ -7223,6 +7640,16 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     presets += '<button class="preset" data-act="pick-preset" data-id="custom" aria-pressed="' +
       (ui.createPreset === 'custom') + '"><div class="flag">✎</div><div class="nm">Custom</div>' +
       '<div class="sub">Name your own teams</div></button>';
+    var CTm = LS.continental;
+    var feeders = CTm ? CTm.candidates(ui.createSport) : [];
+    var canCont = CTm && (CTm.DEFAULT_LEAGUES[ui.createSport] || feeders.length >= 2);
+    if (canCont) {
+      presets += '<button class="preset" data-act="pick-preset" data-id="continental" aria-pressed="' +
+        (ui.createPreset === 'continental') + '"><div class="flag">\u{1F3C6}</div><div class="nm">' +
+        esc(CTm.NAMES[ui.createSport] || 'Continental cup') + '</div>' +
+        '<div class="sub">Top finishers from your leagues</div></button>';
+    }
+    if (ui.createPreset === 'continental' && canCont) return viewCreateContinental(sport, sportChips, presets, feeders);
 
     var isCustom = ui.createPreset === 'custom';
     var preset = isCustom ? null : (D.presets[ui.createPreset] || D.presets[sport.presets[0]]);
@@ -7361,8 +7788,69 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     '</div>';
   }
 
+  // A continental cup needs no teams of its own, only the leagues that feed it.
+  function viewCreateContinental(sport, sportChips, presets, feeders) {
+    var CTm = LS.continental;
+    var defaults = CTm.DEFAULT_LEAGUES[sport.id] || [];
+    var list = feeders.length
+      ? feeders.map(function (L) {
+          return '<label class="check"><input type="checkbox" class="cont-pick" value="' + esc(L.id) + '" checked> ' +
+            esc(L.name) + ' <span class="tiny muted">\u00b7 season ' + L.season.number + ', ' + L.teams.length + ' clubs</span></label>';
+        }).join('')
+      : '<p class="small" style="margin:0">You have no ' + esc(sport.name.toLowerCase()) + ' leagues yet, so these are set up for you: <b>' +
+        defaults.map(function (k) { return esc(D.presets[k].name); }).join(', ') + '</b>. Play them and their tables decide ' +
+        'who qualifies from season two.</p>';
+    return '<div class="stack">' +
+      '<div class="card"><div class="card-body">' +
+        '<button class="btn btn-sm" data-act="go-home" style="margin-bottom:12px">\u2190 Home</button>' +
+        '<h1 style="margin-bottom:6px">Build a competition</h1>' +
+        '<p class="small">A continental cup draws the top finishers from your leagues into groups, then a knockout. ' +
+        'Clubs arrive with their domestic ratings and squads, refreshed at every draw.</p>' +
+      '</div></div>' +
+      '<div class="card"><div class="card-head"><h2>1. Sport &amp; teams</h2>' +
+        '<span class="badge">' + sport.icon + ' ' + esc(sport.name) + '</span></div>' +
+        '<div class="card-body">' + sportChips +
+        '<div class="section-title">Starting teams</div><div class="preset-grid">' + presets + '</div></div></div>' +
+      '<div class="card"><div class="card-head"><h2>2. Feeder leagues</h2></div><div class="card-body">' + list +
+        '<div class="grid grid-2" style="margin-top:12px">' +
+          '<label class="field"><span class="lbl">Competition name</span>' +
+            '<input type="text" id="fName" value="' + esc(CTm.NAMES[sport.id] || 'Continental Cup') + '"></label>' +
+          '<label class="field"><span class="lbl">Places per league</span><select id="contPlaces">' +
+            [1, 2, 3, 4, 5, 6, 8].map(function (n) {
+              return '<option value="' + n + '"' + (n === 4 ? ' selected' : '') + '>Top ' + n + '</option>';
+            }).join('') + '</select></label>' +
+        '</div>' +
+        '<label class="check"><input type="checkbox" id="fTwoLegs" checked> Two-legged knockout ties (final excepted)</label>' +
+        '<label class="field" style="max-width:280px"><span class="lbl">Seed (optional)</span>' +
+          '<input type="text" id="fSeed" placeholder="Leave blank for random"></label>' +
+      '</div></div>' +
+      '<div class="btn-row"><button class="btn btn-primary btn-lg" data-act="create-comp">Create competition</button>' +
+        (S.state.competitions.length ? '<button class="btn btn-lg" data-act="cancel-create">Cancel</button>' : '') +
+      '</div></div>';
+  }
+
+  function doCreateContinental() {
+    var ids = Array.prototype.slice.call(document.querySelectorAll('.cont-pick'))
+      .filter(function (x) { return x.checked; }).map(function (x) { return x.value; });
+    if (document.querySelectorAll('.cont-pick').length && !ids.length) { toast('Pick at least one league'); return; }
+    var seedRaw = $('#fSeed').value.trim();
+    var res = LS.continental.create({
+      sport: app.ui.createSport,
+      name: $('#fName').value.trim(),
+      leagues: ids,
+      places: parseInt($('#contPlaces').value, 10),
+      seed: seedRaw ? (parseInt(seedRaw, 10) || hashString(seedRaw)) : null,
+      settings: { twoLegs: $('#fTwoLegs').checked }
+    });
+    app.view = 'overview';
+    app.ui.md = 0;
+    render();
+    toast(res.comp.name + ' created' + (res.made.length ? ' with ' + res.made.length + ' leagues to feed it' : ''));
+  }
+
   function doCreate() {
     var presetId = app.ui.createPreset;
+    if (presetId === 'continental') { doCreateContinental(); return; }
     var teams;
     if (presetId === 'custom') {
       var n = E.clamp(parseInt($('#customCount').value, 10) || 12, 4, 40);
@@ -7470,7 +7958,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
             (comp.history.length > 1 ? 's' : '') + ' archived</span>' : '') +
           (comp.host && map[comp.host.id]
             ? '<span class="badge badge-accent" title="The hosts have a place waiting">Hosts: ' +
-              esc(map[comp.host.id].name) + '</span>' : '') +
+              esc(map[comp.host.id].name) + '</span>' : '') + feedsBadges(comp) +
         '</div>' +
         '<div style="margin:14px 0 6px" class="progress"><i style="width:' + prog.pct + '%"></i></div>' +
         '<div class="small muted" style="margin-bottom:14px">' +
@@ -7566,13 +8054,14 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var finals = hasFinals(comp) ? finalsCard(comp) : '';
 
     if (isWorldCup(comp) && s.stage === 'qual') {
-      return '<div class="stack">' + head + tiles + storyCard(comp) + qualifyingCard(comp) + '</div>';
+      return '<div class="stack">' + head + tiles + storyCard(comp) + treatmentCard(comp) + qualifyingCard(comp) + '</div>';
     }
 
     var ladder = comp.rankings ? rankingsCard(comp, 10, true) : '';
 
     return '<div class="stack">' + head + championBanner(comp) + tiles + storyCard(comp) + finals +
-      (isWorldCup(comp) ? heldPlacesCard(comp) + qualifiedSummary(comp) : '') + middle + race +
+      (CT && CT.isCont(comp) ? contFieldCard(comp) : isWorldCup(comp) ? heldPlacesCard(comp) + qualifiedSummary(comp) : '') +
+      middle + treatmentCard(comp) + race +
       '<div class="grid grid-2">' + scorerCard + honoursMini(comp) + '</div>' +
       managerBattleCard(comp) + storylinesCard(comp) + ladder +
       '</div>';
@@ -7586,6 +8075,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   function formatLabel(comp) {
     var sp = sportOf(comp);
     var f = comp.format === 'cup' ? 'Knockout cup'
+      : comp.continental ? 'Continental cup \u00b7 groups + knockout'
       : comp.format === 'worldcup' ? 'Qualifying + World Cup'
       : comp.format === 'groups' ? 'Groups + knockout'
       : comp.settings.doubleRound ? 'Home & away league' : 'Single round league';
@@ -8427,6 +8917,168 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       '</div>';
   }
 
+  /* ------------------------------------------------ injuries & suspensions */
+
+  var INC_ICON = { inj: '\u{1F691}', red: '\u{1F7E5}', ban: '\u{1F7E8}' };
+
+  function incNote(x) {
+    return x.k === 'inj' ? esc(x.what || 'injury') + ' · out ' + x.out + (x.out === 1 ? ' match' : ' matches')
+      : x.k === 'red' ? 'sent off · banned ' + x.out + (x.out === 1 ? ' match' : ' matches')
+      : 'booking number ' + (x.yc || 5) + ' · banned 1 match';
+  }
+
+  function whyOut(p) {
+    return p.sus > 0 ? 'Suspended · ' + p.sus + (p.sus === 1 ? ' match' : ' matches')
+      : (p.inj > 15 ? 'Long-term injury' : p.inj > 6 ? 'Injured' : 'Knock') + ' · ' +
+        p.inj + (p.inj === 1 ? ' match' : ' matches');
+  }
+
+  // Everyone missing right now, best players first.
+  function absentees(comp, teamId) {
+    var list = [];
+    comp.teams.forEach(function (t) {
+      if (teamId && t.id !== teamId) return;
+      t.players.forEach(function (p) { if (E.isOut(p)) list.push({ p: p, t: t }); });
+    });
+    return list.sort(function (x, y) { return y.p.skill - x.p.skill; });
+  }
+
+  function treatmentCard(comp) {
+    if (!E.injuriesOn(comp.settings) || comp.season.complete) return '';
+    var list = absentees(comp);
+    if (!list.length) return '';
+    return '<div class="card"><div class="card-head"><h3>\u{1F691} Treatment room</h3>' +
+      '<span class="badge">' + list.length + ' out</span></div>' +
+      '<div class="table-wrap"><table class="data"><tbody>' + list.slice(0, 8).map(function (x) {
+        return '<tr class="clickable" data-act="team" data-id="' + esc(x.t.id) + '">' +
+          '<td class="l"><span class="team-cell">' + kit(x.t) + '<span><span class="strong">' +
+          esc(x.p.name) + '</span> <span class="tiny muted">' + esc(x.t.abbr) + ' · ' + x.p.pos +
+          ' · ' + x.p.skill + '</span></span></span></td>' +
+          '<td class="small muted">' + (x.p.sus > 0 ? INC_ICON.red : INC_ICON.inj) + ' ' + esc(whyOut(x.p)) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      (list.length > 8 ? '<div class="zone-key">and ' + (list.length - 8) + ' more across the league</div>' : '') +
+      '</div>';
+  }
+
+  // Who each side is missing before kick-off.
+  function missingBlock(comp, m) {
+    if (!E.injuriesOn(comp.settings) || m.played) return '';
+    var map = E.teamsById(comp);
+    var rows = [map[m.h], map[m.a]].map(function (t) {
+      var out = absentees(comp, t.id);
+      if (!out.length) return '';
+      return '<div class="small" style="margin-top:4px"><span class="strong">' + esc(t.abbr) + '</span> without ' +
+        out.slice(0, 4).map(function (x) {
+          return esc(x.p.name) + ' <span class="muted">(' + (x.p.sus > 0 ? 'suspended' : 'injured') + ')</span>';
+        }).join(', ') + (out.length > 4 ? ' and ' + (out.length - 4) + ' more' : '') + '</div>';
+    }).join('');
+    return rows ? '<div class="rival-callout"><div class="section-title" style="margin:0">Team news</div>' + rows + '</div>' : '';
+  }
+
+  // What happened besides the scoring.
+  function incidentBlock(comp, m) {
+    if (!m.played || !m.inc || !m.inc.length) return '';
+    var map = E.teamsById(comp), players = {};
+    comp.teams.forEach(function (t) { t.players.forEach(function (p) { players[p.id] = p; }); });
+    var sp = sportOf(comp);
+    return '<div class="section-title" style="margin-top:16px">Injuries &amp; cards</div>' +
+      '<div class="table-wrap"><table class="data"><tbody>' + m.inc.map(function (x) {
+        var p = players[x.p], t = x.side === 'h' ? map[m.h] : map[m.a];
+        return '<tr><td class="l muted nowrap" style="width:54px">' + esc(E.clockLabel(sp, x.min)) + '</td>' +
+          '<td class="l">' + kit(t) + '</td><td class="l">' + INC_ICON[x.k] + ' <span class="strong">' +
+          esc(p ? p.name : 'Unknown') + '</span></td><td class="l muted tiny">' + incNote(x) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function absenceSection(comp, team) {
+    if (!E.injuriesOn(comp.settings)) return '';
+    var out = absentees(comp, team.id);
+    if (!out.length) return '';
+    return '<div class="section-title">Unavailable</div>' +
+      '<div class="table-wrap" style="margin-bottom:14px"><table class="data"><tbody>' + out.map(function (x) {
+        return '<tr><td class="l strong">' + esc(x.p.name) + '</td><td class="l muted">' + x.p.pos + '</td>' +
+          '<td class="muted">' + x.p.skill + '</td><td class="l small">' +
+          (x.p.sus > 0 ? INC_ICON.red : INC_ICON.inj) + ' ' + esc(whyOut(x.p)) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  /* ------------------------------------------------------------ continental */
+
+  var CT = LS.continental;
+
+  // Who is in this season's field, league by league, and where it came from.
+  function contFieldCard(comp) {
+    var s = comp.season, map = E.teamsById(comp);
+    var field = (s.qualified && s.qualified.length) ? s.qualified : (comp.autoQualified || []);
+    var byLeague = {}, order = [];
+    field.forEach(function (q) {
+      var t = map[q.id];
+      if (!t) return;
+      var k = t.conf || 'Other';
+      if (!byLeague[k]) { byLeague[k] = []; order.push(k); }
+      byLeague[k].push({ t: t, note: q.note || (comp.autoQualified || []).filter(function (a) { return a.id === q.id; }).map(function (a) { return a.note; })[0] || '' });
+    });
+    var last = comp.history.length ? comp.history[comp.history.length - 1] : null;
+    var wasThere = {};
+    if (last && last.qualified) last.qualified.forEach(function (q) { if (comp.teams[q.t]) wasThere[comp.teams[q.t].id] = true; });
+    var started = s.matches.some(function (m) { return m.played; });
+    var leagues = CT.leagues(comp);
+    var draw = comp.continental.lastDraw;
+    var from = draw && draw.from ? draw.from.map(function (f) {
+      return esc(f.name) + ' ' + (f.done ? 'S' + f.n + ' final table' : f.live ? 'S' + f.n + ' as it stands' : 'on paper');
+    }).join(' · ') : '';
+    return '<div class="card"><div class="card-head"><h2>The field</h2>' +
+      '<span class="badge">' + field.length + ' clubs · top ' + comp.continental.places + ' from ' +
+        leagues.length + (leagues.length === 1 ? ' league' : ' leagues') + '</span>' +
+      (!started ? '<button class="btn btn-sm" data-act="cont-redraw">Redraw from latest tables</button>' : '') +
+      '<button class="btn btn-sm" data-act="cont-leagues">Feeder leagues</button></div>' +
+      '<div class="card-body">' + (order.length ? order.map(function (k) {
+        var L = leagues.filter(function (x) { return x.name === k; })[0];
+        return '<div class="honour" style="align-items:flex-start">' +
+          '<span class="tiny muted" style="min-width:110px;padding-top:3px">' +
+          (L ? '<a href="#" data-act="open-comp" data-id="' + esc(L.id) + '">' + esc(k) + '</a>' : esc(k)) + '</span>' +
+          '<span style="display:flex;flex-wrap:wrap;gap:5px">' + byLeague[k].map(function (x) {
+            var isNew = last && !wasThere[x.t.id];
+            return '<span class="badge' + (isNew ? ' badge-accent' : '') + '" title="' + esc(x.t.name + ' — ' + x.note) + '">' +
+              kit(x.t) + ' ' + esc(x.t.abbr) + (isNew ? ' ★' : '') + '</span>';
+          }).join('') + '</span></div>';
+      }).join('') : '<p class="small muted" style="margin:0">No clubs drawn. Pick the feeder leagues to fill the field.</p>') +
+      '</div>' +
+      (from ? '<div class="zone-key">Drawn from: ' + from + (last ? ' · ★ not here last season' : '') + '</div>' : '') +
+      '</div>';
+  }
+
+  function showContLeagues(comp) {
+    var mine = comp.continental.leagues || [];
+    var list = CT.candidates(comp.sport);
+    var started = comp.season.matches.some(function (m) { return m.played; });
+    modal('Feeder leagues',
+      '<p class="small">Each season the top finishers from these leagues are drawn into ' + esc(comp.name) +
+      '. A league that has not finished a season yet sends its clubs as the table stands.</p>' +
+      (list.length ? list.map(function (L) {
+        return '<label class="check"><input type="checkbox" class="cont-pick" value="' + esc(L.id) + '"' +
+          (mine.indexOf(L.id) >= 0 ? ' checked' : '') + '> ' + esc(L.name) +
+          ' <span class="tiny muted">· season ' + L.season.number + ', ' + L.teams.length + ' clubs</span></label>';
+      }).join('') : '<p class="small muted">You have no other ' + esc(sportOf(comp).name.toLowerCase()) + ' leagues yet.</p>') +
+      '<label class="field" style="max-width:220px;margin-top:8px"><span class="lbl">Places per league</span>' +
+        '<select id="contPlaces">' + [1, 2, 3, 4, 5, 6, 8].map(function (n) {
+          return '<option value="' + n + '"' + (n === comp.continental.places ? ' selected' : '') + '>Top ' + n + '</option>';
+        }).join('') + '</select></label>' +
+      '<p class="tiny muted">' + (started ? 'This season has started, so changes apply from the next draw.'
+        : 'Nothing has been played yet, so the field is redrawn straight away.') + '</p>' +
+      '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" data-act="cont-save">Save</button>' +
+      '<button class="btn" data-act="close-modal">Cancel</button></div>');
+  }
+
+  // A league page says which continental competitions it feeds.
+  function feedsBadges(comp) {
+    if (!CT || comp.format !== 'league') return '';
+    return CT.fedBy(comp).map(function (c) {
+      return '<button class="badge badge-blue" data-act="open-comp" data-id="' + esc(c.id) + '" title="Open ' +
+        esc(c.name) + '">Top ' + c.continental.places + ' → ' + esc(c.name) + '</button>';
+    }).join('');
+  }
+
   // Only worth a card when something is actually going on.
   function storylinesCard(comp) {
     var runs = comp.teams.filter(function (t) { return t.surge; });
@@ -8449,7 +9101,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 
   var VIA_WORDS = {
     host: 'Hosts', pool: 'Pool place', ko: 'Knockout place', stay: 'Stayed up',
-    winner: 'Group winner', best: 'Best of the rest', table: 'Through the table'
+    winner: 'Group winner', best: 'Best of the rest', table: 'Through the table',
+    league: 'Through the league'
   };
 
   function movementCell(r) {
@@ -8911,6 +9564,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       i: 0, t: 0, hg: 0, ag: 0, speed: 1, paused: false, done: false,
       pending: pending, timer: null,
       stakes: stakes, seq: seq, shown: {},
+      incs: (m.inc || []).slice(), ii: 0,
       // moments tied to a scoring play flash up as that play goes in
       flashes: MS ? MS.forMatch(comp, m.id).filter(function (e) { return e.min != null && e.s; }) : []
     };
@@ -9014,6 +9668,22 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       if (flashed && flashEl) {
         flashEl.innerHTML = '<div class="live-flash">' + storyIcon(flashed.k) + ' ' + esc(flashed.text) + '</div>';
       }
+    }
+
+    // knocks and cards come up on the clock too
+    var incs = [];
+    while (live.ii < live.incs.length && live.incs[live.ii].min <= live.t) incs.push(live.incs[live.ii++]);
+    if (incs.length && feed) {
+      var empty2 = $('#liveEmpty');
+      if (empty2 && empty2.parentNode) empty2.parentNode.removeChild(empty2);
+      var tmap = E.teamsById(live.comp);
+      feed.insertAdjacentHTML('afterbegin', incs.map(function (x) {
+        var p = live.players[x.p], team = x.side === 'h' ? tmap[live.m.h] : tmap[live.m.a];
+        return '<div class="live-ev live-inc"><span class="le-min">' + esc(E.clockLabel(live.sp, x.min)) + '</span>' +
+          '<span class="le-kit">' + kit(team) + '</span>' +
+          '<span class="le-name">' + INC_ICON[x.k] + ' ' + esc(p ? p.name : 'Unknown') + '</span>' +
+          '<span class="le-note tiny muted">' + incNote(x) + '</span></div>';
+      }).reverse().join(''));
     }
   }
 
@@ -9156,8 +9826,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
           MS.byWeight(moments).map(function (e) { return storyRow(comp, e); }).join('');
       }
     }
-    modal(h.abbr + ' v ' + a.abbr, head + rivalCallout(comp, m) + (m.played ? '' : story) + meta + events +
-      (m.played ? story : '') + foot);
+    modal(h.abbr + ' v ' + a.abbr, head + rivalCallout(comp, m) + (m.played ? '' : story) +
+      missingBlock(comp, m) + meta + events + incidentBlock(comp, m) + (m.played ? story : '') + foot);
   }
 
   /* ------------------------------------------------------------ stats view */
@@ -10855,7 +11525,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         esc(id) + '">Club history</button>' : '') + '</div>' +
       (team.surge ? '<p class="small" style="margin:-6px 0 14px">' + esc(surgeNote(team)) + '</p>' : '');
 
-    modal(team.name, head + seasonBlock + qualBlock + rankBlock + history +
+    modal(team.name, head + seasonBlock + absenceSection(comp, team) + qualBlock + rankBlock + history +
       squadHtml + h2hHtml);
   }
 
@@ -11040,6 +11710,13 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
             'exactly what you set — the wildcard is a loan, not a promotion.'
           : 'most of it fades when the run ends. Off, ratings move on results alone.') +
         '</p>' +
+        '<label class="check"><input type="checkbox" data-act="injuries"' +
+        (st.injuries === false ? '' : ' checked') + '> Injuries and suspensions</label>' +
+        '<p class="tiny muted" style="margin:-4px 0 10px">Players pick up knocks' +
+        (D.sports[comp.sport] && ['football', 'rugby', 'rugbyleague', 'hockey'].indexOf(comp.sport) >= 0
+          ? ', red cards and bans' : '') +
+        ' and miss matches. A side without its best players is weaker by the gap to whoever comes in, ' +
+        'so depth matters. Off, everyone is always fit.</p>' +
         '<div class="small muted">Seed <span class="mono">' + comp.seed + '</span> · created ' +
           new Date(comp.createdAt).toLocaleDateString() + ' · format ' + esc(formatLabel(comp)) + '</div>' +
       '</div></div>' +
@@ -11486,6 +12163,24 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 
     switch (act) {
       case 'story-all': showStory(comp); return;
+      case 'cont-leagues': showContLeagues(comp); return;
+      case 'cont-redraw':
+        if (LS.continental.redraw(comp)) {
+          persist(); render(); toast('Redrawn from the latest tables');
+          popMoments(comp, seq);
+        }
+        return;
+      case 'cont-save': {
+        var picks = Array.prototype.slice.call(document.querySelectorAll('.cont-pick'))
+          .filter(function (x) { return x.checked; }).map(function (x) { return x.value; });
+        if (!picks.length) { toast('Pick at least one league'); return; }
+        LS.continental.setLeagues(comp, picks, parseInt(($('#contPlaces') || {}).value, 10));
+        closeModal();
+        var redrawn = LS.continental.redraw(comp);
+        persist(); render();
+        toast(redrawn ? 'Leagues saved and the field redrawn' : 'Saved. The new leagues feed the next draw');
+        return;
+      }
       case 'club-history': showClubHistory(comp, el.dataset.id); return;
 
       case 'sim-round': {
@@ -12079,6 +12774,13 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         persist();
         toast(el.checked ? 'Wildcard runs on' : 'Wildcard runs off');
         return;
+      case 'injuries':
+        comp.settings.injuries = el.checked;
+        if (!el.checked) comp.teams.forEach(function (t) { t.players.forEach(function (p) { p.inj = 0; p.sus = 0; }); });
+        W.clearOddsCache();
+        persist();
+        toast(el.checked ? 'Injuries and suspensions on' : 'Injuries off, everyone is fit');
+        return;
       case 'wager-enabled':
         W.ensure(comp).enabled = el.checked;
         persist();
@@ -12133,7 +12835,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       if (act === 'set' || act === 'zone-from' || act === 'zone-to' ||
           act === 'finals-on' || act === 'finals-system' || act === 'finals-size' ||
           act === 'wager-enabled' || act === 'wager-tipping' || act === 'wager-bankroll' ||
-          act === 'wildcards' || act === 'manager-team') {
+          act === 'wildcards' || act === 'injuries' || act === 'manager-team') {
         onInput(ev); render(); return;
       }
     }
