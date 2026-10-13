@@ -851,6 +851,25 @@ tr.z-rel td.pos { box-shadow: inset 3px 0 0 var(--z-rel); }
 .honour-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
 .club-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 
+/* ------------------------------------------------------------ records book */
+
+.rec-body { padding-top: 6px; padding-bottom: 6px; }
+.rec-row { padding: 11px 0; border-bottom: 1px solid var(--border-soft); }
+.rec-row:last-child { border-bottom: 0; }
+.rec-label { font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.rec-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.rec-val { font-size: 1.12rem; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; min-width: 92px; }
+.rec-who { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.rec-when { margin-left: auto; font-size: .78rem; color: var(--muted); white-space: nowrap; }
+.rec-next { font-size: .76rem; color: var(--muted); margin-top: 3px; }
+/* a long strip of tabs scrolls sideways on a phone rather than squeezing */
+@media (max-width: 720px) {
+  .seg.seg-scroll { overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
+  .seg.seg-scroll::-webkit-scrollbar { display: none; }
+  .seg.seg-scroll button { flex: 0 0 auto; padding: 8px 12px; }
+}
+@media (max-width: 560px) { .rec-when { margin-left: 0; width: 100%; } }
+
 /* --------------------------------------------------------------- tutorials */
 
 .tour-block { position: fixed; inset: 0; z-index: 300; }
@@ -6166,6 +6185,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
           ', the highest-scoring match in ' + span(comp) + '.' });
     }
 
+    matchFeats(comp, R, ctx, m, h, a, winner, loser, ripe);
+
     // a hoodoo broken
     if (winner && info.pair) {
       var pr = info.pair, drought = pr.s[winner.id], wins = pr.w[winner.id], theirs = pr.w[loser.id];
@@ -6187,6 +6208,52 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     playerMoments(comp, R, ctx, m, h, a);
     appearanceMoments(comp, ctx, m, h, a, snap);
     incidentMoments(comp, ctx, m, h, a);
+  }
+
+  // Feats the archive cannot answer later, because it keeps scores but not
+  // minutes: the fastest opener and the biggest deficit turned round. Each is
+  // kept as a short top-five list for the records book.
+  var FEAT_KEEP = 5;
+  function keepTop(list, row, better) {
+    list.push(row);
+    list.sort(better);
+    if (list.length > FEAT_KEEP) list.length = FEAT_KEEP;
+    return list.indexOf(row);
+  }
+
+  function matchFeats(comp, R, ctx, m, h, a, winner, loser, ripe) {
+    if (!R.fast) R.fast = [];
+    if (!R.comeback) R.comeback = [];
+    var sp = ctx.sp, ev = m.events[0];
+    // the fastest goal only means something where goals are rare
+    if (ev && haulMin(sp) && ev.s && ctx.players[ev.s]) {
+      var t = ev.side === 'h' ? h : a;
+      keepTop(R.fast, { n: ctx.n, md: m.md, mid: m.id, name: ctx.players[ev.s].name, team: t.name, tid: t.id,
+        opp: (t === h ? a : h).name, min: ev.min, label: E.clockLabel(sp, ev.min) },
+        function (x, y) { return x.min - y.min || x.n - y.n; });
+    }
+    // in the high-scoring sports plays are timed too loosely for a running
+    // score to mean anything, so comebacks are only told where goals are rare
+    if (!winner || !haulMin(sp)) return;
+    var side = winner === h ? 'h' : 'a', us = 0, them = 0, deficit = 0;
+    m.events.forEach(function (e) {
+      if (e.side === side) us += e.v || 1; else them += e.v || 1;
+      deficit = Math.max(deficit, them - us);
+    });
+    var need = 2;
+    if (deficit < need) return;
+    var prev = R.comeback[0];
+    var row = { n: ctx.n, md: m.md, mid: m.id, team: winner.name, tid: winner.id, opp: loser.name,
+      deficit: deficit, score: (side === 'h' ? m.hg + '\u2013' + m.ag : m.ag + '\u2013' + m.hg) };
+    var at = keepTop(R.comeback, row, function (x, y) { return y.deficit - x.deficit || x.n - y.n; });
+    if (at === 0 && prev && row.deficit > prev.deficit && ripe && comp.history.length >= 1) {
+      push(comp, { at: 'match', k: 'comeback', w: 3, mid: m.id, md: m.md, teams: [winner.id, loser.id],
+        text: winner.name + ' come from ' + deficit + ' down to beat ' + loser.name + ' ' + row.score +
+          ', the biggest comeback in ' + span(comp) + '.' });
+    } else if (deficit >= need + 1) {
+      push(comp, { at: 'match', k: 'comeback', w: 2, mid: m.id, md: m.md, teams: [winner.id, loser.id],
+        text: winner.name + ' come from ' + deficit + ' down to beat ' + loser.name + ' ' + row.score + '.' });
+    }
   }
 
   // A star's long lay-off is news; a sending-off is worth a line.
@@ -6571,8 +6638,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         if (c[name] <= 0) delete c[name];
       });
     });
-    ['big', 'high', 'best', 'hauls'].forEach(function (k) {
-      R[k] = R[k].filter(function (x) { return x.n !== n; });
+    ['big', 'high', 'best', 'hauls', 'fast', 'comeback'].forEach(function (k) {
+      R[k] = (R[k] || []).filter(function (x) { return x.n !== n; });
     });
     R.played = Math.max(0, R.played - R.cur.played);
     rebuildPairs(comp, R);
@@ -7419,6 +7486,13 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
      feature nobody can find may as well not be there. The fourth field is the
      tab to jump to, when there is one obvious place to start. */
   var WHATS_NEW = [
+    ['\u{1F4D6}', 'The records book',
+     'Every all-time record in one place: most titles and titles in a row, the best and worst ' +
+     'seasons, the biggest wins and comebacks, the longest winning and losing runs, the top scorers ' +
+     'in a season and of all time, the most in one match and the fastest goal. Each one shows the ' +
+     'next two behind it and opens the season or match it happened in.',
+     'History \u2192 Records \u00b7 or Records on the Past seasons card',
+     'history'],
     ['\u2753', 'Walk-through tutorials',
      'Six short tours that dim the screen and point at the real buttons, one step at a time: ' +
      'getting started, the season story and club history, injuries, your own Champions League, ' +
@@ -8150,6 +8224,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     }
     var rows = comp.history.slice().reverse().slice(0, 6);
     return '<div class="card"><div class="card-head"><h2>Past seasons</h2>' +
+      '<button class="btn btn-sm" data-act="go-records">Records</button>' +
       '<button class="btn btn-sm" data-act="go" data-view="history">Full history</button></div>' +
       '<div>' + rows.map(function (rec) {
         var champ = comp.teams[rec.champion];
@@ -8727,7 +8802,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     'club-record': '\u{1F451}', apps: '\u{1F455}', minor: '\u{1F947}',
     heartbreak: '\u{1F494}', decider: '⚖️', unbeaten: '\u{1F6E1}️', finish: '⬆️',
     fall: '⬇️', qual: '✈️', retire: '\u{1F44B}', rank: '\u{1F30D}',
-    dynasty: '\u{1F451}', drought: '⏳', nearly: '\u{1F948}', stake: '\u{1F525}'
+    comeback: '\u{1F504}', dynasty: '\u{1F451}', drought: '⏳', nearly: '\u{1F948}', stake: '\u{1F525}'
   };
   function storyIcon(k) { return STORY_ICON[k] || '\u{1F4F0}'; }
 
@@ -10713,16 +10788,19 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         'the next one. Every completed season is stored here in full — final table, every result, ' +
         'award winners and scorers — and rolls up into all-time records.</p>' +
         '<button class="btn btn-primary" data-act="go" data-view="overview">Back to the season</button>' +
-        '</div></div></div>';
+        '</div></div>' +
+        (comp.season.matches.some(function (m) { return m.played; })
+          ? '<div class="card"><div class="card-head"><h2>Records so far</h2></div></div>' + recordsBook(comp) : '') +
+        '</div>';
     }
 
     var histTabs = [['honours', 'Honours'], ['seasons', 'Seasons'], ['alltime', 'All-time'],
        ['scorers', 'Scorers'], ['h2h', 'H2H'], ['rivals', 'Rivalries'],
-       ['story', 'Story']];
+       ['records', 'Records'], ['story', 'Story']];
     if (comp.format === 'worldcup') histTabs.splice(3, 0, ['qualifying', 'Qualifying']);
     // the Qualifying tab only exists for a World Cup, so fall back if it is not here
     var histTab = histTabs.some(function (t) { return t[0] === ui.histTab; }) ? ui.histTab : 'honours';
-    var tabs = '<div class="seg">' +
+    var tabs = '<div class="seg seg-scroll">' +
       histTabs
       .map(function (t) {
         return '<button data-act="hist-tab" data-tab="' + t[0] + '" aria-pressed="' +
@@ -10737,6 +10815,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     else if (histTab === 'h2h') body = histH2H(comp);
     else if (histTab === 'rivals') body = rivalriesCard(comp);
     else if (histTab === 'story') body = histStory(comp);
+    else if (histTab === 'records') body = recordsBook(comp);
     else body = histHonours(comp);
 
     return '<div class="stack">' +
@@ -12076,6 +12155,13 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     }
     viewEl.innerHTML = html;
     enhanceTables(viewEl, 'v');
+    // a scrolling strip of tabs opens on the one that is selected
+    Array.prototype.forEach.call(viewEl.querySelectorAll('.seg-scroll'), function (seg) {
+      var on = seg.querySelector('[aria-pressed="true"]');
+      if (on && seg.scrollWidth > seg.clientWidth) {
+        seg.scrollLeft = Math.max(0, on.offsetLeft - (seg.clientWidth - on.offsetWidth) / 2);
+      }
+    });
   }
 
   function fillSwitch(comp) {
@@ -12097,6 +12183,304 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   }
 
   function persist() { S.save(); }
+
+  /* --------------------------------------------------------- records book */
+
+  /* Every all-time record the save can answer, gathered on one page. Most
+     come straight from the archive (tables, results, scorers, champions); the
+     fastest goals and biggest comebacks need minutes, which the archive does
+     not keep, so those come from the milestone engine's running lists and
+     start from whenever it began watching. A finished season counts; one in
+     progress only counts where a partial figure cannot flatter it. */
+
+  function recordsData(comp) {
+    var H = comp.history, s = comp.season;
+    var idxOf = {};
+    comp.teams.forEach(function (t, i) { idxOf[t.id] = i; });
+
+    // a team as it appears in the book, even if it has since left
+    function who(idx, names) {
+      var t = comp.teams[idx];
+      return { t: t, name: t ? t.name : ((names || [])[idx] || '?') };
+    }
+
+    // every result in order, archive first, with where to find it
+    var results = [];
+    H.forEach(function (rec) {
+      rec.results.slice().sort(function (x, y) { return x[4] - y[4]; }).forEach(function (r) {
+        results.push({ n: rec.n, md: r[4], h: r[0], a: r[1], hg: r[2], ag: r[3], names: rec.names });
+      });
+    });
+    s.matches.filter(function (m) { return m.played; })
+      .sort(function (x, y) { return x.md - y.md; })
+      .forEach(function (m) {
+        results.push({ n: s.number, md: m.md, h: idxOf[m.h], a: idxOf[m.a], hg: m.hg, ag: m.ag, mid: m.id, live: true });
+      });
+
+    // team seasons, from finished leagues only
+    var seasons = [];
+    if (comp.format === 'league') {
+      H.forEach(function (rec) {
+        if (rec.format !== 'league') return;
+        rec.table.forEach(function (r) {
+          if (r.p) seasons.push({ n: rec.n, team: who(r.t, rec.names), p: r.p, w: r.w, d: r.d, l: r.l,
+                                   gf: r.gf, ga: r.ga, pts: r.pts });
+        });
+      });
+      if (s.complete) {
+        E.computeTable(comp.teams, s.matches, comp.settings, function (m) { return m.stage === 'league'; })
+          .forEach(function (r) {
+            if (r.p) seasons.push({ n: s.number, team: { t: r.team, name: r.team.name }, p: r.p, w: r.w,
+                                     d: r.d, l: r.l, gf: r.gf, ga: r.ga, pts: r.pts });
+          });
+      }
+    }
+
+    // runs: consecutive results for each side, across seasons
+    var runs = { win: [], unbeaten: [], lose: [], winless: [] };
+    var cur = {};
+    function close(idx, kind, live) {
+      var c = cur[idx] && cur[idx][kind];
+      if (!c || c.len < 2) return;
+      runs[kind].push({ team: who(idx, c.names), len: c.len, from: c.from, to: c.to, live: !!live });
+    }
+    results.forEach(function (r) {
+      [[r.h, r.hg, r.ag], [r.a, r.ag, r.hg]].forEach(function (x) {
+        var idx = x[0];
+        if (idx == null) return;
+        var res = x[1] > x[2] ? 'W' : x[1] < x[2] ? 'L' : 'D';
+        var c = cur[idx] || (cur[idx] = {});
+        var fits = { win: res === 'W', unbeaten: res !== 'L', lose: res === 'L', winless: res !== 'W' };
+        Object.keys(fits).forEach(function (k) {
+          if (fits[k]) {
+            if (!c[k]) c[k] = { len: 0, from: 'S' + r.n + ' MD ' + (r.md + 1), names: r.names };
+            c[k].len++;
+            c[k].to = 'S' + r.n + ' MD ' + (r.md + 1);
+          } else {
+            close(idx, k);
+            c[k] = null;
+          }
+        });
+      });
+    });
+    Object.keys(cur).forEach(function (idx) {
+      ['win', 'unbeaten', 'lose', 'winless'].forEach(function (k) { close(+idx, k, true); });
+    });
+    Object.keys(runs).forEach(function (k) {
+      runs[k].sort(function (x, y) { return y.len - x.len; });
+    });
+
+    // titles
+    var titles = S.allTimeTable(comp, false).filter(function (r) { return r.titles; })
+      .sort(function (x, y) { return y.titles - x.titles || y.runnerUps - x.runnerUps; });
+    var streaks = [], gaps = [];
+    var run = null, lastTitle = {};
+    H.forEach(function (rec) {
+      var c = rec.champion;
+      if (c == null) { run = null; return; }
+      if (run && run.idx === c) run.len++;
+      else { run = { idx: c, len: 1, from: rec.n }; streaks.push(run); }
+      run.to = rec.n;
+      if (lastTitle[c] != null && rec.n - lastTitle[c] > 1) {
+        gaps.push({ team: who(c, rec.names), gap: rec.n - lastTitle[c], from: lastTitle[c], to: rec.n });
+      }
+      lastTitle[c] = rec.n;
+    });
+    streaks = streaks.filter(function (x) { return x.len >= 2; })
+      .sort(function (x, y) { return y.len - x.len || x.from - y.from; })
+      .map(function (x) { return { team: who(x.idx), len: x.len, from: x.from, to: x.to }; });
+    gaps.sort(function (x, y) { return y.gap - x.gap; });
+
+    // players
+    var seasonScorers = [];
+    H.forEach(function (rec) {
+      (rec.scorers || []).forEach(function (sc) {
+        seasonScorers.push({ name: sc.n, team: who(sc.t, rec.names), g: sc.g, n: rec.n });
+      });
+    });
+    if (s.complete) {
+      E.topScorers(comp.teams, 10, comp.format === 'worldcup' ? 'finals' : 'all').forEach(function (x) {
+        seasonScorers.push({ name: x.p.name, team: { t: x.t, name: x.t.name }, g: x.g, n: s.number });
+      });
+    }
+    seasonScorers.sort(function (x, y) { return y.g - x.g; });
+    var career = S.allTimeScorers(comp, 10);
+    var apps = [];
+    comp.teams.forEach(function (t) {
+      t.players.forEach(function (p) { if (p.capps) apps.push({ name: p.name, team: { t: t, name: t.name }, v: p.capps }); });
+    });
+    apps.sort(function (x, y) { return y.v - x.v; });
+
+    var R = MS ? MS.ensure(comp) : {};
+    return { results: results, seasons: seasons, runs: runs, titles: titles, streaks: streaks, gaps: gaps,
+             seasonScorers: seasonScorers, career: career, apps: apps,
+             hauls: (R.hauls || []).slice().sort(function (x, y) { return y.k - x.k || x.n - y.n; }),
+             best: (R.best || []).slice().reverse(),
+             fast: R.fast || [], comeback: R.comeback || [] };
+  }
+
+  // One record: the holder up top, the next few underneath.
+  function recordRow(label, list, fmt) {
+    if (!list.length) return '';
+    var top = fmt(list[0]);
+    var rest = list.slice(1, 3).map(function (x) { var f = fmt(x); return f.plain; });
+    return '<div class="rec-row">' +
+      '<div class="rec-label">' + esc(label) + '</div>' +
+      '<div class="rec-main"><span class="rec-val">' + top.val + '</span>' +
+        '<span class="rec-who">' + top.who + '</span>' +
+        (top.when ? '<span class="rec-when">' + top.when + '</span>' : '') + '</div>' +
+      (rest.length ? '<div class="rec-next">Next: ' + rest.map(esc).join(' · ') + '</div>' : '') +
+      '</div>';
+  }
+
+  function recWho(team, extra) {
+    return (team.t ? kit(team.t) + ' ' : '') + '<span class="strong">' + esc(extra || team.name) + '</span>' +
+      (extra ? ' <span class="muted small">' + esc(team.name) + '</span>' : '');
+  }
+  function seasonLink(comp, n, label) {
+    var archived = comp.history.some(function (r) { return r.n === n; });
+    return archived ? '<a href="#" data-act="season" data-n="' + n + '">' + esc(label || 'S' + n) + '</a>'
+      : esc(label || 'S' + n);
+  }
+  function matchLink(comp, r, label) {
+    if (r.mid && r.n === comp.season.number && matchById(comp, r.mid)) {
+      return '<a href="#" data-act="match" data-id="' + esc(r.mid) + '">' + esc(label) + '</a>';
+    }
+    return seasonLink(comp, r.n, label);
+  }
+
+  function recordsBook(comp) {
+    var d = recordsData(comp), sp = sportOf(comp), fa = forAgainst(sp);
+    var units = sp.scoreWord.toLowerCase();
+    var pctMode = comp.settings.rankBy === 'winpct';
+    function card(title, icon, rows) {
+      rows = rows.filter(Boolean);
+      if (!rows.length) return '';
+      return '<div class="card"><div class="card-head"><h3>' + icon + ' ' + esc(title) + '</h3></div>' +
+        '<div class="card-body rec-body">' + rows.join('') + '</div></div>';
+    }
+    function by(list, key, asc) {
+      return list.slice().sort(function (x, y) { return asc ? x[key] - y[key] : y[key] - x[key]; });
+    }
+    function nm(x) { return x.team.name; }
+    function teamSeason(key, unit, asc) {
+      return function (x) {
+        return { val: x[key] + (unit ? ' ' + unit : ''), who: recWho(x.team), when: seasonLink(comp, x.n),
+                 plain: nm(x) + ' ' + x[key] + ' (S' + x.n + ')' };
+      };
+    }
+
+    // matches
+    var res = d.results;
+    var bigWin = res.filter(function (r) { return r.hg !== r.ag; })
+      .sort(function (x, y) { return Math.abs(y.hg - y.ag) - Math.abs(x.hg - x.ag) || (y.hg + y.ag) - (x.hg + x.ag); });
+    var awayWin = res.filter(function (r) { return r.ag > r.hg; })
+      .sort(function (x, y) { return (y.ag - y.hg) - (x.ag - x.hg) || y.ag - x.ag; });
+    var highest = res.slice().sort(function (x, y) { return (y.hg + y.ag) - (x.hg + x.ag); });
+    function nameOf(idx, r) {
+      var t = comp.teams[idx];
+      return t ? t.name : ((r.names || [])[idx] || '?');
+    }
+    function scoreline(r) {
+      return { val: r.hg + '–' + r.ag,
+        who: '<span class="strong">' + esc(nameOf(r.h, r)) + '</span> <span class="muted small">v</span> <span class="strong">' +
+          esc(nameOf(r.a, r)) + '</span>',
+        when: matchLink(comp, r, 'S' + r.n + ' · MD ' + (r.md + 1)),
+        plain: nameOf(r.h, r) + ' ' + r.hg + '–' + r.ag + ' ' + nameOf(r.a, r) + ' (S' + r.n + ')' };
+    }
+
+    var matches = card('Matches', '\u{1F3DF}️', [
+      recordRow('Biggest win', bigWin, scoreline),
+      recordRow('Biggest away win', awayWin, scoreline),
+      recordRow('Highest-scoring match', highest, scoreline),
+      recordRow('Biggest comeback', d.comeback, function (x) {
+        return { val: x.deficit + ' down', who: recWho({ t: comp.teams[idxOf(comp, x.tid)], name: x.team }) +
+          ' <span class="muted small">beat ' + esc(x.opp) + ' ' + x.score + '</span>',
+          when: matchLink(comp, x, 'S' + x.n + ' · MD ' + (x.md + 1)),
+          plain: x.team + ' from ' + x.deficit + ' down (S' + x.n + ')' };
+      })
+    ]);
+
+    var runs = card('Runs', '\u{1F525}', [
+      recordRow('Longest winning run', d.runs.win, runFmt),
+      recordRow('Longest unbeaten run', sp.draws ? d.runs.unbeaten : [], runFmt),
+      recordRow('Longest losing run', d.runs.lose, runFmt),
+      recordRow('Longest run without a win', sp.draws ? d.runs.winless : [], runFmt)
+    ]);
+    function runFmt(x) {
+      return { val: x.len + ' matches', who: recWho(x.team),
+        when: esc(x.from + ' to ' + x.to) + (x.live ? ' <span class="badge badge-accent tiny">still going</span>' : ''),
+        plain: nm(x) + ' ' + x.len + (x.live ? ', still going' : '') };
+    }
+
+    var seasons = d.seasons.length ? card('Team seasons', '\u{1F4CA}', [
+      pctMode ? recordRow('Most wins', by(d.seasons, 'w'), teamSeason('w', 'wins'))
+              : recordRow('Most points', by(d.seasons, 'pts'), teamSeason('pts', 'pts')),
+      pctMode ? '' : recordRow('Fewest points', by(d.seasons, 'pts', true), teamSeason('pts', 'pts')),
+      recordRow('Most ' + units + ' scored', by(d.seasons, 'gf'), teamSeason('gf', fa[0])),
+      recordRow('Fewest ' + units + ' conceded', by(d.seasons, 'ga', true), teamSeason('ga', fa[1])),
+      recordRow('Fewest defeats', by(d.seasons, 'l', true), teamSeason('l', 'lost')),
+      recordRow('Most defeats', by(d.seasons, 'l'), teamSeason('l', 'lost'))
+    ]) : '';
+
+    var titleCard = card('Titles', '\u{1F3C6}', [
+      recordRow('Most titles', d.titles, function (x) {
+        return { val: x.titles + (x.titles === 1 ? ' title' : ' titles'), who: recWho({ t: x.team, name: x.team.name }),
+          when: x.runnerUps ? x.runnerUps + ' runner-up' + (x.runnerUps === 1 ? '' : 's') : '',
+          plain: x.team.name + ' ' + x.titles };
+      }),
+      recordRow('Most in a row', d.streaks, function (x) {
+        return { val: x.len + ' in a row', who: recWho(x.team), when: 'S' + x.from + ' to S' + x.to,
+          plain: nm(x) + ' ' + x.len + ' (S' + x.from + '–S' + x.to + ')' };
+      }),
+      recordRow('Longest wait between titles', d.gaps, function (x) {
+        return { val: x.gap + ' seasons', who: recWho(x.team), when: 'S' + x.from + ' to ' + seasonLink(comp, x.to),
+          plain: nm(x) + ' ' + x.gap + ' (to S' + x.to + ')' };
+      })
+    ]);
+
+    var hm = (sp.basePlays || 0) <= 3.5;
+    var players = card('Players', '\u{1F45F}', [
+      recordRow('Most ' + units + ' in a season', d.seasonScorers, function (x) {
+        return { val: x.g + ' ' + units, who: recWho(x.team, x.name), when: seasonLink(comp, x.n),
+          plain: x.name + ' ' + x.g + ' (S' + x.n + ')' };
+      }),
+      recordRow('Most ' + units + ' all time', d.career, function (x) {
+        var t = comp.teams[x.t];
+        return { val: x.g + ' ' + units, who: recWho({ t: t, name: t ? t.name : '' }, x.name),
+          when: x.seasons ? x.seasons + (x.seasons === 1 ? ' season' : ' seasons') : '', plain: x.name + ' ' + x.g };
+      }),
+      hm ? recordRow('Most in one match', d.hauls, function (x) {
+        return { val: x.k + ' ' + units, who: recWho({ t: null, name: x.team }, x.name), when: seasonLink(comp, x.n, 'S' + x.n + ' · MD ' + (x.md + 1)),
+          plain: x.name + ' ' + x.k + ' (S' + x.n + ')' };
+      }) : recordRow('Most in one game', d.best, function (x) {
+        return { val: x.v + ' ' + units, who: recWho({ t: null, name: x.team }, x.name), when: seasonLink(comp, x.n, 'S' + x.n + ' · MD ' + (x.md + 1)),
+          plain: x.name + ' ' + x.v + ' (S' + x.n + ')' };
+      }),
+      recordRow('Fastest ' + (sp.scoreWordOne || 'goal'), d.fast, function (x) {
+        return { val: x.label, who: recWho({ t: comp.teams[idxOf(comp, x.tid)], name: x.team }, x.name),
+          when: matchLink(comp, x, 'v ' + x.opp + ', S' + x.n), plain: x.name + ' ' + x.label + ' (S' + x.n + ')' };
+      }),
+      recordRow('Most appearances, current players', d.apps, function (x) {
+        return { val: x.v, who: recWho(x.team, x.name), when: '', plain: x.name + ' ' + x.v };
+      })
+    ]);
+
+    var intro = '<div class="card"><div class="card-body"><p class="small" style="margin:0">Every all-time record ' +
+      'in ' + esc(comp.name) + ', with the next two behind it. Tap a season or match to open it. ' +
+      'Fastest ' + esc(sp.scoreWordOne || 'goal') + 's, comebacks and single-match hauls are counted from when the ' +
+      'milestone engine started watching; everything else goes back to season one.</p></div></div>';
+    var body = titleCard + seasons + matches + runs + players;
+    return '<div class="stack">' + intro + (body ||
+      '<div class="card"><div class="card-body"><p class="small muted" style="margin:0">No records yet. ' +
+      'Play a few matches and they start to fill in.</p></div></div>') + '</div>';
+  }
+
+  function idxOf(comp, id) {
+    var k = -1;
+    comp.teams.forEach(function (t, i) { if (t.id === id) k = i; });
+    return k;
+  }
 
   /* ---------------------------------------------------------------- tours */
 
@@ -12158,7 +12542,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
           body: 'Points for a win, tiebreakers, home advantage, a finals series, injuries, how ratings change between seasons, and export or import.' },
         { sel: '.tabs .tab[data-view="history"]',
           title: 'It all gets kept',
-          body: 'Finish a season and start the next: champions, tables, scorers and every result roll up into honours, all-time records and rivalries.' },
+          body: 'Finish a season and start the next: champions, tables, scorers and every result roll up into honours, rivalries and a records book of every all-time best.' },
         { sel: '#tourBtn',
           title: 'Come back any time',
           body: 'This button opens the tutorials whenever you want a refresher on a part of the app.' }
@@ -12576,6 +12960,10 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       case 'close-modal': closeModal(); return;
 
       case 'tour-list': showTours(); return;
+      case 'go-records':
+        app.view = 'history'; app.ui.histTab = 'records'; closeModal(); render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
       case 'tour-start': startTour(el.dataset.id); return;
       case 'tour-next': tourStep(1); return;
       case 'tour-back': tourStep(-1); return;
