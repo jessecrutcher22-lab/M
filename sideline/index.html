@@ -850,6 +850,37 @@ tr.z-rel td.pos { box-shadow: inset 3px 0 0 var(--z-rel); }
 
 .honour-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
 .club-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
+/* --------------------------------------------------------------- tutorials */
+
+.tour-block { position: fixed; inset: 0; z-index: 300; }
+.tour-hole {
+  position: fixed; z-index: 301; pointer-events: none; border-radius: 12px;
+  box-shadow: 0 0 0 3px var(--accent), 0 0 0 9999px rgba(3, 7, 12, .62);
+  transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease;
+}
+.tour-hole.tour-none { inset: 0; border-radius: 0; box-shadow: none; background: rgba(3, 7, 12, .62); }
+.tour-card {
+  position: fixed; z-index: 302; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .7); padding: 14px 16px 12px;
+  animation: flashIn .25s ease-out;
+}
+.tour-card h3 { font-size: 1.02rem; margin: 6px 0 4px; }
+.tour-card p { font-size: .88rem; margin: 0 0 10px; color: var(--text-2); }
+.tour-top { display: flex; align-items: center; gap: 8px; }
+.tour-tag { font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.tour-count { margin-left: auto; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tour-dots { display: flex; gap: 4px; margin-bottom: 10px; }
+.tour-dots i { width: 6px; height: 6px; border-radius: 999px; background: var(--border); }
+.tour-dots i.done { background: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.tour-dots i.on { background: var(--accent); width: 16px; }
+.tour-btns { display: flex; align-items: center; gap: 8px; }
+.tour-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-soft); }
+.tour-row:last-child { border-bottom: 0; }
+.tour-ico { font-size: 1.4rem; width: 30px; text-align: center; }
+.tour-nudge { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+@media (prefers-reduced-motion: reduce) { .tour-hole { transition: none; } }
 .live-inc .le-name { font-weight: 600; color: var(--text-2); }
 button.badge { border: 0; cursor: pointer; font-family: inherit; }
 button.badge:hover { background: var(--accent-soft); color: var(--accent); }
@@ -915,6 +946,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       <span class="season-pill" id="seasonPill">S1</span>
     </div>
     <div class="topbar-spacer"></div>
+    <button class="icon-btn" id="tourBtn" data-act="tour-list" title="Tutorials" aria-label="Tutorials">?</button>
     <button class="icon-btn" id="themeBtn" title="Switch theme" aria-label="Switch theme">◐</button>
     <button class="btn btn-sm" id="newCompBtn">New</button>
   </div>
@@ -6926,10 +6958,14 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var sport = opts.sport || 'football';
     var ids = (opts.leagues || []).filter(function (id) { return !!find(id); });
     var made = [];
-    if (!ids.length) {
+    // one league is not a continent: top it up with the defaults it lacks
+    if (!ids.length || (opts.fill && ids.length < 2)) {
+      var have = {};
+      ids.forEach(function (id) { have[find(id).name] = true; });
       (DEFAULT_LEAGUES[sport] || D.sports[sport].presets.filter(function (k) {
         return (D.presets[k].format || 'league') === 'league';
       })).forEach(function (k) {
+        if (have[D.presets[k].name]) return;
         var L = S.fromPreset(k, {});
         S.state.competitions.push(L);
         made.push(L);
@@ -7383,6 +7419,12 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
      feature nobody can find may as well not be there. The fourth field is the
      tab to jump to, when there is one obvious place to start. */
   var WHATS_NEW = [
+    ['\u2753', 'Walk-through tutorials',
+     'Six short tours that dim the screen and point at the real buttons, one step at a time: ' +
+     'getting started, the season story and club history, injuries, your own Champions League, ' +
+     'building a competition, and betting. Skip out whenever you like.',
+     'The ? button at the top \u00b7 or the Tutorials card on this page',
+     null],
     ['\u{1F3C6}', 'A Champions League of your own',
      'Link your leagues and their top finishers are drawn into a continental cup every season: ' +
      'groups, then a knockout. Clubs come with their domestic ratings and squads, refreshed at ' +
@@ -7612,7 +7654,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         'is a tap away.</li>' +
         '</ul></div></div>';
 
-    return '<div class="stack home">' + hero + steps + quick + yours + news + tabs +
+    return '<div class="stack home">' + hero + steps + toursCard() + quick + yours + news + tabs +
       deeper + keys + '</div>';
   }
 
@@ -8054,12 +8096,12 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var finals = hasFinals(comp) ? finalsCard(comp) : '';
 
     if (isWorldCup(comp) && s.stage === 'qual') {
-      return '<div class="stack">' + head + tiles + storyCard(comp) + treatmentCard(comp) + qualifyingCard(comp) + '</div>';
+      return '<div class="stack">' + head + tourNudge() + tiles + storyCard(comp) + treatmentCard(comp) + qualifyingCard(comp) + '</div>';
     }
 
     var ladder = comp.rankings ? rankingsCard(comp, 10, true) : '';
 
-    return '<div class="stack">' + head + championBanner(comp) + tiles + storyCard(comp) + finals +
+    return '<div class="stack">' + head + tourNudge() + championBanner(comp) + tiles + storyCard(comp) + finals +
       (CT && CT.isCont(comp) ? contFieldCard(comp) : isWorldCup(comp) ? heldPlacesCard(comp) + qualifiedSummary(comp) : '') +
       middle + treatmentCard(comp) + race +
       '<div class="grid grid-2">' + scorerCard + honoursMini(comp) + '</div>' +
@@ -8734,7 +8776,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       body = arcs.map(arcRow).join('') + stakesBlock(on) +
         (shown.length ? '<div>' + shown.map(function (e) { return storyRow(comp, e); }).join('') + '</div>' : '');
     }
-    return '<div class="card"><div class="card-head"><h2>Season story</h2>' +
+    return '<div class="card" data-tour="story"><div class="card-head"><h2>Season story</h2>' +
       (list.length ? '<span class="badge">' + list.length + (list.length === 1 ? ' moment' : ' moments') + '</span>' : '') +
       '<button class="btn btn-sm" data-act="story-all">The full story</button></div>' +
       '<div class="card-body">' + body + '</div></div>';
@@ -8947,7 +8989,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     if (!E.injuriesOn(comp.settings) || comp.season.complete) return '';
     var list = absentees(comp);
     if (!list.length) return '';
-    return '<div class="card"><div class="card-head"><h3>\u{1F691} Treatment room</h3>' +
+    return '<div class="card" data-tour="treatment"><div class="card-head"><h3>\u{1F691} Treatment room</h3>' +
       '<span class="badge">' + list.length + ' out</span></div>' +
       '<div class="table-wrap"><table class="data"><tbody>' + list.slice(0, 8).map(function (x) {
         return '<tr class="clickable" data-act="team" data-id="' + esc(x.t.id) + '">' +
@@ -8972,7 +9014,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
           return esc(x.p.name) + ' <span class="muted">(' + (x.p.sus > 0 ? 'suspended' : 'injured') + ')</span>';
         }).join(', ') + (out.length > 4 ? ' and ' + (out.length - 4) + ' more' : '') + '</div>';
     }).join('');
-    return rows ? '<div class="rival-callout"><div class="section-title" style="margin:0">Team news</div>' + rows + '</div>' : '';
+    return rows ? '<div class="rival-callout" data-tour="news"><div class="section-title" style="margin:0">Team news</div>' + rows + '</div>' : '';
   }
 
   // What happened besides the scoring.
@@ -9027,7 +9069,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var from = draw && draw.from ? draw.from.map(function (f) {
       return esc(f.name) + ' ' + (f.done ? 'S' + f.n + ' final table' : f.live ? 'S' + f.n + ' as it stands' : 'on paper');
     }).join(' · ') : '';
-    return '<div class="card"><div class="card-head"><h2>The field</h2>' +
+    return '<div class="card" data-tour="field"><div class="card-head"><h2>The field</h2>' +
       '<span class="badge">' + field.length + ' clubs · top ' + comp.continental.places + ' from ' +
         leagues.length + (leagues.length === 1 ? ' league' : ' leagues') + '</span>' +
       (!started ? '<button class="btn btn-sm" data-act="cont-redraw">Redraw from latest tables</button>' : '') +
@@ -12056,6 +12098,385 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 
   function persist() { S.save(); }
 
+  /* ---------------------------------------------------------------- tours */
+
+  /* Walk-through tutorials. A tour is a list of steps; each step can switch
+     the view, open something, and then point at a real element on the page:
+     the rest of the screen dims, a ring sits around the element, and a card
+     beside it explains. Steps whose element is not there (betting switched
+     off, nobody injured yet) fall back to a card in the middle, so a tour
+     never stalls. */
+
+  var TOUR_SEEN_KEY = 'sideline.tours';
+
+  function nextFixture(comp) {
+    var m = E.nextMatch(comp);
+    if (m) return m;
+    var found = null;
+    comp.season.matches.forEach(function (x) { if (!found && !x.played) found = x; });
+    return found;
+  }
+  function leaderId(comp) {
+    var t = liveTable(comp)[0];
+    return t ? t.id : comp.teams[0].id;
+  }
+  function anyLeague() {
+    var c = S.active();
+    if (c && c.format === 'league') return c;
+    return S.state.competitions.filter(function (x) { return x.format === 'league'; })[0] || null;
+  }
+
+  var TOURS = [
+    {
+      id: 'start', icon: '\u{1F44B}', title: 'Getting started',
+      desc: 'Play your first matchday, watch a match live and find your way around the tabs.',
+      needs: 'comp',
+      steps: [
+        { view: 'overview', sel: '#view h1',
+          title: 'This is your competition',
+          body: 'Everything about the current season lives on the Overview: progress, the table, results and the story so far.' },
+        { view: 'overview', sel: '[data-act="sim-round"]',
+          title: 'Play a matchday',
+          body: 'Plays every match in the next round at once. Space or Enter does the same from anywhere.' },
+        { view: 'overview', sel: '[data-act="watch"]',
+          title: 'Or watch one live',
+          body: 'Follow a single match minute by minute: the score, the scorers, injuries and cards as they happen. You can speed it up or skip to full time.' },
+        { view: 'overview', sel: '[data-act="sim-season"]',
+          title: 'In a hurry?',
+          body: 'Simulate straight to the end of the season. Nothing is lost: every result is kept and you can open any of them afterwards.' },
+        { view: 'overview', sel: '[data-tour="story"]',
+          title: 'The season story',
+          body: 'Headlines land here as they happen: first titles, records, droughts ending, a player’s hundredth. What is on the line next round shows up here too.' },
+        { sel: '.tabs .tab[data-view="table"]',
+          title: 'The table',
+          body: 'The full standings, with home, away and form views, and a chart of how the race has moved.' },
+        { sel: '.tabs .tab[data-view="teams"]',
+          title: 'Make it yours',
+          body: 'Every side has an attack and a defence rating. Change them, rename teams, recolour kits, add or remove sides.' },
+        { sel: '.tabs .tab[data-view="settings"]',
+          title: 'Change the rules',
+          body: 'Points for a win, tiebreakers, home advantage, a finals series, injuries, how ratings change between seasons, and export or import.' },
+        { sel: '.tabs .tab[data-view="history"]',
+          title: 'It all gets kept',
+          body: 'Finish a season and start the next: champions, tables, scorers and every result roll up into honours, all-time records and rivalries.' },
+        { sel: '#tourBtn',
+          title: 'Come back any time',
+          body: 'This button opens the tutorials whenever you want a refresher on a part of the app.' }
+      ]
+    },
+    {
+      id: 'story', icon: '\u{1F4F0}', title: 'Season story and club history',
+      desc: 'How headlines are found, the build-up before kick-off, and every club’s own history page.',
+      needs: 'comp',
+      steps: [
+        { view: 'overview', sel: '[data-tour="story"]',
+          title: 'Moments, not just results',
+          body: 'After every match, round and season the app checks what just happened against everything that came before, and says it out loud when it matters.' },
+        { view: 'overview', sel: ['[data-tour="story"] .stakes', '[data-tour="story"]'],
+          title: 'On the line',
+          body: 'Before a round, the stakes are named: a title that a win would seal, a player one goal from a hundred, a side that has not beaten its opponent in years.' },
+        { view: 'overview', sel: '[data-act="story-all"]',
+          title: 'The full story',
+          body: 'Every season’s headlines in one place, plus the running stories: the dynasty going again, the big club in a drought, the nearly-men.' },
+        { open: function (comp) { showTeam(comp, leaderId(comp)); }, sel: '.modal [data-act="club-history"]',
+          title: 'Every club has a history',
+          body: 'Open any team, from the table or a fixture, and this button takes you to its own history page.' },
+        { open: function (comp) { showClubHistory(comp, leaderId(comp)); }, sel: ['.modal .club-grid', '.modal-body'],
+          title: 'The honours board',
+          body: 'Titles and runners-up by season, finals record, best and worst finishes, and the club’s all-time leading scorers.' },
+        { open: function (comp) { showClubHistory(comp, leaderId(comp)); }, sel: ['.modal .timeline-season', '.modal-body'],
+          title: 'A timeline of its own',
+          body: 'Season by season, where they finished and the moments that belonged to them.' },
+        { close: true, view: 'overview', sel: ['[data-act="recap"]', '#view h1'],
+          title: 'Share the season',
+          body: 'The recap image leads with the season’s biggest headline. Download it as a PNG or print it.' }
+      ]
+    },
+    {
+      id: 'injuries', icon: '\u{1F691}', title: 'Injuries and team news',
+      desc: 'Knocks, red cards and bans, and why a deep squad matters.',
+      needs: 'comp',
+      steps: [
+        { view: 'overview', sel: ['[data-tour="treatment"]', '#view h1'],
+          title: 'The treatment room',
+          body: 'Players pick up knocks and, in football, rugby and hockey, red cards and bans. Everyone currently out is listed here with how many matches they will miss. It appears once someone is out.' },
+        { open: function (comp) { var m = nextFixture(comp); if (m) showMatch(comp, m.id); },
+          sel: ['.modal [data-tour="news"]', '.modal-body'],
+          title: 'Team news',
+          body: 'Open any upcoming fixture to see who each side is without. A missing star makes a side weaker by the gap to whoever replaces them, and the odds move with it.' },
+        { open: function (comp) { var m = nextFixture(comp); if (m) showMatch(comp, m.id); },
+          sel: ['.modal [data-act="watch"]', '.modal-body'],
+          title: 'Live, on the clock',
+          body: 'Watch a match and injuries and cards come up in the feed as they happen, alongside the goals.' },
+        { close: true, view: 'settings', sel: ['[data-act="injuries"]', '#view h2'],
+          title: 'Prefer everyone fit?',
+          body: 'Switch injuries and suspensions off here and every player is always available.' }
+      ]
+    },
+    {
+      id: 'continental', icon: '\u{1F3C6}', title: 'Your own Champions League',
+      desc: 'Link your leagues so their top finishers meet in a continental cup every season.',
+      needs: 'cont',
+      steps: [
+        { view: 'overview', sel: '#view h1',
+          title: 'Fed by your leagues',
+          body: 'This competition has no clubs of its own. Each season it draws the top finishers from the leagues that feed it, into groups and then a knockout.' },
+        { view: 'overview', sel: ['[data-tour="field"]', '#view h1'],
+          title: 'The field',
+          body: 'Who is in this season, grouped by league. A star marks a club that was not here last time. Clubs bring their current ratings and squads from home.' },
+        { view: 'overview', sel: ['[data-act="cont-leagues"]', '[data-tour="field"]'],
+          title: 'Choose the feeder leagues',
+          body: 'Pick which leagues send clubs and how many places each gets.' },
+        { view: 'overview', sel: ['[data-act="cont-redraw"]', '[data-tour="field"]'],
+          title: 'Redraw before kick-off',
+          body: 'Played more of your leagues since the draw? Redraw from the latest tables, as long as no match has been played yet. Otherwise the next draw happens when you start a new season.' },
+        { open: function () { var L = (LS.continental.leagues(S.active())[0]); if (L) { S.setActive(L.id); app.view = 'overview'; render(); } },
+          sel: ['#view .badge-blue[data-act="open-comp"]', '#view h1'],
+          title: 'And back again',
+          body: 'Every feeder league shows where its continental places go. Tap the badge to jump across.' }
+      ]
+    },
+    {
+      id: 'create', icon: '✏️', title: 'Build your own competition',
+      desc: 'Pick a sport and teams, choose a format, set the rules.',
+      needs: null,
+      steps: [
+        { view: 'create', sel: '#view .preset-grid',
+          title: 'Pick a sport',
+          body: 'Football, basketball, American football, ice hockey, baseball, and both codes of rugby. Each scores and settles a draw its own way.' },
+        { view: 'create', sel: ['#view .section-title + .preset-grid', '#view .preset-grid'],
+          title: 'Choose the teams',
+          body: 'Start from a real league, a World Cup, a Champions League fed by your leagues, or name your own.' },
+        { view: 'create', sel: ['#fFormat', '#fName'],
+          title: 'The format',
+          body: 'A league, a World Cup with regional qualifying, groups and a knockout, or a straight cup.' },
+        { view: 'create', sel: ['#fFinals', '#contPlaces'],
+          title: 'Finals series',
+          body: 'Play the regular season for the minor premiership, then settle the title in a finals series, NRL style.' },
+        { view: 'create', sel: ['#fAdv', '#fSeed'],
+          title: 'The fine print',
+          body: 'Points, tiebreakers, home advantage, how ratings move between seasons, and a seed if you want the same results every time.' },
+        { view: 'create', sel: '[data-act="create-comp"]',
+          title: 'Kick off',
+          body: 'Create it and you land on the Overview, ready to play the first matchday. Everything stays editable afterwards.' }
+      ]
+    },
+    {
+      id: 'betting', icon: '\u{1F3B2}', title: 'Betting and tipping',
+      desc: 'Play-money odds, season outrights and a tipping competition.',
+      needs: 'comp',
+      steps: [
+        { view: 'betting', sel: ['[data-act="wager-on"]', '#view .seg'],
+          title: 'Play money only',
+          body: 'Odds are priced from thousands of simulations of each fixture, so the only edge is the margin. Switch it on to get a balance to play with.' },
+        { view: 'betting', sel: ['[data-act="wager-tab"][data-tab="board"]', '#view h2'],
+          title: 'The board',
+          body: 'This round’s fixtures with prices on the result and more. Tap a price to open the bet slip.' },
+        { view: 'betting', sel: ['[data-act="wager-tab"][data-tab="season"]', '#view h2'],
+          title: 'Back a season',
+          body: 'Outrights on who wins it, who finishes top four and who goes down, repriced as the season moves.' },
+        { view: 'betting', sel: ['[data-act="wager-tab"][data-tab="tipping"]', '#view h2'],
+          title: 'Tipping',
+          body: 'Pick a winner in every match and see how you go against six computer tipsters over the season.' }
+      ]
+    }
+  ];
+
+  var tour = null;
+
+  function tourById(id) { return TOURS.filter(function (t) { return t.id === id; })[0] || null; }
+
+  function seenTours() {
+    try { return JSON.parse(localStorage.getItem(TOUR_SEEN_KEY) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function markSeen(id) {
+    var s = seenTours();
+    s[id] = true;
+    try { localStorage.setItem(TOUR_SEEN_KEY, JSON.stringify(s)); } catch (e) { /* private mode */ }
+  }
+
+  // A tour needs something to point at; make it if it is missing.
+  function prepareTour(t) {
+    var comp = S.active();
+    if (t.needs === 'comp' && !comp) {
+      S.add(S.fromPreset('premier', {}));
+      toast('A Premier League has been set up to show you around');
+    }
+    if (t.needs === 'cont') {
+      var cont = S.state.competitions.filter(function (c) { return c.continental; })[0];
+      if (!cont) {
+        var made = LS.continental.create({ sport: 'football', fill: true,
+          leagues: LS.continental.candidates('football').map(function (c) { return c.id; }) });
+        cont = made.comp;
+        toast('A Champions League has been set up' + (made.made.length ? ', with the big five leagues to feed it' : ''));
+      }
+      S.setActive(cont.id);
+    }
+    if (t.needs === 'comp' && comp && comp.continental && t.id === 'injuries') {
+      var L = anyLeague();
+      if (L) S.setActive(L.id);
+    }
+  }
+
+  function startTour(id) {
+    var t = tourById(id);
+    if (!t) return;
+    closeModal();
+    prepareTour(t);
+    tour = { t: t, i: 0, compId: S.active() ? S.active().id : null };
+    markSeen(id);
+    showTourStep();
+  }
+
+  function endTour(done) {
+    tour = null;
+    var root = $('#tourRoot');
+    if (root) root.innerHTML = '';
+    closeModal();
+    render();
+    if (done) toast('Tutorial done. The ? button at the top opens the others');
+  }
+
+  function findTarget(sel) {
+    var list = Array.isArray(sel) ? sel : [sel];
+    for (var i = 0; i < list.length; i++) {
+      var els = document.querySelectorAll(list[i]);
+      for (var j = 0; j < els.length; j++) {
+        var r = els[j].getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) return els[j];
+      }
+    }
+    return null;
+  }
+
+  function showTourStep() {
+    if (!tour) return;
+    var st = tour.t.steps[tour.i];
+    // a step that hops to another competition must not strand the ones after it
+    if (!st.open && tour.compId && S.active() && S.active().id !== tour.compId) S.setActive(tour.compId);
+    var comp = S.active();
+    if (st.close) closeModal();
+    if (st.view && app.view !== st.view) { closeModal(); app.view = st.view; }
+    if (!st.open) { if (!st.keepModal) closeModal(); render(); }
+    else { render(); if (comp) st.open(comp); }
+    var el = st.sel ? findTarget(st.sel) : null;
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'nearest' });
+    tour.el = el;
+    drawTourCard();
+    // layout settles after scrolling; place once more when it has
+    setTimeout(placeTour, 80);
+  }
+
+  function drawTourCard() {
+    var root = $('#tourRoot');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'tourRoot';
+      document.body.appendChild(root);
+    }
+    var t = tour.t, i = tour.i, st = t.steps[i], last = i === t.steps.length - 1;
+    root.innerHTML =
+      '<div class="tour-block"></div>' +
+      '<div class="tour-hole" id="tourHole"></div>' +
+      '<div class="tour-card" id="tourCard" role="dialog" aria-modal="true" aria-label="' + esc(t.title) + '">' +
+        '<div class="tour-top"><span class="tour-tag">' + t.icon + ' ' + esc(t.title) + '</span>' +
+          '<span class="tour-count">' + (i + 1) + ' of ' + t.steps.length + '</span></div>' +
+        '<h3>' + esc(st.title) + '</h3>' +
+        '<p>' + esc(st.body) + '</p>' +
+        '<div class="tour-dots">' + t.steps.map(function (_, k) {
+          return '<i class="' + (k === i ? 'on' : k < i ? 'done' : '') + '"></i>';
+        }).join('') + '</div>' +
+        '<div class="tour-btns">' +
+          '<button class="btn btn-ghost btn-sm" data-act="tour-end">' + (last ? 'Close' : 'Skip') + '</button>' +
+          '<span style="flex:1"></span>' +
+          (i ? '<button class="btn btn-sm" data-act="tour-back">Back</button>' : '') +
+          '<button class="btn btn-primary btn-sm" data-act="' + (last ? 'tour-done' : 'tour-next') + '">' +
+            (last ? 'Done' : 'Next') + '</button>' +
+        '</div>' +
+      '</div>';
+    placeTour();
+    var next = root.querySelector('[data-act="tour-next"], [data-act="tour-done"]');
+    if (next) next.focus({ preventScroll: true });
+  }
+
+  function placeTour() {
+    if (!tour) return;
+    var hole = $('#tourHole'), card = $('#tourCard');
+    if (!hole || !card) return;
+    var el = tour.el && document.body.contains(tour.el) ? tour.el : null;
+    var vw = window.innerWidth, vh = window.innerHeight, pad = 6, gap = 12;
+    var cw = Math.min(360, vw - 24), ch = card.offsetHeight;
+    card.style.width = cw + 'px';
+    if (!el) {
+      hole.className = 'tour-hole tour-none';
+      hole.removeAttribute('style');
+      card.style.left = Math.round((vw - cw) / 2) + 'px';
+      card.style.top = Math.round(Math.max(12, (vh - ch) / 2)) + 'px';
+      return;
+    }
+    var r = el.getBoundingClientRect();
+    hole.className = 'tour-hole';
+    hole.style.left = Math.round(r.left - pad) + 'px';
+    hole.style.top = Math.round(r.top - pad) + 'px';
+    hole.style.width = Math.round(r.width + pad * 2) + 'px';
+    hole.style.height = Math.round(Math.min(r.height, vh) + pad * 2) + 'px';
+    var top;
+    if (r.bottom + gap + ch <= vh - 8) top = r.bottom + gap;
+    else if (r.top - gap - ch >= 8) top = r.top - gap - ch;
+    else top = vh - ch - 12;   // a tall target: sit at the bottom of the screen
+    var left = Math.min(Math.max(12, r.left), vw - cw - 12);
+    card.style.left = Math.round(left) + 'px';
+    card.style.top = Math.round(Math.max(8, top)) + 'px';
+  }
+
+  function tourStep(d) {
+    if (!tour) return;
+    var n = tour.i + d;
+    if (n < 0 || n >= tour.t.steps.length) return;
+    tour.i = n;
+    showTourStep();
+  }
+
+  function showTours() {
+    var seen = seenTours();
+    modal('Tutorials',
+      '<p class="small" style="margin:0 0 12px">Short walk-throughs that point at the real buttons. ' +
+      'Each one takes about a minute, and you can skip out at any point.</p>' +
+      TOURS.map(function (t) {
+        return '<div class="tour-row"><span class="tour-ico" aria-hidden="true">' + t.icon + '</span>' +
+          '<span style="min-width:0;flex:1"><span class="strong">' + esc(t.title) + '</span>' +
+          (seen[t.id] ? ' <span class="badge tiny">done</span>' : '') +
+          '<span class="tiny muted" style="display:block;margin-top:2px">' + esc(t.desc) + ' · ' +
+            t.steps.length + ' steps</span></span>' +
+          '<button class="btn btn-sm' + (seen[t.id] ? '' : ' btn-primary') + '" data-act="tour-start" data-id="' +
+            t.id + '">' + (seen[t.id] ? 'Again' : 'Start') + '</button></div>';
+      }).join(''));
+  }
+
+  // The home page and a first competition both offer the tours.
+  function toursCard() {
+    var seen = seenTours();
+    return '<div class="card"><div class="card-head"><h2>Tutorials</h2>' +
+      '<span class="badge">' + TOURS.length + ' walk-throughs</span></div>' +
+      '<div class="card-body"><div class="grid grid-3">' + TOURS.map(function (t) {
+        return '<button class="preset" data-act="tour-start" data-id="' + t.id + '">' +
+          '<div class="flag">' + t.icon + '</div><div class="nm">' + esc(t.title) +
+          (seen[t.id] ? ' ✓' : '') + '</div>' +
+          '<div class="sub">' + esc(t.desc) + '</div></button>';
+      }).join('') + '</div></div></div>';
+  }
+
+  function tourNudge() {
+    var seen = seenTours();
+    if (seen.start || seen._nudge) return '';
+    return '<div class="card tour-nudge"><div class="card-body" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+      '<span style="font-size:1.6rem" aria-hidden="true">\u{1F44B}</span>' +
+      '<div style="flex:1;min-width:200px"><div class="strong">New here?</div>' +
+      '<div class="small muted">A one-minute walk-through of the buttons that matter.</div></div>' +
+      '<button class="btn btn-primary btn-sm" data-act="tour-start" data-id="start">Show me around</button>' +
+      '<button class="btn btn-ghost btn-sm" data-act="tour-dismiss">Not now</button></div></div>';
+  }
+
   /* -------------------------------------------------------------- actions */
 
   function simulateAndRender(fn, comp) {
@@ -12153,6 +12574,14 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       case 'import': doImport(); return;
 
       case 'close-modal': closeModal(); return;
+
+      case 'tour-list': showTours(); return;
+      case 'tour-start': startTour(el.dataset.id); return;
+      case 'tour-next': tourStep(1); return;
+      case 'tour-back': tourStep(-1); return;
+      case 'tour-end': endTour(false); return;
+      case 'tour-done': endTour(true); return;
+      case 'tour-dismiss': markSeen('_nudge'); render(); return;
       case 'close-modal-back':
         if (ev.target === el) closeModal();
         return;
@@ -12893,6 +13322,13 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     });
 
     document.addEventListener('keydown', function (ev) {
+      // a tour owns the keyboard while it runs
+      if (tour) {
+        if (ev.key === 'Escape') { ev.preventDefault(); endTour(false); }
+        else if (ev.key === 'ArrowRight') { ev.preventDefault(); tourStep(1); }
+        else if (ev.key === 'ArrowLeft') { ev.preventDefault(); tourStep(-1); }
+        return;
+      }
       if (ev.key === 'Escape') closeModal();
       if (ev.target && ev.target.classList && ev.target.classList.contains('sortable') &&
           (ev.key === 'Enter' || ev.key === ' ')) {
@@ -12915,6 +13351,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         }
       }
     });
+
+    window.addEventListener('resize', placeTour);
+    window.addEventListener('scroll', placeTour, true);
 
     render();
     // expose for the smoke test harness
