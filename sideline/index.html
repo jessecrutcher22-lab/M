@@ -7047,8 +7047,11 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var auto = [], entrants = [], confs = {}, order = [], notes = [];
     leagues(comp).forEach(function (L) {
       var st = standing(L), map = E.teamsById(L), places = placesFor(cfg, L.id);
-      var ids = st.ids.slice(0, Math.min(st.ids.length, entrantsFor(cfg, L.id, places)));
-      var seeded = cfg.champAuto !== false && st.done;
+      // OneSchool Global enters every campus; a cup of clubs takes the top few
+      var everyone = cfg.enterAll === true || (cfg.enterAll !== false && !!comp.osg);
+      var ids = everyone ? st.ids.slice() : st.ids.slice(0, Math.min(st.ids.length, entrantsFor(cfg, L.id, places)));
+      // a country with a single place plays it out, so nobody is entered for nothing
+      var seeded = cfg.champAuto !== false && st.done && places > 1;
       var inQual = 0;
       ids.forEach(function (id, i) {
         var src = map[id];
@@ -7119,6 +7122,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     comp.continental = { leagues: ids, places: Math.max(1, opts.places || 4) };
     if (opts.placesBy) comp.continental.placesBy = opts.placesBy;
     if (opts.qualify) { comp.continental.qualify = true; comp.continental.champAuto = opts.champAuto !== false; }
+    if (opts.enterAll) comp.continental.enterAll = true;
     draw(comp, 1);
     comp.season = E.newSeason(comp, 1);
     S.add(comp);
@@ -7141,6 +7145,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     if (opts) {
       comp.continental.qualify = !!opts.qualify;
       comp.continental.champAuto = opts.champAuto !== false;
+      if (opts.enterAll != null) comp.continental.enterAll = !!opts.enterAll;
     }
   }
 
@@ -7282,7 +7287,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     });
     var made = LS.continental.create({
       sport: 'rugby', name: GLOBAL_NAME, leagues: ids, places: 2, placesBy: placesBy, seed: opts.seed,
-      qualify: true, champAuto: true,
+      qualify: true, champAuto: true, enterAll: true,
       settings: { groupSize: 4, qualifyPerGroup: 2, twoLegs: false, neutralKo: true }
     });
     made.comp.osg = { global: true };
@@ -7698,8 +7703,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     ['\u{1F393}', 'OneSchool Global Rugby',
      'Every OneSchool Global campus in a rugby union competition: national competitions for ' +
      'Australia, UK & Ireland, New Zealand, North America, Europe and Argentina, with finals series ' +
-     'in the big ones, then a World Cup style qualifying round: national champions go straight through and ' +
-     'the next best campuses play off for the rest of their country\u2019s places in the OSG World Series. ' +
+     'in the big ones, then a World Cup style qualifying round that every campus enters: national champions go ' +
+     'straight through and the rest play off for their country\u2019s places in the OSG World Series. ' +
      'One button plays all the national seasons and makes the qualifying draw from the final tables.',
      'New \u2192 Rugby union \u2192 OneSchool Global',
      null],
@@ -8171,8 +8176,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   function viewCreateOsg(sport, sportChips, presets) {
     var rows = LS.osg.COUNTRIES.map(function (c) {
       return '<tr><td class="l">' + c.flag + ' <span class="strong">' + esc(c.name) + '</span></td>' +
-        '<td>' + c.campuses.length + '</td><td>' + Math.min(c.campuses.length, Math.max(c.places + 2, c.places * 2)) +
-        '</td><td class="strong">' + c.places + '</td></tr>';
+        '<td>' + c.campuses.length + '</td><td class="strong">' + c.places + '</td></tr>';
     }).join('');
     var total = LS.osg.COUNTRIES.reduce(function (n, c) { return n + c.places; }, 0);
     var campuses = LS.osg.COUNTRIES.reduce(function (n, c) { return n + c.campuses.length; }, 0);
@@ -8188,11 +8192,11 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         '<span class="badge">' + campuses + ' campuses</span></div><div class="card-body">' +
         '<p class="small">Every campus plays its national competition. Countries with only a few campuses share a ' +
         'regional one, the way OSG groups them. The bigger competitions settle their title in a top-four finals series. ' +
-        'Then comes qualifying, World Cup style: each national champion goes straight through, and the next best campuses ' +
-        'play a qualifying round for the rest of their country\u2019s places. The ' + total + ' who make it meet in the <b>' +
+        'Then comes qualifying, World Cup style, and <b>every campus takes part</b>: each national champion goes straight ' +
+        'through, and every other campus plays a qualifying round for the rest of their country\u2019s places. The ' + total + ' who make it meet in the <b>' +
         esc(LS.osg.GLOBAL_NAME) + '</b>: four groups, then quarter-finals, semis and a final.</p>' +
         '<div class="table-wrap"><table class="data"><thead><tr><th class="l">National competition</th>' +
-        '<th>Campuses</th><th>In qualifying</th><th class="strong">World Series places</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+        '<th>Campuses, all in qualifying</th><th class="strong">World Series places</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
         '<p class="tiny muted" style="margin:10px 0 0">Campus names come from OneSchool Global\u2019s campus pages. ' +
         'Strengths are estimates (country rugby pedigree and campus size), and every name, rating and place is editable afterwards.</p>' +
         '<label class="field" style="max-width:280px;margin-top:12px"><span class="lbl">Seed (optional)</span>' +
@@ -9457,8 +9461,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       '</div>' +
       (from ? '<div class="zone-key">Drawn from: ' + from + (last && !qualMode ? ' \u00b7 \u2605 not here last season' : '') + '</div>' : '') +
       (qualMode ? '<div class="zone-key"><p style="margin:0;color:inherit">\u{1F3C6} National champions go straight through' +
-        (comp.continental.champAuto === false ? ' (switched off)' : '') + '. Everyone else plays a qualifying round, home and away, ' +
-        'for the rest of their country\u2019s places. Then the qualifiers and champions are drawn into the finals groups.</p></div>' : '') +
+        (comp.continental.champAuto === false ? ' (switched off)' : '') + '. ' +
+        (comp.osg ? 'Every other campus' : 'Everyone else') + ' plays a qualifying round, home and away, ' +
+        'for the rest of their country\u2019s places. A country with a single place plays it out, champions included. Then the qualifiers and champions are drawn into the finals groups.</p></div>' : '') +
       (unfinished && !started ? '<div class="zone-key"><p style="margin:0;color:inherit">Some ' + (comp.osg ? 'national competitions' : 'leagues') +
         ' have not finished a season yet, so their places are provisional. Play them first, or press ' +
         '<b>Play the ' + (comp.osg ? 'national' : 'league') + ' seasons</b>, and the field is redrawn from the final tables.</p></div>' : '') +
@@ -9486,8 +9491,11 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         (comp.continental.qualify ? ' checked' : '') + '> Qualifying round before the finals</label>' +
       '<label class="check"><input type="checkbox" id="contChampAuto"' +
         (comp.continental.champAuto !== false ? ' checked' : '') + '> National champions go straight through</label>' +
-      '<p class="tiny muted" style="margin:-4px 0 8px">With qualifying on, each league sends about twice its places ' +
-        'into a qualifying round, World Cup style, and only the winners reach the finals.</p>' +
+      '<label class="check"><input type="checkbox" id="contEnterAll"' +
+        ((comp.continental.enterAll === true || (comp.continental.enterAll !== false && comp.osg)) ? ' checked' : '') +
+        '> Every team enters qualifying (otherwise about twice the places)</label>' +
+      '<p class="tiny muted" style="margin:-4px 0 8px">With qualifying on, a qualifying round is played first, World Cup ' +
+        'style, and only the winners reach the finals.</p>' +
       '<p class="tiny muted">' + (started ? 'This season has started, so changes apply from the next draw.'
         : 'Nothing has been played yet, so the field is redrawn straight away.') + '</p>' +
       '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" data-act="cont-save">Save</button>' +
@@ -13313,7 +13321,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         });
         LS.continental.setLeagues(comp, picks, null, by, {
           qualify: !!($('#contQualify') || {}).checked,
-          champAuto: !!($('#contChampAuto') || {}).checked
+          champAuto: !!($('#contChampAuto') || {}).checked,
+          enterAll: !!($('#contEnterAll') || {}).checked
         });
         closeModal();
         var redrawn = LS.continental.redraw(comp);
