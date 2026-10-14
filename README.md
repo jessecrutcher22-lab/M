@@ -43,7 +43,7 @@ the game still works and falls back to a local (this-device) board.
 
 `sideline/index.html` is a standalone sideline scoring app for a OneSchool Global
 Inter-Campus Cup: 31 Australian campuses in 6 conferences, round-robin fixtures across
-Basketball, Netball, Futsal and Touch, live scorer pad, auto ladders and a campus directory.
+Rugby, Soccer and Basketball, live scorer pad, auto ladders and a campus directory.
 Served at `/sideline/` on the same Vercel deploy. Scores save to the device's localStorage there
 (the published claude.ai version syncs scores live for everyone).
 

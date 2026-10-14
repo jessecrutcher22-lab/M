@@ -201,10 +201,9 @@ tr.mine td{background:var(--mine)}
 
 /* ---------- shared data (matches OSG Sideline) ---------- */
 const SPORTS=[
-  {id:"bb",name:"Basketball",short:"Basketball",periods:["Q1","Q2","Q3","Q4"],mins:8,ticks:16},
-  {id:"nb",name:"Netball",short:"Netball",periods:["Q1","Q2","Q3","Q4"],mins:10,ticks:14},
-  {id:"fs",name:"Futsal",short:"Futsal",periods:["1st half","2nd half"],mins:20,ticks:20},
-  {id:"tf",name:"Touch Football",short:"Touch",periods:["1st half","2nd half"],mins:20,ticks:20}
+  {id:"ru",name:"Rugby",short:"Rugby",periods:["1st half","2nd half"],mins:25,ticks:20},
+  {id:"so",name:"Soccer",short:"Soccer",periods:["1st half","2nd half"],mins:30,ticks:20},
+  {id:"bb",name:"Basketball",short:"Basketball",periods:["Q1","Q2","Q3","Q4"],mins:8,ticks:16}
 ];
 const SP={};SPORTS.forEach(s=>SP[s.id]=s);
 const CONFS=[
@@ -255,22 +254,22 @@ function rating(code,sid,seed){return 58+hash(code+sid+seed)%28+CAMPUS[code].siz
 const pick=(rng,a)=>a[Math.floor(rng()*a.length)];
 const LINES={
   bb:{3:["drains a three from the wing","hits a corner three","pulls up from deep. Splash!"],2:["drives the lane for a lay-up","scores on the fast break","knocks down a mid-range jumper","finishes strong at the rim"],1:["hits one of two at the line","and-one free throw goes down"]},
-  nb:{c:["GS converts off the centre pass","GA sinks it from the edge of the circle","quick feed into the GS. Goal"],t:["intercept at the transverse line and they score off the turnover","GD gets a hand to it, turnover goal"]},
-  fs:["fires it into the top corner","finishes off a slick one-two","scores from the pivot","toe-pokes it past the keeper","smashes in a rebound"],
-  tf:["dart from dummy half and score","link up beautifully on the wrap. Try","finish out wide","score off a quick tap","link-player puts it down under the posts"]
+  ru:{try:["score in the corner after a big overlap","crash over from the back of a rolling maul","break the line and race 40 metres to score","dot down under the posts after quick hands","pick and drive over from close range"],conv:["Conversion sails through","Tough conversion from the sideline. Over!","Conversion is good"],pen:["slot a penalty goal from 30 metres","kick the penalty goal after a ruck infringement","land a cheeky drop goal"]},
+  so:["curl one into the top corner","finish off a slick one-two","head home from a corner","slot it past the keeper from the edge of the box","smash in a rebound","score from the penalty spot"]
 };
 function tickEvents(sid,rh,ra,rng){
   const ev=[],d=(rh-ra);
   if(sid==="bb"){
     [["h",d],["a",-d]].forEach(([side,x])=>{if(rng()<0.33+x/220){const r=rng();const p=r<.17?3:r<.9?2:1;ev.push({side,pts:p,txt:pick(rng,LINES.bb[p])})}});
-  }else if(sid==="nb"){
-    [["h",d],["a",-d]].forEach(([side,x])=>{
-      if(rng()<0.45+x/160)ev.push({side,pts:1,txt:pick(rng,LINES.nb.c)});
-      else if(rng()<0.20+x/240)ev.push({side,pts:1,txt:pick(rng,LINES.nb.t)});
+  }else if(sid==="ru"){
+    [["h",rh/ra],["a",ra/rh]].forEach(([side,ratio])=>{
+      if(rng()<0.085*ratio*ratio){
+        ev.push({side,pts:5,txt:pick(rng,LINES.ru.try),big:true});
+        if(rng()<0.55+(ratio-1))ev.push({side,pts:2,txt:pick(rng,LINES.ru.conv),noname:true});
+      }else if(rng()<0.025*ratio)ev.push({side,pts:3,txt:pick(rng,LINES.ru.pen)});
     });
   }else{
-    const base=sid==="fs"?0.075:0.13;
-    [["h",rh/ra],["a",ra/rh]].forEach(([side,ratio])=>{if(rng()<base*ratio*ratio)ev.push({side,pts:1,txt:pick(rng,LINES[sid]),big:true})});
+    [["h",rh/ra],["a",ra/rh]].forEach(([side,ratio])=>{if(rng()<0.062*ratio*ratio)ev.push({side,pts:1,txt:pick(rng,LINES.so),big:true})});
   }
   return ev;
 }
@@ -287,13 +286,13 @@ function makeMatch(gameId,h,a,sid,seed,knockout){
     const out=[];
     const evs=tickEvents(sid,m.extra?rh:rh,ra,rng);
     m.tick++;
-    evs.forEach(e=>{if(e.side==="h")m.sh+=e.pts;else m.sa+=e.pts;out.push({t:m.periodLabelShort()+" "+fmt(m.clockSecs()),side:e.side,txt:CAMPUS[e.side==="h"?h:a].name+" "+e.txt,score:m.sh+"–"+m.sa,big:e.big||e.pts===3})});
+    evs.forEach(e=>{if(e.side==="h")m.sh+=e.pts;else m.sa+=e.pts;out.push({t:m.periodLabelShort()+" "+fmt(m.clockSecs()),side:e.side,txt:e.noname?e.txt:CAMPUS[e.side==="h"?h:a].name+" "+e.txt,score:m.sh+"–"+m.sa,big:e.big||e.pts===3})});
     if(m.extra){
       // golden point / OT: finish when someone leads at end of a short block
       if(m.sh!==m.sa&&(sid!=="bb"||m.tick>=6)){m.done=true;out.push(sys(sid==="bb"?"Final siren after overtime":"Golden point! Game over"))}
       else if(m.tick>=(sid==="bb"?6:12)){
         if(sid==="bb"){m.tick=0;out.push(sys("Still level. Another overtime period"))}
-        else{const w=rng()<rh/(rh+ra)?"h":"a";if(w==="h")m.sh++;else m.sa++;m.done=true;m.xt=sid==="fs"?"won on penalties":"won on drop-off";out.push(sys(CAMPUS[w==="h"?h:a].name+" "+m.xt))}
+        else{const w=rng()<rh/(rh+ra)?"h":"a";m.pw=w;m.done=true;m.xt=sid==="so"?"won on penalties":"won the goal-kicking shootout";out.push(sys(CAMPUS[w==="h"?h:a].name+" "+m.xt))}
       }
       return out;
     }
@@ -307,7 +306,7 @@ function makeMatch(gameId,h,a,sid,seed,knockout){
     }
     return out;
   };
-  m.periodLabelShort=()=>m.extra?(sid==="bb"?"OT":"ET"):(sid==="bb"||sid==="nb"?"Q"+(m.period+1):(m.period?"2H":"1H"));
+  m.periodLabelShort=()=>m.extra?(sid==="bb"?"OT":"ET"):(sid==="bb"?"Q"+(m.period+1):(m.period?"2H":"1H"));
   m.runAll=function(){let guard=0;while(!m.done&&guard++<2000)m.step();return m};
   return m;
 }
@@ -315,10 +314,10 @@ const sys=txt=>({sys:true,txt});
 function fmt(s){s=Math.round(s);return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
 
 /* ---------- state ---------- */
-const S={tab:"match",sport:"bb",conf:"all",round:1,pickId:null,speed:"normal"};
+const S={tab:"match",sport:"ru",conf:"all",round:1,pickId:null,speed:"normal"};
 let D={seed:Math.floor(Math.random()*1e6),results:{},finals:null,mine:"SYD"};
-try{const v=JSON.parse(localStorage.getItem("osg-sim-v1")||"null");if(v&&v.results)D=Object.assign(D,v)}catch(e){}
-function save(){try{localStorage.setItem("osg-sim-v1",JSON.stringify(D))}catch(e){}}
+try{const v=JSON.parse(localStorage.getItem("osg-sim-v2")||"null");if(v&&v.results)D=Object.assign(D,v)}catch(e){}
+function save(){try{localStorage.setItem("osg-sim-v2",JSON.stringify(D))}catch(e){}}
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -357,7 +356,7 @@ function runFinals(){
     const q=CONFS.map(cf=>{const top=ladder(cf.id,s.id)[0];return Object.assign({conf:cf.id,ppg:top.p?top.pts/top.p:0},top)})
       .sort((x,y)=>y.ppg-x.ppg||y.pct-x.pct||x.code.localeCompare(y.code));
     const seeds=q.map((t,i)=>({code:t.code,seed:i+1,conf:t.conf,ppg:t.ppg}));
-    const play=(x,y,tag)=>{const m=makeMatch("F-"+s.id+"-"+tag+"-"+x.code+"-"+y.code,x.code,y.code,s.id,D.seed,true).runAll();const w=m.sh>m.sa?x:y;return{h:x,a:y,sh:m.sh,sa:m.sa,xt:m.xt,w}};
+    const play=(x,y,tag)=>{const m=makeMatch("F-"+s.id+"-"+tag+"-"+x.code+"-"+y.code,x.code,y.code,s.id,D.seed,true).runAll();const w=m.pw?(m.pw==="h"?x:y):(m.sh>m.sa?x:y);return{h:x,a:y,sh:m.sh,sa:m.sa,xt:m.xt,w}};
     const qf1=play(seeds[2],seeds[5],"qf1"),qf2=play(seeds[3],seeds[4],"qf2");
     const lowFirst=qf1.w.seed>qf2.w.seed;
     const sf1=play(seeds[0],lowFirst?qf1.w:qf2.w,"sf1"),sf2=play(seeds[1],lowFirst?qf2.w:qf1.w,"sf2");
@@ -504,7 +503,7 @@ function renderFinals(){
       <div class="col"><h4>Semi finals</h4>${F.sf.map(x=>mHtml(x)).join("")}</div>
       <div class="col"><h4>Grand final</h4>${mHtml(F.gf)}</div>
     </div>
-    <p class="note">Seeds rank the six conference winners on points per game, then percentage. Drawn finals go to golden point, then penalties (futsal) or drop-off (touch, netball). Basketball plays overtime.</p>
+    <p class="note">Seeds rank the six conference winners on points per game, then percentage. Drawn finals go to golden-point extra time, then a penalty shootout (soccer) or goal-kicking shootout (rugby). Basketball plays overtime.</p>
     <h3 class="conf-h">All champions</h3>
     <div class="qual">${SPORTS.map(sp=>{const w=D.finals[sp.id].gf.w;return `<div class="q">${badge(w.code)}<div>${esc(CAMPUS[w.code].name)}<small>${sp.name}</small></div></div>`}).join("")}</div>`;
 }
