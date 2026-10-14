@@ -46,3 +46,7 @@ Inter-Campus Cup: 31 Australian campuses in 6 conferences, round-robin fixtures 
 Basketball, Netball, Futsal and Touch, live scorer pad, auto ladders and a campus directory.
 Served at `/sideline/` on the same Vercel deploy. Scores save to the device's localStorage there
 (the published claude.ai version syncs scores live for everyone).
+
+`sideline/simulator.html` is the OSG Cup Simulator: same campuses and draw, with seeded campus
+ratings, live match sims with commentary, sim-a-round / sim-the-season, ladders with form,
+and a 6-team National Finals bracket per sport. Saves to localStorage. Served at `/sideline/simulator.html`.
