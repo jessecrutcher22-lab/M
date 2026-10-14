@@ -47,11 +47,11 @@ Rugby, Soccer and Basketball, live scorer pad, auto ladders and a campus directo
 Served at `/sideline/` on the same Vercel deploy. Scores save to the device's localStorage there
 (the published claude.ai version syncs scores live for everyone).
 
-`sideline/simulator.html` is the OSG Cup Simulator, a multi-season league sim for Rugby, Soccer and
-Basketball. Sections in the script: `sports.js` (one settings object per sport), `rng.js` (seeded
-Mulberry32, same seed = same league), fixtures (circle-method round robin, NRL-style top-four finals,
-knockout brackets with byes, seeded group draw), `engine.js` (`simulateMatch`: attack v defence
-expected scoring, Poisson or normal roll, weighted scorers, injuries and suspensions), tables
-(points or win %, configurable tiebreakers incl. head to head, rugby bonus points), milestones/news,
-season rollover (archive, rating evolution, Year 12 graduation, Year 7 intake, golden generations)
-and save export/import. Saves to localStorage. Served at `/sideline/simulator.html`.
+`sideline/simulator.html` is Sideline Simulator: "run a season of anything". A setup wizard picks
+a sport (Soccer, Basketball, Rugby union, Rugby league, Netball, Hockey), starting teams (all OSG
+campuses, an OSG region, world nations or a custom list), a format (league, league + finals,
+groups + knockout, knockout cup; home and away, two-legged ties, neutral-ground knockouts) and team
+strengths. Multiple competitions are saved side by side and switched from the header. Script
+sections: `sports.js` (one settings object per sport), `rng.js` (seeded Mulberry32), fixtures,
+`engine.js` (`simulateMatch`), tables, milestones/news, season rollover and saves (localStorage per
+competition, export/import). Served at `/sideline/simulator.html`.
