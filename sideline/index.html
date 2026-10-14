@@ -2294,7 +2294,13 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       var conf = cfg.confs[confId];
       if (!conf) return;
       field += conf.slots;
-      var all = comp.teams.filter(function (t) { return t.conf === confId; });
+      // a continental cup names this year's entrants; everyone else in its
+      // pool of past qualifiers sits it out
+      var only = null;
+      if (cfg.entrants) { only = {}; cfg.entrants.forEach(function (id) { only[id] = true; }); }
+      var all = comp.teams.filter(function (t) {
+        return t.conf === confId && (!only || only[t.id] || auto[t.id]);
+      });
       var entrants = all.filter(function (t) { return !auto[t.id]; });
       var already = all.length - entrants.length;
       rows.push({
@@ -7003,6 +7009,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   // creation, at every season's end, and on demand before a ball is kicked.
   function draw(comp, n) {
     var cfg = comp.continental, out = [];
+    if (cfg.qualify) return drawQualifying(comp, n);
+    delete comp.settings.qualifying;
     var notes = [];
     leagues(comp).forEach(function (L) {
       var st = standing(L), map = E.teamsById(L), taken = 0, quota = placesFor(cfg, L.id);
@@ -7024,9 +7032,51 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     return out;
   }
 
+  // How many of a league's sides go into qualifying for its places.
+  function entrantsFor(cfg, id, places) {
+    return (cfg.enterBy && cfg.enterBy[id]) || Math.max(places + 2, places * 2);
+  }
+
+  /* With a qualifying round, the leagues' tables decide who gets to try, not
+     who gets in. Each league becomes a qualifying region with its share of
+     the places; its champion (if it has finished a season) goes straight
+     through, and the next best fight it out for the rest, World Cup style.
+     The engine's own qualifying stage then plays it before the finals. */
+  function drawQualifying(comp, n) {
+    var cfg = comp.continental;
+    var auto = [], entrants = [], confs = {}, order = [], notes = [];
+    leagues(comp).forEach(function (L) {
+      var st = standing(L), map = E.teamsById(L), places = placesFor(cfg, L.id);
+      var ids = st.ids.slice(0, Math.min(st.ids.length, entrantsFor(cfg, L.id, places)));
+      var seeded = cfg.champAuto !== false && st.done;
+      var inQual = 0;
+      ids.forEach(function (id, i) {
+        var src = map[id];
+        if (!src) return;
+        var t = entryFor(comp, L, src);
+        if (i === 0 && seeded) {
+          auto.push({ id: t.id, via: 'champion', note: 'National champions, season ' + st.n });
+        } else {
+          entrants.push(t.id);
+          inQual++;
+        }
+      });
+      // a region small enough plays one table, home and away; a bigger one splits into groups
+      confs[L.name] = { name: L.name, slots: places, groupSize: inQual > 6 ? 4 : 0 };
+      order.push(L.name);
+      notes.push({ id: L.id, name: L.name, n: st.n, done: st.done, live: st.live, entered: ids.length });
+    });
+    comp.settings.qualifying = { order: order, confs: confs, entrants: entrants, autoQualify: { mode: 'none' } };
+    cfg.lastDraw = { n: n, from: notes, qualify: true };
+    comp.autoQualified = auto;
+    comp.host = null;
+    return auto;
+  }
+
   // The story of a draw: who is here for the first time, who is back, who has missed out.
+  // With a qualifying round that story is told when qualifying ends instead.
   function tellDraw(comp, n) {
-    if (!LS.milestones) return;
+    if (!LS.milestones || comp.continental.qualify) return;
     comp.story = (comp.story || []).filter(function (e) { return !(e.k === 'qual' && e.n === n); });
     LS.milestones.atQualified(comp, n, (comp.autoQualified || []).map(function (q) { return q.id; }));
   }
@@ -7068,6 +7118,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     comp.hostHistory = [];
     comp.continental = { leagues: ids, places: Math.max(1, opts.places || 4) };
     if (opts.placesBy) comp.continental.placesBy = opts.placesBy;
+    if (opts.qualify) { comp.continental.qualify = true; comp.continental.champAuto = opts.champAuto !== false; }
     draw(comp, 1);
     comp.season = E.newSeason(comp, 1);
     S.add(comp);
@@ -7083,10 +7134,14 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     return true;
   }
 
-  function setLeagues(comp, ids, places, placesBy) {
+  function setLeagues(comp, ids, places, placesBy, opts) {
     comp.continental.leagues = ids.filter(function (id) { return !!find(id); });
     if (places) comp.continental.places = Math.max(1, places);
     if (placesBy) comp.continental.placesBy = placesBy;
+    if (opts) {
+      comp.continental.qualify = !!opts.qualify;
+      comp.continental.champAuto = opts.champAuto !== false;
+    }
   }
 
   // Finish every feeder league's current season, so the next draw has real tables.
@@ -7113,6 +7168,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     create: create,
     setLeagues: setLeagues,
     placesFor: placesFor,
+    entrantsFor: entrantsFor,
     playFeeders: playFeeders
   };
 })(window.LS = window.LS || {});
@@ -7122,7 +7178,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
 /* Sideline — OneSchool Global Rugby.
 
    Every campus plays in its country's (or region's) national competition;
-   the best of each then meet in the OSG Global Championship, a continental
+   the best of each then qualify for the OSG World Series, a continental
    cup fed by those national competitions. Bigger rugby nations with more
    campuses send more sides.
 
@@ -7171,7 +7227,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   ];
 
   var SIZE = { L: 5, M: 0, S: -4 };
-  var GLOBAL_NAME = 'OSG Global Championship';
+  var GLOBAL_NAME = 'OSG World Series';
 
   // a stable little wobble per campus, so every new setup starts the same way
   function wobble(str, k) {
@@ -7226,6 +7282,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     });
     var made = LS.continental.create({
       sport: 'rugby', name: GLOBAL_NAME, leagues: ids, places: 2, placesBy: placesBy, seed: opts.seed,
+      qualify: true, champAuto: true,
       settings: { groupSize: 4, qualifyPerGroup: 2, twoLegs: false, neutralKo: true }
     });
     made.comp.osg = { global: true };
@@ -7641,8 +7698,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     ['\u{1F393}', 'OneSchool Global Rugby',
      'Every OneSchool Global campus in a rugby union competition: national competitions for ' +
      'Australia, UK & Ireland, New Zealand, North America, Europe and Argentina, with finals series ' +
-     'in the big ones, then the best sixteen campuses meet in the OSG Global Championship. ' +
-     'One button plays all the national seasons and draws the global field from the final tables.',
+     'in the big ones, then a World Cup style qualifying round: national champions go straight through and ' +
+     'the next best campuses play off for the rest of their country\u2019s places in the OSG World Series. ' +
+     'One button plays all the national seasons and makes the qualifying draw from the final tables.',
      'New \u2192 Rugby union \u2192 OneSchool Global',
      null],
     ['\u{1F4D6}', 'The records book',
@@ -8113,7 +8171,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   function viewCreateOsg(sport, sportChips, presets) {
     var rows = LS.osg.COUNTRIES.map(function (c) {
       return '<tr><td class="l">' + c.flag + ' <span class="strong">' + esc(c.name) + '</span></td>' +
-        '<td>' + c.campuses.length + '</td><td class="strong">' + c.places + '</td></tr>';
+        '<td>' + c.campuses.length + '</td><td>' + Math.min(c.campuses.length, Math.max(c.places + 2, c.places * 2)) +
+        '</td><td class="strong">' + c.places + '</td></tr>';
     }).join('');
     var total = LS.osg.COUNTRIES.reduce(function (n, c) { return n + c.places; }, 0);
     var campuses = LS.osg.COUNTRIES.reduce(function (n, c) { return n + c.campuses.length; }, 0);
@@ -8129,10 +8188,11 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         '<span class="badge">' + campuses + ' campuses</span></div><div class="card-body">' +
         '<p class="small">Every campus plays its national competition. Countries with only a few campuses share a ' +
         'regional one, the way OSG groups them. The bigger competitions settle their title in a top-four finals series. ' +
-        'Then the best ' + total + ' campuses meet in the <b>' + esc(LS.osg.GLOBAL_NAME) + '</b>: four groups, then ' +
-        'quarter-finals, semis and a final. Bigger rugby countries with more campuses send more sides.</p>' +
+        'Then comes qualifying, World Cup style: each national champion goes straight through, and the next best campuses ' +
+        'play a qualifying round for the rest of their country\u2019s places. The ' + total + ' who make it meet in the <b>' +
+        esc(LS.osg.GLOBAL_NAME) + '</b>: four groups, then quarter-finals, semis and a final.</p>' +
         '<div class="table-wrap"><table class="data"><thead><tr><th class="l">National competition</th>' +
-        '<th>Campuses</th><th class="strong">Global places</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+        '<th>Campuses</th><th>In qualifying</th><th class="strong">World Series places</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
         '<p class="tiny muted" style="margin:10px 0 0">Campus names come from OneSchool Global\u2019s campus pages. ' +
         'Strengths are estimates (country rugby pedigree and campus size), and every name, rating and place is editable afterwards.</p>' +
         '<label class="field" style="max-width:280px;margin-top:12px"><span class="lbl">Seed (optional)</span>' +
@@ -8378,7 +8438,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var finals = hasFinals(comp) ? finalsCard(comp) : '';
 
     if (isWorldCup(comp) && s.stage === 'qual') {
-      return '<div class="stack">' + head + tourNudge() + tiles + storyCard(comp) + treatmentCard(comp) + qualifyingCard(comp) + '</div>';
+      return '<div class="stack">' + head + tourNudge() + tiles + storyCard(comp) +
+        (CT && CT.isCont(comp) ? contFieldCard(comp) : '') + treatmentCard(comp) + qualifyingCard(comp) + '</div>';
     }
 
     var ladder = comp.rankings ? rankingsCard(comp, 10, true) : '';
@@ -8399,7 +8460,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   function formatLabel(comp) {
     var sp = sportOf(comp);
     var f = comp.format === 'cup' ? 'Knockout cup'
-      : comp.continental ? 'Continental cup \u00b7 groups + knockout'
+      : comp.continental ? (comp.continental.qualify ? 'Qualifying, then groups + knockout' : 'Continental cup \u00b7 groups + knockout')
       : comp.format === 'worldcup' ? 'Qualifying + World Cup'
       : comp.format === 'groups' ? 'Groups + knockout'
       : comp.settings.doubleRound ? 'Home & away league' : 'Single round league';
@@ -8795,7 +8856,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       '<div class="card"><div class="card-body">' +
         '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
           '<h2>Qualifying</h2>' +
-          '<span class="badge">' + comp.teams.length + ' nations chasing ' + totalSlots + ' places</span>' +
+          '<span class="badge">' + (comp.continental
+            ? ((comp.settings.qualifying || {}).entrants || []).length + ' ' + (comp.osg ? 'campuses' : 'clubs')
+            : comp.teams.length + ' nations') + ' chasing ' + totalSlots + ' places</span>' +
         '</div>' +
         '<div class="progress"><i style="width:' + pct(played, all) + '%"></i></div>' +
         '<div class="small muted" style="margin-top:8px">' +
@@ -8804,7 +8867,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         '</div>' +
       '</div></div>';
 
-    return '<div class="stack">' + head + heldPlacesCard(comp) + qualifiedSummary(comp) +
+    // a continental cup shows who is already through on its own field card
+    var held = comp.continental ? '' : heldPlacesCard(comp) + qualifiedSummary(comp);
+    return '<div class="stack">' + head + held +
       '<div class="grid grid-2">' + cards + '</div>' +
       (comp.rankings ? rankingsCard(comp, 10, true) : '') + '</div>';
   }
@@ -9334,14 +9399,22 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   // Who is in this season's field, league by league, and where it came from.
   function contFieldCard(comp) {
     var s = comp.season, map = E.teamsById(comp);
-    var field = (s.qualified && s.qualified.length) ? s.qualified : (comp.autoQualified || []);
+    // with a qualifying round, until it is played the card shows who is trying:
+    // champions already through, everyone else in qualifying
+    var qualMode = !!comp.continental.qualify && !(s.qualified && s.qualified.length);
+    var field = (s.qualified && s.qualified.length) ? s.qualified
+      : qualMode ? (comp.autoQualified || []).map(function (a) { return { id: a.id, note: a.note, champ: true }; })
+          .concat(((comp.settings.qualifying || {}).entrants || []).map(function (id) { return { id: id, note: 'In qualifying' }; }))
+      : (comp.autoQualified || []);
+    var placesTotal = CT.leagues(comp).reduce(function (n, L) { return n + CT.placesFor(comp.continental, L.id); }, 0);
     var byLeague = {}, order = [];
     field.forEach(function (q) {
       var t = map[q.id];
       if (!t) return;
       var k = t.conf || 'Other';
       if (!byLeague[k]) { byLeague[k] = []; order.push(k); }
-      byLeague[k].push({ t: t, note: q.note || (comp.autoQualified || []).filter(function (a) { return a.id === q.id; }).map(function (a) { return a.note; })[0] || '' });
+      byLeague[k].push({ t: t, champ: q.champ || q.via === 'champion',
+        note: q.note || (comp.autoQualified || []).filter(function (a) { return a.id === q.id; }).map(function (a) { return a.note; })[0] || '' });
     });
     var last = comp.history.length ? comp.history[comp.history.length - 1] : null;
     var wasThere = {};
@@ -9354,9 +9427,11 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var from = draw && draw.from ? draw.from.map(function (f) {
       return esc(f.name) + ' ' + (f.done ? 'S' + f.n + ' final table' : f.live ? 'S' + f.n + ' as it stands' : 'on paper');
     }).join(' · ') : '';
-    return '<div class="card" data-tour="field"><div class="card-head"><h2>The field</h2>' +
-      '<span class="badge">' + field.length + ' ' + (comp.osg ? 'campuses' : 'clubs') + ' from ' +
-        leagues.length + (leagues.length === 1 ? ' league' : ' leagues') + '</span>' +
+    var noun = comp.osg ? 'campuses' : 'clubs';
+    return '<div class="card" data-tour="field"><div class="card-head"><h2>' + (qualMode ? 'Qualifying draw' : 'The field') + '</h2>' +
+      '<span class="badge">' + (qualMode
+        ? placesTotal + ' places \u00b7 ' + field.length + ' ' + noun + ' trying'
+        : field.length + ' ' + noun + ' from ' + leagues.length + (leagues.length === 1 ? ' league' : ' leagues')) + '</span>' +
       (!started && unfinished ? '<button class="btn btn-sm btn-primary" data-act="cont-playall">Play the ' +
         (comp.osg ? 'national' : 'league') + ' seasons</button>' : '') +
       (!started ? '<button class="btn btn-sm" data-act="cont-redraw">Redraw from latest tables</button>' : '') +
@@ -9367,13 +9442,23 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
           '<span class="tiny muted" style="min-width:110px;padding-top:3px">' +
           (L ? '<a href="#" data-act="open-comp" data-id="' + esc(L.id) + '">' + esc(k) + '</a>' : esc(k)) + '</span>' +
           '<span style="display:flex;flex-wrap:wrap;gap:5px">' + byLeague[k].map(function (x) {
+            if (qualMode) {
+              return '<span class="badge' + (x.champ ? ' badge-amber' : '') + '" title="' + esc(x.t.name + ' \u2014 ' + x.note) + '">' +
+                kit(x.t) + ' ' + esc(x.t.abbr) + (x.champ ? ' \u{1F3C6}' : '') + '</span>';
+            }
             var isNew = last && !wasThere[x.t.id];
-            return '<span class="badge' + (isNew ? ' badge-accent' : '') + '" title="' + esc(x.t.name + ' — ' + x.note) + '">' +
-              kit(x.t) + ' ' + esc(x.t.abbr) + (isNew ? ' ★' : '') + '</span>';
-          }).join('') + '</span></div>';
+            return '<span class="badge' + (isNew ? ' badge-accent' : '') + '" title="' + esc(x.t.name + ' \u2014 ' + x.note) + '">' +
+              kit(x.t) + ' ' + esc(x.t.abbr) + (isNew ? ' \u2605' : '') + '</span>';
+          }).join('') + '</span>' +
+          (qualMode && L ? '<span class="tiny muted" style="margin-left:auto;white-space:nowrap;padding-top:3px">' +
+            CT.placesFor(comp.continental, L.id) + (CT.placesFor(comp.continental, L.id) === 1 ? ' place' : ' places') + '</span>' : '') +
+          '</div>';
       }).join('') : '<p class="small muted" style="margin:0">No clubs drawn. Pick the feeder leagues to fill the field.</p>') +
       '</div>' +
-      (from ? '<div class="zone-key">Drawn from: ' + from + (last ? ' \u00b7 \u2605 not here last season' : '') + '</div>' : '') +
+      (from ? '<div class="zone-key">Drawn from: ' + from + (last && !qualMode ? ' \u00b7 \u2605 not here last season' : '') + '</div>' : '') +
+      (qualMode ? '<div class="zone-key"><p style="margin:0;color:inherit">\u{1F3C6} National champions go straight through' +
+        (comp.continental.champAuto === false ? ' (switched off)' : '') + '. Everyone else plays a qualifying round, home and away, ' +
+        'for the rest of their country\u2019s places. Then the qualifiers and champions are drawn into the finals groups.</p></div>' : '') +
       (unfinished && !started ? '<div class="zone-key"><p style="margin:0;color:inherit">Some ' + (comp.osg ? 'national competitions' : 'leagues') +
         ' have not finished a season yet, so their places are provisional. Play them first, or press ' +
         '<b>Play the ' + (comp.osg ? 'national' : 'league') + ' seasons</b>, and the field is redrawn from the final tables.</p></div>' : '') +
@@ -9397,6 +9482,12 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
             return '<option value="' + n + '"' + (n === q ? ' selected' : '') + '>Top ' + n + '</option>';
           }).join('') + '</select></div>';
       }).join('') : '<p class="small muted">You have no other ' + esc(sportOf(comp).name.toLowerCase()) + ' leagues yet.</p>') +
+      '<label class="check" style="margin-top:12px"><input type="checkbox" id="contQualify"' +
+        (comp.continental.qualify ? ' checked' : '') + '> Qualifying round before the finals</label>' +
+      '<label class="check"><input type="checkbox" id="contChampAuto"' +
+        (comp.continental.champAuto !== false ? ' checked' : '') + '> National champions go straight through</label>' +
+      '<p class="tiny muted" style="margin:-4px 0 8px">With qualifying on, each league sends about twice its places ' +
+        'into a qualifying round, World Cup style, and only the winners reach the finals.</p>' +
       '<p class="tiny muted">' + (started ? 'This season has started, so changes apply from the next draw.'
         : 'Nothing has been played yet, so the field is redrawn straight away.') + '</p>' +
       '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" data-act="cont-save">Save</button>' +
@@ -9433,7 +9524,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   /* ----------------------------------------------------- world rankings */
 
   var VIA_WORDS = {
-    host: 'Hosts', pool: 'Pool place', ko: 'Knockout place', stay: 'Stayed up',
+    host: 'Hosts', champion: 'National champions', pool: 'Pool place', ko: 'Knockout place', stay: 'Stayed up',
     winner: 'Group winner', best: 'Best of the rest', table: 'Through the table',
     league: 'Through the league'
   };
@@ -13220,7 +13311,10 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         Array.prototype.forEach.call(document.querySelectorAll('.cont-places'), function (x) {
           by[x.dataset.id] = parseInt(x.value, 10);
         });
-        LS.continental.setLeagues(comp, picks, null, by);
+        LS.continental.setLeagues(comp, picks, null, by, {
+          qualify: !!($('#contQualify') || {}).checked,
+          champAuto: !!($('#contChampAuto') || {}).checked
+        });
         closeModal();
         var redrawn = LS.continental.redraw(comp);
         persist(); render();
