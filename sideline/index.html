@@ -901,6 +901,8 @@ tr.z-rel td.pos { box-shadow: inset 3px 0 0 var(--z-rel); }
 .tour-nudge { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 @media (prefers-reduced-motion: reduce) { .tour-hole { transition: none; } }
 .live-inc .le-name { font-weight: 600; color: var(--text-2); }
+.cont-league { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border-soft); }
+.cont-league select { width: auto; min-width: 92px; }
 button.badge { border: 0; cursor: pointer; font-family: inherit; }
 button.badge:hover { background: var(--accent-soft); color: var(--accent); }
 .timeline-season { padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
@@ -6923,11 +6925,22 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   // live one if it has not finished a season yet (best squads first if it
   // has not even started).
   function standing(L) {
+    // whoever won the title goes first, even if a finals series means they
+    // did not top the table
+    function champFirst(ids, champ) {
+      if (!champ || ids.indexOf(champ) < 0) return ids;
+      return [champ].concat(ids.filter(function (id) { return id !== champ; }));
+    }
+    if (L.season && L.season.complete) {
+      var fin = E.computeTable(L.teams, L.season.matches, L.settings, function (m) { return m.stage === 'league'; });
+      return { n: L.season.number, done: true,
+        ids: champFirst(fin.map(function (r) { return r.id; }), L.season.champion) };
+    }
     var last = L.history[L.history.length - 1];
     if (last) {
-      return { n: last.n, done: true, ids: last.table.map(function (r) {
+      return { n: last.n, done: true, ids: champFirst(last.table.map(function (r) {
         return L.teams[r.t] ? L.teams[r.t].id : null;
-      }).filter(Boolean) };
+      }).filter(Boolean), last.champion != null && L.teams[last.champion] ? L.teams[last.champion].id : null) };
     }
     var t = E.computeTable(L.teams, L.season.matches, L.settings, function (m) { return m.stage === 'league'; });
     var played = t.some(function (r) { return r.p; });
@@ -6992,9 +7005,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var cfg = comp.continental, out = [];
     var notes = [];
     leagues(comp).forEach(function (L) {
-      var st = standing(L), map = E.teamsById(L), taken = 0;
+      var st = standing(L), map = E.teamsById(L), taken = 0, quota = placesFor(cfg, L.id);
       st.ids.forEach(function (id, i) {
-        if (taken >= cfg.places) return;
+        if (taken >= quota) return;
         var src = map[id];
         if (!src) return;
         var t = entryFor(comp, L, src);
@@ -7019,6 +7032,11 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   }
 
   function ordinal(n) { return LS.milestones ? LS.milestones.ordinal(n) : n + '.'; }
+
+  // a league's share of the field: its own figure if it has one
+  function placesFor(cfg, id) {
+    return (cfg.placesBy && cfg.placesBy[id]) || cfg.places || 4;
+  }
 
   // Build the competition, creating the feeder leagues first if there are none.
   function create(opts) {
@@ -7049,6 +7067,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     delete comp.rankings; delete comp.rankPeak; delete comp.rankPlayed; delete comp.rankHistory;
     comp.hostHistory = [];
     comp.continental = { leagues: ids, places: Math.max(1, opts.places || 4) };
+    if (opts.placesBy) comp.continental.placesBy = opts.placesBy;
     draw(comp, 1);
     comp.season = E.newSeason(comp, 1);
     S.add(comp);
@@ -7064,9 +7083,21 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     return true;
   }
 
-  function setLeagues(comp, ids, places) {
+  function setLeagues(comp, ids, places, placesBy) {
     comp.continental.leagues = ids.filter(function (id) { return !!find(id); });
     if (places) comp.continental.places = Math.max(1, places);
+    if (placesBy) comp.continental.placesBy = placesBy;
+  }
+
+  // Finish every feeder league's current season, so the next draw has real tables.
+  function playFeeders(comp) {
+    var n = 0;
+    leagues(comp).forEach(function (L) {
+      if (L.season.complete) return;
+      E.simulateSeason(L);
+      n++;
+    });
+    return n;
   }
 
   LS.continental = {
@@ -7080,8 +7111,129 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     draw: draw,
     redraw: redraw,
     create: create,
-    setLeagues: setLeagues
+    setLeagues: setLeagues,
+    placesFor: placesFor,
+    playFeeders: playFeeders
   };
+})(window.LS = window.LS || {});
+
+
+/* ===== osg.js ===== */
+/* Sideline — OneSchool Global Rugby.
+
+   Every campus plays in its country's (or region's) national competition;
+   the best of each then meet in the OSG Global Championship, a continental
+   cup fed by those national competitions. Bigger rugby nations with more
+   campuses send more sides.
+
+   The campus list is drawn from OneSchool Global's own campus pages and job
+   listings. Where a country has only one or two campuses they share a
+   regional competition (North America, Europe), the way OSG itself groups
+   them. Strengths are estimates: a country's rugby pedigree, adjusted for
+   how big the campus is, with a little variation. All of it is editable. */
+(function (LS) {
+  'use strict';
+
+  var E = LS.engine, S = LS.store;
+
+  // size: L large or flagship campus, M medium, S small or regional
+  var COUNTRIES = [
+    { key: 'aus', name: 'OSG Australia', flag: '\u{1F1E6}\u{1F1FA}', places: 4, base: 63,
+      kit: [['#00843D', '#FFCD00'], ['#002B7F', '#FFFFFF'], ['#FFCD00', '#00843D']],
+      campuses: [['Sydney', 'L'], ['Illawarra', 'M'], ['Cowra', 'S'], ['Wagga Wagga', 'S'], ['Maitland', 'M'],
+        ['Orange', 'S'], ['Mt Victoria', 'S'], ['Melton', 'L'], ['Bendigo', 'M'], ['Berwick', 'M'],
+        ['Bairnsdale', 'S'], ['Hamilton VIC', 'S'], ['Nathalia', 'S'], ['Swan Hill', 'S'], ['Brisbane', 'L'],
+        ['Adelaide', 'M'], ['Mount Gambier', 'S'], ['Perth', 'L'], ['Albany', 'S'], ['Cunderdin', 'S'],
+        ['Dalwallinu', 'S'], ['Launceston', 'M'], ['Hobart', 'M']] },
+    { key: 'uk', name: 'OSG UK & Ireland', flag: '\u{1F1EC}\u{1F1E7}', places: 4, base: 60,
+      kit: [['#012169', '#FFFFFF'], ['#C8102E', '#FFFFFF'], ['#FFFFFF', '#012169']],
+      campuses: [['Ashbrook', 'L'], ['Biggleswade', 'M'], ['Bristol', 'M'], ['Colchester', 'M'], ['Hindhead', 'M'],
+        ['Kenley', 'M'], ['Lancaster', 'S'], ['Maidstone', 'M'], ['Northampton', 'M'], ['Reading', 'M'],
+        ['Ridgeway', 'M'], ['Tewkesbury', 'M'], ['Knockloughrim', 'S'], ['Nottingham', 'M'], ['York', 'S'],
+        ['Salisbury', 'L'], ['Northwich', 'S'], ['Swansea', 'S']] },
+    { key: 'nz', name: 'OSG New Zealand', flag: '\u{1F1F3}\u{1F1FF}', places: 2, base: 67,
+      kit: [['#000000', '#FFFFFF'], ['#FFFFFF', '#000000'], ['#2F4F4F', '#C0C0C0']],
+      campuses: [['Auckland', 'L'], ['Hamilton', 'M'], ['Palmerston North', 'L'], ['Blenheim', 'S'],
+        ['Westport', 'S'], ['Rangiora', 'M'], ['Timaru', 'S'], ['Dunedin', 'M']] },
+    { key: 'na', name: 'OSG North America', flag: '\u{1F1FA}\u{1F1F8}', places: 3, base: 51,
+      kit: [['#B22234', '#FFFFFF'], ['#3C3B6E', '#FFFFFF'], ['#D52B1E', '#FFFFFF']],
+      campuses: [['New York', 'L'], ['New England', 'M'], ['Ashland', 'M'], ['Los Angeles', 'M'], ['Seattle', 'M'],
+        ['Kalispell', 'S'], ['Detroit', 'M'], ['Gothenburg NE', 'S'], ['Des Moines', 'S'], ['Portland', 'M'],
+        ['Minneapolis', 'M'], ['Rochester', 'S'], ['Edmonton', 'M'], ['Hamilton ON', 'S'], ['Jamaica', 'S'],
+        ['Trinidad', 'S']] },
+    { key: 'eu', name: 'OSG Europe', flag: '\u{1F1EA}\u{1F1FA}', places: 2, base: 55,
+      kit: [['#003399', '#FFCC00'], ['#0055A4', '#EF4135'], ['#FFCC00', '#003399']],
+      campuses: [['Paris', 'L'], ['Rome', 'S'], ['Copenhagen', 'S'], ['Germany', 'M'], ['Netherlands', 'M'],
+        ['Sweden', 'S'], ['Switzerland', 'S']] },
+    { key: 'arg', name: 'OSG Argentina', flag: '\u{1F1E6}\u{1F1F7}', places: 1, base: 58,
+      kit: [['#74ACDF', '#FFFFFF'], ['#FFFFFF', '#74ACDF'], ['#F6B40E', '#74ACDF']],
+      campuses: [['Buenos Aires', 'L'], ['Rosario', 'M'], ['Bahía Blanca', 'M']] }
+  ];
+
+  var SIZE = { L: 5, M: 0, S: -4 };
+  var GLOBAL_NAME = 'OSG Global Championship';
+
+  // a stable little wobble per campus, so every new setup starts the same way
+  function wobble(str, k) {
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    h ^= k * 2654435761;
+    return ((h >>> 0) % 9) - 4;   // -4 .. +4
+  }
+
+  function abbrs(names) {
+    var used = {};
+    return names.map(function (n) {
+      var words = n.replace(/[^A-Za-zÀ-ſ ]/g, '').split(/\s+/).filter(Boolean);
+      var a = words.length > 1 ? (words[0].slice(0, 2) + words[1].charAt(0)) : words[0].slice(0, 3);
+      a = a.toUpperCase();
+      var k = 0, base = a;
+      while (used[a]) { k++; a = base.slice(0, 2) + String.fromCharCode(65 + ((base.charCodeAt(2) - 65 + k) % 26)); }
+      used[a] = true;
+      return a;
+    });
+  }
+
+  function teamsFor(c) {
+    var ab = abbrs(c.campuses.map(function (x) { return x[0]; }));
+    return c.campuses.map(function (x, i) {
+      var r = c.base + SIZE[x[1]];
+      var kit = c.kit[i % c.kit.length];
+      return LS.data.T(x[0], ab[i], Math.max(30, Math.min(95, r + wobble(x[0], 1))),
+        Math.max(30, Math.min(95, r + wobble(x[0], 2))), kit[0], kit[1]);
+    });
+  }
+
+  // Builds every national competition, then the Global Championship fed by them.
+  function create(opts) {
+    opts = opts || {};
+    var ids = [], placesBy = {};
+    COUNTRIES.forEach(function (c) {
+      var n = c.campuses.length;
+      var L = S.createCompetition({
+        name: c.name, format: 'league', sport: 'rugby', teams: teamsFor(c), seed: opts.seed,
+        settings: {
+          // big competitions play each other once; small ones home and away
+          doubleRound: n <= 10,
+          // a national title is settled in a top-four finals series where there are enough campuses
+          finals: n >= 8 ? { enabled: true, system: 'knockout', size: 4 } : { enabled: false, system: 'knockout', size: 4 }
+        }
+      });
+      L.osg = { country: c.key };
+      S.state.competitions.push(L);
+      ids.push(L.id);
+      placesBy[L.id] = c.places;
+    });
+    var made = LS.continental.create({
+      sport: 'rugby', name: GLOBAL_NAME, leagues: ids, places: 2, placesBy: placesBy, seed: opts.seed,
+      settings: { groupSize: 4, qualifyPerGroup: 2, twoLegs: false, neutralKo: true }
+    });
+    made.comp.osg = { global: true };
+    S.save();
+    return made.comp;
+  }
+
+  LS.osg = { COUNTRIES: COUNTRIES, GLOBAL_NAME: GLOBAL_NAME, create: create, teamsFor: teamsFor };
 })(window.LS = window.LS || {});
 
 
@@ -7486,6 +7638,13 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
      feature nobody can find may as well not be there. The fourth field is the
      tab to jump to, when there is one obvious place to start. */
   var WHATS_NEW = [
+    ['\u{1F393}', 'OneSchool Global Rugby',
+     'Every OneSchool Global campus in a rugby union competition: national competitions for ' +
+     'Australia, UK & Ireland, New Zealand, North America, Europe and Argentina, with finals series ' +
+     'in the big ones, then the best sixteen campuses meet in the OSG Global Championship. ' +
+     'One button plays all the national seasons and draws the global field from the final tables.',
+     'New \u2192 Rugby union \u2192 OneSchool Global',
+     null],
     ['\u{1F4D6}', 'The records book',
      'Every all-time record in one place: most titles and titles in a row, the best and worst ' +
      'seasons, the biggest wins and comebacks, the longest winning and losing runs, the top scorers ' +
@@ -7765,6 +7924,12 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         esc(CTm.NAMES[ui.createSport] || 'Continental cup') + '</div>' +
         '<div class="sub">Top finishers from your leagues</div></button>';
     }
+    if (ui.createSport === 'rugby' && LS.osg) {
+      presets += '<button class="preset" data-act="pick-preset" data-id="osg" aria-pressed="' +
+        (ui.createPreset === 'osg') + '"><div class="flag">\u{1F393}</div><div class="nm">OneSchool Global</div>' +
+        '<div class="sub">Every campus, national comps, then a global championship</div></button>';
+      if (ui.createPreset === 'osg') return viewCreateOsg(sport, sportChips, presets);
+    }
     if (ui.createPreset === 'continental' && canCont) return viewCreateContinental(sport, sportChips, presets, feeders);
 
     var isCustom = ui.createPreset === 'custom';
@@ -7945,6 +8110,48 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       '</div></div>';
   }
 
+  function viewCreateOsg(sport, sportChips, presets) {
+    var rows = LS.osg.COUNTRIES.map(function (c) {
+      return '<tr><td class="l">' + c.flag + ' <span class="strong">' + esc(c.name) + '</span></td>' +
+        '<td>' + c.campuses.length + '</td><td class="strong">' + c.places + '</td></tr>';
+    }).join('');
+    var total = LS.osg.COUNTRIES.reduce(function (n, c) { return n + c.places; }, 0);
+    var campuses = LS.osg.COUNTRIES.reduce(function (n, c) { return n + c.campuses.length; }, 0);
+    return '<div class="stack">' +
+      '<div class="card"><div class="card-body">' +
+        '<button class="btn btn-sm" data-act="go-home" style="margin-bottom:12px">\u2190 Home</button>' +
+        '<h1 style="margin-bottom:6px">Build a competition</h1></div></div>' +
+      '<div class="card"><div class="card-head"><h2>1. Sport &amp; teams</h2>' +
+        '<span class="badge">' + sport.icon + ' ' + esc(sport.name) + '</span></div>' +
+        '<div class="card-body">' + sportChips +
+        '<div class="section-title">Starting teams</div><div class="preset-grid">' + presets + '</div></div></div>' +
+      '<div class="card"><div class="card-head"><h2>2. OneSchool Global Rugby</h2>' +
+        '<span class="badge">' + campuses + ' campuses</span></div><div class="card-body">' +
+        '<p class="small">Every campus plays its national competition. Countries with only a few campuses share a ' +
+        'regional one, the way OSG groups them. The bigger competitions settle their title in a top-four finals series. ' +
+        'Then the best ' + total + ' campuses meet in the <b>' + esc(LS.osg.GLOBAL_NAME) + '</b>: four groups, then ' +
+        'quarter-finals, semis and a final. Bigger rugby countries with more campuses send more sides.</p>' +
+        '<div class="table-wrap"><table class="data"><thead><tr><th class="l">National competition</th>' +
+        '<th>Campuses</th><th class="strong">Global places</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+        '<p class="tiny muted" style="margin:10px 0 0">Campus names come from OneSchool Global\u2019s campus pages. ' +
+        'Strengths are estimates (country rugby pedigree and campus size), and every name, rating and place is editable afterwards.</p>' +
+        '<label class="field" style="max-width:280px;margin-top:12px"><span class="lbl">Seed (optional)</span>' +
+          '<input type="text" id="fSeed" placeholder="Leave blank for random"></label>' +
+      '</div></div>' +
+      '<div class="btn-row"><button class="btn btn-primary btn-lg" data-act="create-comp">Create OneSchool Global Rugby</button>' +
+        (S.state.competitions.length ? '<button class="btn btn-lg" data-act="cancel-create">Cancel</button>' : '') +
+      '</div></div>';
+  }
+
+  function doCreateOsg() {
+    var seedRaw = ($('#fSeed') || {}).value ? $('#fSeed').value.trim() : '';
+    var comp = LS.osg.create({ seed: seedRaw ? (parseInt(seedRaw, 10) || hashString(seedRaw)) : null });
+    app.view = 'overview';
+    app.ui.md = 0;
+    render();
+    toast('OneSchool Global Rugby is set up: ' + LS.osg.COUNTRIES.length + ' national competitions and the ' + comp.name);
+  }
+
   function doCreateContinental() {
     var ids = Array.prototype.slice.call(document.querySelectorAll('.cont-pick'))
       .filter(function (x) { return x.checked; }).map(function (x) { return x.value; });
@@ -7967,6 +8174,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
   function doCreate() {
     var presetId = app.ui.createPreset;
     if (presetId === 'continental') { doCreateContinental(); return; }
+    if (presetId === 'osg') { doCreateOsg(); return; }
     var teams;
     if (presetId === 'custom') {
       var n = E.clamp(parseInt($('#customCount').value, 10) || 12, 4, 40);
@@ -9141,12 +9349,16 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var started = s.matches.some(function (m) { return m.played; });
     var leagues = CT.leagues(comp);
     var draw = comp.continental.lastDraw;
+    // a feeder still mid-season means the field is provisional
+    var unfinished = draw && draw.from && draw.from.some(function (f) { return !f.done; });
     var from = draw && draw.from ? draw.from.map(function (f) {
       return esc(f.name) + ' ' + (f.done ? 'S' + f.n + ' final table' : f.live ? 'S' + f.n + ' as it stands' : 'on paper');
     }).join(' · ') : '';
     return '<div class="card" data-tour="field"><div class="card-head"><h2>The field</h2>' +
-      '<span class="badge">' + field.length + ' clubs · top ' + comp.continental.places + ' from ' +
+      '<span class="badge">' + field.length + ' ' + (comp.osg ? 'campuses' : 'clubs') + ' from ' +
         leagues.length + (leagues.length === 1 ? ' league' : ' leagues') + '</span>' +
+      (!started && unfinished ? '<button class="btn btn-sm btn-primary" data-act="cont-playall">Play the ' +
+        (comp.osg ? 'national' : 'league') + ' seasons</button>' : '') +
       (!started ? '<button class="btn btn-sm" data-act="cont-redraw">Redraw from latest tables</button>' : '') +
       '<button class="btn btn-sm" data-act="cont-leagues">Feeder leagues</button></div>' +
       '<div class="card-body">' + (order.length ? order.map(function (k) {
@@ -9161,7 +9373,10 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
           }).join('') + '</span></div>';
       }).join('') : '<p class="small muted" style="margin:0">No clubs drawn. Pick the feeder leagues to fill the field.</p>') +
       '</div>' +
-      (from ? '<div class="zone-key">Drawn from: ' + from + (last ? ' · ★ not here last season' : '') + '</div>' : '') +
+      (from ? '<div class="zone-key">Drawn from: ' + from + (last ? ' \u00b7 \u2605 not here last season' : '') + '</div>' : '') +
+      (unfinished && !started ? '<div class="zone-key"><p style="margin:0;color:inherit">Some ' + (comp.osg ? 'national competitions' : 'leagues') +
+        ' have not finished a season yet, so their places are provisional. Play them first, or press ' +
+        '<b>Play the ' + (comp.osg ? 'national' : 'league') + ' seasons</b>, and the field is redrawn from the final tables.</p></div>' : '') +
       '</div>';
   }
 
@@ -9173,14 +9388,15 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       '<p class="small">Each season the top finishers from these leagues are drawn into ' + esc(comp.name) +
       '. A league that has not finished a season yet sends its clubs as the table stands.</p>' +
       (list.length ? list.map(function (L) {
-        return '<label class="check"><input type="checkbox" class="cont-pick" value="' + esc(L.id) + '"' +
+        var q = LS.continental.placesFor(comp.continental, L.id);
+        return '<div class="cont-league"><label class="check" style="margin:0;flex:1"><input type="checkbox" class="cont-pick" value="' + esc(L.id) + '"' +
           (mine.indexOf(L.id) >= 0 ? ' checked' : '') + '> ' + esc(L.name) +
-          ' <span class="tiny muted">· season ' + L.season.number + ', ' + L.teams.length + ' clubs</span></label>';
+          ' <span class="tiny muted">\u00b7 season ' + L.season.number + ', ' + L.teams.length + ' teams</span></label>' +
+          '<select class="cont-places" data-id="' + esc(L.id) + '" aria-label="Places for ' + esc(L.name) + '">' +
+          [1, 2, 3, 4, 5, 6, 8].map(function (n) {
+            return '<option value="' + n + '"' + (n === q ? ' selected' : '') + '>Top ' + n + '</option>';
+          }).join('') + '</select></div>';
       }).join('') : '<p class="small muted">You have no other ' + esc(sportOf(comp).name.toLowerCase()) + ' leagues yet.</p>') +
-      '<label class="field" style="max-width:220px;margin-top:8px"><span class="lbl">Places per league</span>' +
-        '<select id="contPlaces">' + [1, 2, 3, 4, 5, 6, 8].map(function (n) {
-          return '<option value="' + n + '"' + (n === comp.continental.places ? ' selected' : '') + '>Top ' + n + '</option>';
-        }).join('') + '</select></label>' +
       '<p class="tiny muted">' + (started ? 'This season has started, so changes apply from the next draw.'
         : 'Nothing has been played yet, so the field is redrawn straight away.') + '</p>' +
       '<div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" data-act="cont-save">Save</button>' +
@@ -9192,7 +9408,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     if (!CT || comp.format !== 'league') return '';
     return CT.fedBy(comp).map(function (c) {
       return '<button class="badge badge-blue" data-act="open-comp" data-id="' + esc(c.id) + '" title="Open ' +
-        esc(c.name) + '">Top ' + c.continental.places + ' → ' + esc(c.name) + '</button>';
+        esc(c.name) + '">Top ' + CT.placesFor(c.continental, comp.id) + ' \u2192 ' + esc(c.name) + '</button>';
     }).join('');
   }
 
@@ -12981,6 +13197,15 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     switch (act) {
       case 'story-all': showStory(comp); return;
       case 'cont-leagues': showContLeagues(comp); return;
+      case 'cont-playall': {
+        var played = LS.continental.playFeeders(comp);
+        LS.continental.redraw(comp);
+        persist(); render();
+        toast(played ? played + (played === 1 ? ' season' : ' seasons') + ' played and the field redrawn from the final tables'
+          : 'Field redrawn from the final tables');
+        popMoments(comp, seq);
+        return;
+      }
       case 'cont-redraw':
         if (LS.continental.redraw(comp)) {
           persist(); render(); toast('Redrawn from the latest tables');
@@ -12991,7 +13216,11 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         var picks = Array.prototype.slice.call(document.querySelectorAll('.cont-pick'))
           .filter(function (x) { return x.checked; }).map(function (x) { return x.value; });
         if (!picks.length) { toast('Pick at least one league'); return; }
-        LS.continental.setLeagues(comp, picks, parseInt(($('#contPlaces') || {}).value, 10));
+        var by = {};
+        Array.prototype.forEach.call(document.querySelectorAll('.cont-places'), function (x) {
+          by[x.dataset.id] = parseInt(x.value, 10);
+        });
+        LS.continental.setLeagues(comp, picks, null, by);
         closeModal();
         var redrawn = LS.continental.redraw(comp);
         persist(); render();
