@@ -38,3 +38,20 @@ the game still works and falls back to a local (this-device) board.
 2. In Vercel: **Add New… → Project → Import** the repo. No framework, no build command,
    output directory is the repo root. Deploy.
 3. (Optional but recommended) add the Redis store above for a persistent global board.
+
+## OSG Sideline (side project)
+
+`sideline/index.html` is a standalone sideline scoring app for a OneSchool Global
+Inter-Campus Cup: 31 Australian campuses in 6 conferences, round-robin fixtures across
+Rugby, Soccer and Basketball, live scorer pad, auto ladders and a campus directory.
+Served at `/sideline/` on the same Vercel deploy. Scores save to the device's localStorage there
+(the published claude.ai version syncs scores live for everyone).
+
+`sideline/simulator.html` is Sideline Simulator: "run a season of anything". A setup wizard picks
+a sport (Soccer, Basketball, Rugby union, Rugby league, Netball, Hockey), starting teams (all OSG
+campuses, an OSG region, world nations or a custom list), a format (league, league + finals,
+groups + knockout, knockout cup; home and away, two-legged ties, neutral-ground knockouts) and team
+strengths. Multiple competitions are saved side by side and switched from the header. Script
+sections: `sports.js` (one settings object per sport), `rng.js` (seeded Mulberry32), fixtures,
+`engine.js` (`simulateMatch`), tables, milestones/news, season rollover and saves (localStorage per
+competition, export/import). Served at `/sideline/simulator.html`.
