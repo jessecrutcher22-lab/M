@@ -3073,7 +3073,7 @@ h3 { font-size: 1.05rem; }
     match.ag = recordScores(match, sport, a, 'a', samplePlays(sport, la, rng), rng);
 
     // sports without draws — and any knockout or final — settle it after the whistle
-    if ((!sport.draws || match.mustDecide) && match.hg === match.ag) {
+    if ((!sport.draws || match.mustDecide || (settings && settings.noDraws)) && match.hg === match.ag) {
       match.ot = true;
       var side = rng.next() < 0.5 ? 'h' : 'a';
       if (match.mustDecide && sport.shootout) {
@@ -7688,10 +7688,13 @@ h3 { font-size: 1.05rem; }
         cycles: 3, doubleRound: false,
         finals: { enabled: false, system: 'knockout', size: 4 },
         zones: [{ from: 1, to: 1, label: 'Series winners', cls: 'z-title' }],
-        injuries: L.settings.injuries
+        injuries: L.settings.injuries,
+        // every Origin game has a winner: level at full time goes to golden point
+        noDraws: true
       }
     });
     o.origin = { league: L.id, season: L.season.number };
+    o.settings.noDraws = true;
     pick(o);
     S.state.competitions.push(o);
     S.save();
@@ -15083,6 +15086,8 @@ h3 { font-size: 1.05rem; }
       (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
 
     S.load();
+    // State of Origin series made before draws were ruled out get the rule too
+    S.state.competitions.forEach(function (c) { if (c.origin) c.settings.noDraws = true; });
     // first visit lands on the home page, which explains the place
     if (!S.state.competitions.length) app.view = 'home';
 
