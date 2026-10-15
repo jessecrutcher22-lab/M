@@ -10406,6 +10406,59 @@ h3 { font-size: 1.05rem; }
     finishLive();
   }
 
+  // Key players either side. Before a match: the three leading scorers who are
+  // fit to play. After it: what each did in this match beside their season so
+  // far, anyone else who scored, and a player of the match.
+  function matchPlayers(comp, m) {
+    var map = E.teamsById(comp), sp = sportOf(comp);
+    var word = (sp.scoreWord || 'Goals').toLowerCase();
+    var today = {}, ast = {}, sideOf = {};
+    (m.played ? m.events : []).forEach(function (ev) {
+      if (ev.s) { today[ev.s] = (today[ev.s] || 0) + (ev.v || 1); sideOf[ev.s] = ev.side; }
+      if (ev.a) { ast[ev.a] = (ast[ev.a] || 0) + 1; sideOf[ev.a] = ev.side; }
+    });
+    var players = {};
+    var sides = [map[m.h], map[m.a]].map(function (t) {
+      t.players.forEach(function (p) { players[p.id] = p; });
+      var pool = t.players.map(function (p) {
+        return { p: p, pre: p.g };
+      }).filter(function (x) { return m.played || !E.isOut(x.p); });
+      pool.sort(function (x, y) { return y.pre - x.pre || y.p.skill - x.p.skill; });
+      var list = pool.slice(0, 3), shown = {};
+      list.forEach(function (x) { shown[x.p.id] = true; });
+      pool.forEach(function (x) { if (!shown[x.p.id] && today[x.p.id]) list.push(x); });
+      return { team: t, list: list };
+    });
+    var html = sides.map(function (side) {
+      return '<div class="lp-side"><div class="lp-head">' + kit(side.team) + esc(side.team.abbr) +
+        '<span style="margin-left:auto">' + (m.played ? 'This match' : 'Season ' + word) + '</span></div>' +
+        side.list.map(function (x) {
+          var t = today[x.p.id] || 0, a = m.played ? (ast[x.p.id] || 0) : x.p.a;
+          return '<div class="lp-row"><span class="lp-name">' + esc(x.p.name) + '<small>' + esc(x.p.pos) + '</small></span>' +
+            '<span class="lp-season">' + (m.played ? x.pre + ' this season'
+              : a + (a === 1 ? ' assist' : ' assists')) + '</span>' +
+            '<span class="lp-today' + ((m.played ? t : x.pre) ? ' hot' : '') + '">' +
+              (m.played ? (t ? '+' + t : '\u2013') : x.pre) + '</span></div>';
+        }).join('') + '</div>';
+    }).join('');
+    if (m.played) {
+      var win = m.hg > m.ag ? 'h' : m.ag > m.hg ? 'a' : null, best = null;
+      Object.keys(today).forEach(function (id) {
+        var pl = players[id];
+        var v = today[id] * 10 + (ast[id] || 0) * 4 + (sideOf[id] === win ? 3 : 0) + (pl ? pl.skill / 100 : 0);
+        if (!best || v > best.v) best = { id: id, v: v };
+      });
+      var bp = best && players[best.id];
+      if (bp) {
+        html += '<div class="lp-potm"><span aria-hidden="true">\u2B50</span><span>Player of the match: <b>' + esc(bp.name) +
+          '</b> <span class="muted small">' + today[best.id] + ' ' + (today[best.id] === 1 ? (sp.scoreWordOne || 'goal') : word) +
+          (ast[best.id] ? ', ' + ast[best.id] + (ast[best.id] === 1 ? ' assist' : ' assists') : '') + '</span></span></div>';
+      }
+    }
+    return '<div class="section-title" style="margin-top:16px">' + (m.played ? 'Players' : 'Key players') + '</div>' +
+      '<div class="live-players" style="margin-top:0">' + html + '</div>';
+  }
+
   // The record between two sides: results split, scoring, and the last few meetings.
   function h2hBlock(comp, m) {
     var map = E.teamsById(comp), h = map[m.h], a = map[m.a];
@@ -10507,8 +10560,8 @@ h3 { font-size: 1.05rem; }
       '</div>';
 
     // kept deliberately plain: who, when, the rivalry and the record between them
-    modal(h.abbr + ' v ' + a.abbr, head + meta + rivalCallout(comp, m) + h2hBlock(comp, m) +
-      (m.played ? events : '') + foot);
+    modal(h.abbr + ' v ' + a.abbr, head + meta + rivalCallout(comp, m) + matchPlayers(comp, m) +
+      h2hBlock(comp, m) + (m.played ? events : '') + foot);
   }
 
   /* ------------------------------------------------------------ stats view */
