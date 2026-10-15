@@ -449,6 +449,17 @@ tr.z-rel td.pos { box-shadow: inset 3px 0 0 var(--z-rel); }
 
 /* --------------------------------------------------------------- stats */
 
+.plink { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit;
+  cursor: pointer; text-align: left; text-decoration: underline; text-decoration-style: dotted;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 3px; }
+.plink:hover, .plink:focus-visible { color: var(--accent); text-decoration-color: currentColor; }
+.pl-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.pl-head .pl-name { font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+.pl-head .badge { margin-left: auto; }
+.grid.pl-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.pl-tiles .stat-tile { padding: 10px 12px; }
+.pl-tiles .stat-tile .v { font-size: 1.3rem; }
+@media (max-width: 560px) { .grid.pl-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 15px; }
 .stat-tile .k { font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
 .stat-tile .v { font-size: 1.55rem; font-weight: 700; letter-spacing: -.03em; margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -3195,6 +3206,16 @@ h3 { font-size: 1.05rem; }
   }
 
   // Generates `plays` scoring plays, attributes each to a player, returns points added.
+  // Which scoring plays are tries: a converted or unconverted try in league,
+  // and the five and seven pointers in union. Other sports have none.
+  function isTry(sport, v) {
+    if (!sport) return false;
+    if (sport.id === 'rugbyleague') return v === 4 || v === 6;
+    if (sport.id === 'rugby') return v === 5 || v === 7;
+    return false;
+  }
+  function hasTries(sport) { return !!sport && (sport.id === 'rugbyleague' || sport.id === 'rugby'); }
+
   function recordScores(match, sport, team, side, plays, rng, isOt) {
     starPower = sport.starPower || 2.2;
     var total = 0;
@@ -3208,6 +3229,7 @@ h3 { font-size: 1.05rem; }
       if (scorer) {
         scorer.g += value; scorer.cg += value;
         if (isQual) scorer.qg = (scorer.qg || 0) + value;
+        if (isTry(sport, value)) { scorer.t = (scorer.t || 0) + 1; scorer.ct = (scorer.ct || 0) + 1; }
       }
       if (assist) {
         assist.a++; assist.ca++;
@@ -3933,6 +3955,12 @@ h3 { font-size: 1.05rem; }
     // squads move on too: a little drift, and the weakest two make way for new faces
     comp.teams.forEach(function (t) {
       t.players.forEach(function (p) {
+        // a line in the player's own season-by-season record
+        if (p.apps || p.g || p.a) {
+          (p.log = p.log || []).push({ n: comp.season ? comp.season.number : 0, apps: p.apps, g: p.g,
+            a: p.a, t: p.t || 0, m: p.motm || 0, sk: p.skill });
+        }
+        p.t = 0;
         p.skill = clamp(p.skill + rng.int(-3, 3), 25, 99);
         p.seasons++;
         p.g = 0; p.a = 0; p.apps = 0;
@@ -3941,6 +3969,8 @@ h3 { font-size: 1.05rem; }
         p.sus = 0; p.yc = 0; p.motm = 0;
         if (p.inj) p.inj = Math.max(0, p.inj - 8);
       });
+      // a State of Origin side is picked from its clubs, so nobody new is invented there
+      if (comp.origin) return;
       t.players.sort(function (x, y) { return x.skill - y.skill; });
       for (var i = 0; i < 2 && i < t.players.length; i++) {
         var old = t.players[i];
@@ -3967,6 +3997,8 @@ h3 { font-size: 1.05rem; }
     positionHistory: positionHistory,
     topScorers: topScorers,
     playerPhase: playerPhase,
+    isTry: isTry,
+    hasTries: hasTries,
     careerScorers: careerScorers,
     newSeason: newSeason,
     matchdaysOf: matchdaysOf,
@@ -4308,6 +4340,7 @@ h3 { font-size: 1.05rem; }
         p.qg = 0; p.qa = 0; p.qapps = 0;
         p.inj = 0; p.sus = 0; p.yc = 0;
         p.cmotm = Math.max(0, (p.cmotm || 0) - (p.motm || 0)); p.motm = 0;
+        p.ct = Math.max(0, (p.ct || 0) - (p.t || 0)); p.t = 0;
       });
     });
   }
@@ -7521,6 +7554,29 @@ h3 { font-size: 1.05rem; }
     return out;
   }
   function isOrigin(c) { return !!(c && c.origin); }
+  function key(name, club) { return name + '|' + (club || ''); }
+
+  // A club player's Origin record, current squad or not.
+  function recordFor(L, name, clubAbbr) {
+    var out = null;
+    linked(L).forEach(function (o) {
+      o.teams.forEach(function (side) {
+        side.players.forEach(function (p) {
+          if (!out && p.name === name && p.club === clubAbbr) out = { o: o, side: side, p: p, inSquad: true };
+        });
+        (side.former || []).forEach(function (p) {
+          if (!out && p.name === name && p.club === clubAbbr) out = { o: o, side: side, p: p, inSquad: false };
+        });
+      });
+    });
+    return out;
+  }
+  // Series a state won, by season number.
+  function seriesWon(o, side) {
+    var idx = o.teams.indexOf(side), won = {};
+    (o.history || []).forEach(function (rec) { if (rec.champion === idx) won[rec.n] = true; });
+    return won;
+  }
   function league(o) { return o && o.origin ? find(o.origin.league) : null; }
   function linked(L) {
     return S.state.competitions.filter(function (c) { return c.origin && c.origin.league === L.id; });
@@ -7574,19 +7630,26 @@ h3 { font-size: 1.05rem; }
       if (!pool.length) return;
       pool.sort(function (x, y) { return y.p.skill - x.p.skill; });
       var picks = pool.slice(0, SQUAD);
-      // a returning player keeps his Origin record; newcomers start one
+      // a returning player keeps his Origin record, even after a spell out of
+      // the side; newcomers start one
       var mine = {}, n = 0;
-      side.players.forEach(function (p) {
-        mine[p.name] = p;
+      side.former = side.former || [];
+      side.players.concat(side.former).forEach(function (p) {
+        mine[key(p.name, p.club)] = p;
         var k = parseInt(String(p.id).split('-p')[1], 10);
         if (!isNaN(k) && k >= n) n = k + 1;
       });
+      var chosen = {};
       side.players = picks.map(function (x) {
-        var p = mine[x.p.name] || copyPlayer(x.p, side.id + '-p' + (n++));
+        var p = mine[key(x.p.name, x.club.abbr)] || copyPlayer(x.p, side.id + '-p' + (n++));
+        chosen[p.id] = true;
         p.skill = x.p.skill; p.pos = x.p.pos; p.gw = x.p.gw; p.aw = x.p.aw;
         p.inj = 0; p.sus = 0;
         p.club = x.club.abbr;
         return p;
+      });
+      side.former = Object.keys(mine).map(function (k) { return mine[k]; }).filter(function (p) {
+        return !chosen[p.id] && (p.capps || (p.log && p.log.length));
       });
       var att = 0, def = 0, sk = 0, from = {};
       picks.forEach(function (x) {
@@ -7677,7 +7740,7 @@ h3 { font-size: 1.05rem; }
   LS.origin = {
     NAME: NAME, STATE: STATE,
     isOrigin: isOrigin, league: league, linked: linked, canHost: canHost, stateOf: stateOf,
-    midpoint: midpoint, midRound: midRound, started: started,
+    midpoint: midpoint, midRound: midRound, started: started, recordFor: recordFor, seriesWon: seriesWon,
     pick: pick, create: create, tick: tick, autoPlay: autoPlay, onLeagueEnd: onLeagueEnd, series: series
   };
 })(window.LS = window.LS || {});
@@ -7742,6 +7805,15 @@ h3 { font-size: 1.05rem; }
     return '<span class="kit' + (big ? ' kit-lg' : '') + '" aria-hidden="true">' +
       '<i style="background:' + esc(t.c1) + '"></i><b style="background:' + esc(t.c2) + '"></b></span>';
   }
+  // A player's name that opens his profile. back: 'match:<id>' or 'team:<id>'
+  // for a way back to where it was tapped.
+  function pLink(comp, t, p, back) {
+    if (!p) return '';
+    return '<button type="button" class="plink" data-act="player" data-comp="' + esc(comp.id) +
+      '" data-team="' + esc(t.id) + '" data-pid="' + esc(p.id) + '"' +
+      (back ? ' data-back="' + esc(back) + '"' : '') + '>' + esc(p.name) + '</button>';
+  }
+
   function teamCell(t, opts) {
     opts = opts || {};
     if (!t) return '<span class="muted">—</span>';
@@ -8817,7 +8889,7 @@ h3 { font-size: 1.05rem; }
           '<div class="table-wrap"><table class="data"><tbody>' + scorers.map(function (x, i) {
             return '<tr><td class="pos l">' + (i + 1) + '</td>' +
               '<td class="l"><span class="team-cell">' + kit(x.t) +
-              '<span><span class="strong">' + esc(x.p.name) + '</span> ' +
+              '<span><span class="strong">' + pLink(comp, x.t, x.p) + '</span> ' +
               '<span class="tiny muted">' + esc(x.t.abbr) + ' · ' + x.p.pos + '</span></span></span></td>' +
               '<td class="strong">' + x.g + '</td>' +
               '<td class="muted small">' + x.a + ' ast</td></tr>';
@@ -9748,7 +9820,7 @@ h3 { font-size: 1.05rem; }
           '<span style="margin-left:auto">' + sr.wins[t.id] + (sr.wins[t.id] === 1 ? ' win' : ' wins') + '</span></div>' +
         '<div class="tiny muted" style="margin:2px 0 6px">Att ' + t.att + ' · Def ' + t.def + '</div>' +
         top.map(function (p) {
-          return '<div class="lp-row"><span class="lp-name">' + esc(p.name) + '<small>' + esc(p.pos) + '</small></span>' +
+          return '<div class="lp-row"><span class="lp-name">' + pLink(o, t, p) + '<small>' + esc(p.pos) + '</small></span>' +
             '<span class="lp-season">' + esc(p.club || '') + '</span><span class="lp-today">' + p.skill + '</span></div>';
         }).join('') +
         (from ? '<div class="tiny muted" style="margin-top:6px">Picked from: ' + esc(from) + '</div>' : '') + '</div>';
@@ -9807,7 +9879,7 @@ h3 { font-size: 1.05rem; }
       '<div class="table-wrap"><table class="data"><tbody>' + list.slice(0, 8).map(function (x) {
         return '<tr class="clickable" data-act="team" data-id="' + esc(x.t.id) + '">' +
           '<td class="l"><span class="team-cell">' + kit(x.t) + '<span><span class="strong">' +
-          esc(x.p.name) + '</span> <span class="tiny muted">' + esc(x.t.abbr) + ' · ' + x.p.pos +
+          pLink(comp, x.t, x.p) + '</span> <span class="tiny muted">' + esc(x.t.abbr) + ' · ' + x.p.pos +
           ' · ' + x.p.skill + '</span></span></span></td>' +
           '<td class="small muted">' + (x.p.sus > 0 ? INC_ICON.red : INC_ICON.inj) + ' ' + esc(whyOut(x.p)) + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
@@ -9851,7 +9923,7 @@ h3 { font-size: 1.05rem; }
     if (!out.length) return '';
     return '<div class="section-title">Unavailable</div>' +
       '<div class="table-wrap" style="margin-bottom:14px"><table class="data"><tbody>' + out.map(function (x) {
-        return '<tr><td class="l strong">' + esc(x.p.name) + '</td><td class="l muted">' + x.p.pos + '</td>' +
+        return '<tr><td class="l strong">' + pLink(comp, team, x.p, 'team:' + team.id) + '</td><td class="l muted">' + x.p.pos + '</td>' +
           '<td class="muted">' + x.p.skill + '</td><td class="l small">' +
           (x.p.sus > 0 ? INC_ICON.red : INC_ICON.inj) + ' ' + esc(whyOut(x.p)) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
@@ -10764,7 +10836,7 @@ h3 { font-size: 1.05rem; }
         '<span style="margin-left:auto">' + (m.played ? 'This match' : 'Season ' + word) + '</span></div>' +
         side.list.map(function (x) {
           var t = today[x.p.id] || 0, a = m.played ? (ast[x.p.id] || 0) : x.p.a;
-          return '<div class="lp-row"><span class="lp-name">' + esc(x.p.name) + '<small>' + esc(x.p.pos) + '</small></span>' +
+          return '<div class="lp-row"><span class="lp-name">' + pLink(comp, side.team, x.p, 'match:' + m.id) + '<small>' + esc(x.p.pos) + '</small></span>' +
             '<span class="lp-season">' + (m.played ? x.pre + ' this season'
               : a + (a === 1 ? ' assist' : ' assists')) + '</span>' +
             '<span class="lp-today' + ((m.played ? t : x.pre) ? ' hot' : '') + '">' +
@@ -10780,7 +10852,8 @@ h3 { font-size: 1.05rem; }
       });
       var bp = best && players[best.id];
       if (bp) {
-        html += '<div class="lp-potm"><span aria-hidden="true">\u2B50</span><span>Player of the match: <b>' + esc(bp.name) +
+        html += '<div class="lp-potm"><span aria-hidden="true">\u2B50</span><span>Player of the match: <b>' +
+          pLink(comp, sideOf[best.id] === 'h' ? map[m.h] : map[m.a], bp, 'match:' + m.id) +
           '</b> <span class="muted small">' + today[best.id] + ' ' + (today[best.id] === 1 ? (sp.scoreWordOne || 'goal') : word) +
           (ast[best.id] ? ', ' + ast[best.id] + (ast[best.id] === 1 ? ' assist' : ' assists') : '') + '</span></span></div>';
       }
@@ -10875,9 +10948,10 @@ h3 { font-size: 1.05rem; }
         return '<tr><td class="l muted nowrap" style="width:54px">' +
             esc(E.clockLabel(sp, ev.min)) + '</td>' +
           '<td class="l">' + kit(team) + '</td>' +
-          '<td class="l strong">' + esc(p ? p.name : 'Unknown') + '</td>' +
-          (multiValue ? '<td class="l muted tiny nowrap">+' + (ev.v || 1) + '</td>' : '') +
-          '<td class="l muted tiny">' + (as ? 'assist ' + esc(as.name) : '') + '</td></tr>';
+          '<td class="l strong">' + (p ? pLink(comp, team, p, 'match:' + m.id) : 'Unknown') + '</td>' +
+          (multiValue ? '<td class="l muted tiny nowrap">+' + (ev.v || 1) +
+            (E.isTry(sp, ev.v) ? ' try' : '') + '</td>' : '') +
+          '<td class="l muted tiny">' + (as ? 'assist ' + pLink(comp, team, as, 'match:' + m.id) : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>' :
       (m.played ? '<p class="small muted center">Nothing scored.</p>' :
         '<p class="small muted center">Not played yet.</p>');
@@ -10892,6 +10966,171 @@ h3 { font-size: 1.05rem; }
     // kept deliberately plain: who, when, the rivalry and the record between them
     modal(h.abbr + ' v ' + a.abbr, head + meta + rivalCallout(comp, m) + matchPlayers(comp, m) +
       h2hBlock(comp, m) + (m.played ? events : '') + foot);
+  }
+
+  /* ------------------------------------------------------- player profile */
+
+  function findComp(id) {
+    return S.state.competitions.filter(function (c) { return c.id === id; })[0] || null;
+  }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+  function perGame(v, apps) { return apps ? (v / apps).toFixed(1) + ' a game' : '\u00a0'; }
+
+  // Rows of a season-by-season table: archived seasons, then the one in progress.
+  function seasonRows(p, current, tries, extra) {
+    var rows = (p.log || []).slice();
+    if (current && (p.apps || p.g || p.a)) {
+      rows.push({ n: current, apps: p.apps, g: p.g, a: p.a, t: p.t || 0, m: p.motm || 0, now: true });
+    }
+    return rows.reverse().map(function (r) {
+      return '<tr><td class="l">' + r.n + (r.now ? ' <span class="tiny muted">now</span>' : '') +
+        (extra ? extra(r) : '') + '</td>' +
+        '<td>' + r.apps + '</td>' + (tries ? '<td>' + (r.t || 0) + '</td>' : '') +
+        '<td>' + r.g + '</td><td>' + r.a + '</td><td>' + (r.m || 0) + '</td></tr>';
+    }).join('');
+  }
+  function seasonTable(sp, rowsHtml, label) {
+    var tries = E.hasTries(sp);
+    return '<div class="table-wrap"><table class="data"><thead><tr>' +
+      '<th class="l">' + (label || 'Season') + '</th><th>Apps</th>' + (tries ? '<th>Tries</th>' : '') +
+      '<th>' + esc(sp.scoreWord) + '</th><th>Assists</th><th title="Player of the match">POTM</th>' +
+      '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
+  }
+
+  // This season's games where he made the scoresheet or took the award.
+  function playerGames(comp, team, p, linkable) {
+    var sp = sportOf(comp), map = E.teamsById(comp), out = [];
+    comp.season.matches.forEach(function (m) {
+      if (!m.played || (m.h !== team.id && m.a !== team.id)) return;
+      var g = 0, a = 0, tr = 0;
+      (m.events || []).forEach(function (ev) {
+        if (ev.s === p.id) { g += ev.v || 1; if (E.isTry(sp, ev.v)) tr++; }
+        if (ev.a === p.id) a++;
+      });
+      var star = m.potm === p.id;
+      if (!g && !a && !star) return;
+      out.push({ m: m, g: g, a: a, tr: tr, star: star });
+    });
+    if (!out.length) return '';
+    var one = (sp.scoreWordOne || 'goal'), many = sp.scoreWord.toLowerCase();
+    return '<div class="section-title">This season\u2019s big games</div>' +
+      '<div class="table-wrap" style="margin-bottom:14px"><table class="data"><tbody>' +
+      out.slice(-8).reverse().map(function (x) {
+        var m = x.m, home = m.h === team.id, opp = map[home ? m.a : m.h];
+        var mine = home ? m.hg : m.ag, theirs = home ? m.ag : m.hg;
+        var res = mine > theirs ? 'W' : mine < theirs ? 'L' : 'D';
+        var what = [];
+        if (x.tr) what.push(plural(x.tr, 'try', 'tries'));
+        if (x.g) what.push(plural(x.g, one, many));
+        if (x.a) what.push(plural(x.a, 'assist', 'assists'));
+        var rd = comp.origin ? 'Game ' + (m.md + 1) : m.stage === 'league' ? 'Rd ' + (m.md + 1) : (m.round || 'Rd ' + (m.md + 1));
+        return '<tr' + (linkable ? ' class="clickable" data-act="match" data-id="' + esc(m.id) + '"' : '') + '>' +
+          '<td class="l muted nowrap small">' + esc(rd) + '</td>' +
+          '<td class="l">' + (opp ? kit(opp) + ' ' + (home ? 'v ' : '@ ') + esc(opp.abbr) : '') + '</td>' +
+          '<td class="nowrap"><span style="display:inline-flex;align-items:center;gap:6px"><span class="form-dot form-' + res + '">' +
+            res + '</span>' + mine + '\u2013' + theirs + '</span></td>' +
+          '<td class="l small">' + esc(what.join(', ')) + (x.star ? ' \u2B50' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function showPlayer(comp, teamId, pid, back) {
+    var team = E.teamsById(comp)[teamId];
+    if (!team) return;
+    var p = team.players.filter(function (x) { return x.id === pid; })[0] ||
+      (team.former || []).filter(function (x) { return x.id === pid; })[0];
+    if (!p) return;
+    var sp = sportOf(comp), tries = E.hasTries(sp), OR = LS.origin;
+    var isActive = S.active() && S.active().id === comp.id;
+    var dropped = team.players.indexOf(p) < 0;
+    var wc = comp.format === 'worldcup';
+
+    var status = dropped ? '<span class="badge">Not in the current squad</span>'
+      : p.sus > 0 ? '<span class="badge badge-red">Suspended ' + plural(p.sus, 'game', 'games') + '</span>'
+      : p.inj > 0 ? '<span class="badge badge-amber">Injured, ' + plural(p.inj, 'game', 'games') + '</span>'
+      : '<span class="badge badge-accent">Available</span>';
+    var head = '<div class="pl-head"><span style="font-size:1.6rem">' + kit(team, true) + '</span><div>' +
+      '<div class="pl-name">' + esc(p.name) + (p.wild ? ' \u2605' : '') + '</div>' +
+      '<div class="small muted">' + esc(team.name) + ' \u00b7 ' + esc(p.pos) + ' \u00b7 rating ' + p.skill +
+      (p.club ? ' \u00b7 club ' + esc(p.club) : '') + '</div></div>' + status + '</div>';
+
+    var seasonWord = wc ? 'This edition' : comp.origin ? 'This series' : 'Season ' + comp.season.number;
+    var now = '<div class="section-title">' + esc(seasonWord) + '</div>' +
+      '<div class="grid grid-4 pl-tiles">' +
+        tile('Appearances', p.apps, tries && p.motm ? plural(p.motm, 'player of the match', 'players of the match') : '\u00a0') +
+        (tries ? tile('Tries', p.t || 0, perGame(p.t || 0, p.apps)) : '') +
+        tile(sp.scoreWord, p.g, perGame(p.g, p.apps)) +
+        tile('Assists', p.a, perGame(p.a, p.apps)) +
+        (tries ? '' : tile('Player of the match', p.motm || 0, '\u00a0')) +
+      '</div>';
+
+    var seasons = (p.log || []).length + (p.apps ? 1 : 0);
+    var career = '<div class="section-title">' + (OR && OR.isOrigin(comp) ? 'Origin career' : 'Career') + '</div>' +
+      '<div class="grid grid-4 pl-tiles">' +
+        tile('Appearances', p.capps, plural(Math.max(seasons, p.capps ? 1 : 0), wc ? 'edition' : comp.origin ? 'series' : 'season', wc ? 'editions' : comp.origin ? 'series' : 'seasons')) +
+        (tries ? tile('Tries', p.ct || 0, perGame(p.ct || 0, p.capps)) : '') +
+        tile(sp.scoreWord, p.cg, perGame(p.cg, p.capps)) +
+        (tries ? '' : tile('Assists', p.ca, perGame(p.ca, p.capps))) +
+        tile('Player of the match', p.cmotm || 0, tries ? plural(p.ca, 'assist', 'assists') : '\u00a0') +
+      '</div>';
+
+    // State of Origin, from either side of the link
+    var origin = '';
+    if (OR && OR.isOrigin(comp)) {
+      var L = OR.league(comp);
+      var won = OR.seriesWon(comp, team);
+      var nWon = (p.log || []).filter(function (r) { return won[r.n]; }).length;
+      var club = L && p.club ? L.teams.filter(function (t) { return t.abbr === p.club; })[0] : null;
+      var cp = club ? club.players.filter(function (x) { return x.name === p.name; })[0] : null;
+      origin = '<div class="section-title">Series by series</div>' +
+        ((p.log || []).length || p.apps ? seasonTable(sp, seasonRows(p, comp.season.number, tries,
+          function (r) { return won[r.n] ? ' <span class="badge badge-amber tiny">won</span>' : ''; }), 'Series') :
+          '<p class="small muted">Yet to pull on the jersey.</p>') +
+        '<p class="small muted" style="margin:10px 0 14px">' + plural(nWon, 'series win', 'series wins') + ' with ' + esc(team.name) + '.' +
+        (cp ? ' At ' + esc(club.name) + ' this NRL season: ' + plural(cp.apps, 'game', 'games') + ', ' +
+          (tries ? plural(cp.t || 0, 'try', 'tries') + ', ' : '') + cp.g + ' ' + sp.scoreWord.toLowerCase() + '.' : '') + '</p>' +
+        (cp ? '<div class="btn-row" style="margin-bottom:6px"><button class="btn btn-sm" data-act="player" data-comp="' + esc(L.id) +
+          '" data-team="' + esc(club.id) + '" data-pid="' + esc(cp.id) + '">' + esc(club.abbr) + ' club profile</button></div>' : '');
+    } else if (OR && OR.linked(comp).length) {
+      var rec = OR.recordFor(comp, p.name, team.abbr);
+      var st = OR.stateOf(OR.linked(comp)[0].origin, team);
+      if (rec && (rec.p.capps || rec.inSquad)) {
+        var rp = rec.p, rwon = OR.seriesWon(rec.o, rec.side);
+        var rWon = (rp.log || []).filter(function (r) { return rwon[r.n]; }).length;
+        var nSeries = (rp.log || []).length + (rp.apps ? 1 : 0);
+        origin = '<div class="section-title">State of Origin \u00b7 ' + kit(rec.side) + ' ' + esc(rec.side.name) + '</div>' +
+          '<div class="grid grid-4 pl-tiles">' +
+            tile('Origin games', rp.capps, plural(nSeries, 'series', 'series') + (rWon ? ', ' + rWon + ' won' : '')) +
+            (tries ? tile('Tries', rp.ct || 0, perGame(rp.ct || 0, rp.capps)) : '') +
+            tile(sp.scoreWord, rp.cg, perGame(rp.cg, rp.capps)) +
+            tile('Player of the match', rp.cmotm || 0, plural(rp.ca, 'assist', 'assists')) +
+          '</div>' +
+          '<div class="btn-row" style="margin-bottom:14px;align-items:center">' +
+            '<span class="small muted">' + (rec.inSquad ? 'In the ' + esc(rec.side.abbr) + ' squad this year.' : 'Not in this year\u2019s squad.') + '</span>' +
+            '<button class="btn btn-sm" data-act="player" data-comp="' + esc(rec.o.id) + '" data-team="' + esc(rec.side.id) +
+              '" data-pid="' + esc(rp.id) + '">Origin profile</button></div>';
+      } else {
+        origin = '<div class="section-title">State of Origin</div><p class="small muted" style="margin:0 0 14px">' +
+          (st ? 'Yet to play Origin. Eligible for ' + esc(st) + ' through ' + esc(team.name) + '.'
+              : esc(team.name) + ' players aren\u2019t picked for State of Origin.') + '</p>';
+      }
+    }
+
+    var hist = '';
+    if (!(OR && OR.isOrigin(comp)) && ((p.log || []).length)) {
+      hist = '<div class="section-title">Season by season</div>' +
+        seasonTable(sp, seasonRows(p, comp.season.number, tries)) + '<div style="height:14px"></div>';
+    }
+
+    var games = dropped ? '' : playerGames(comp, team, p, isActive);
+
+    var bk = (back || '').split(':'), foot = '';
+    if (isActive && (bk[0] === 'match' || bk[0] === 'team') && bk[1]) {
+      foot = '<div class="btn-row" style="margin-top:16px;justify-content:center">' +
+        '<button class="btn" data-act="' + bk[0] + '" data-id="' + esc(bk.slice(1).join(':')) + '">\u2190 Back to ' +
+        (bk[0] === 'match' ? 'the match' : esc(team.name)) + '</button></div>';
+    }
+
+    modal('Player profile', head + now + career + origin + games + hist, foot);
   }
 
   /* ------------------------------------------------------------ stats view */
@@ -10970,7 +11209,7 @@ h3 { font-size: 1.05rem; }
         rows.map(function (x, i) {
           return '<tr class="clickable" data-act="team" data-id="' + x.t.id + '">' +
             '<td class="pos l">' + (i + 1) + '</td>' +
-            '<td class="l"><span class="strong">' + esc(x.p.name) + '</span> ' +
+            '<td class="l"><span class="strong">' + pLink(comp, x.t, x.p) + '</span> ' +
             '<span class="tiny muted">' + x.p.pos + '</span></td>' +
             '<td class="l">' + teamCell(x.t, { abbr: true }) + '</td>' +
             '<td class="muted">' + x.apps + '</td>' +
@@ -11009,7 +11248,7 @@ h3 { font-size: 1.05rem; }
       rows.slice(0, 12).map(function (x, i) {
         return '<tr class="clickable" data-act="team" data-id="' + x.t.id + '">' +
           '<td class="pos l">' + (i + 1) + '</td>' +
-          '<td class="l"><span class="strong">' + esc(x.p.name) + '</span> <span class="tiny muted">' + x.p.pos + '</span></td>' +
+          '<td class="l"><span class="strong">' + pLink(comp, x.t, x.p) + '</span> <span class="tiny muted">' + x.p.pos + '</span></td>' +
           '<td class="l">' + teamCell(x.t, { abbr: true }) + '</td>' +
           '<td class="muted">' + x.p.apps + '</td>' +
           '<td class="muted col-hide-sm">' + (x.p.cmotm || x.p.motm) + '</td>' +
@@ -12033,7 +12272,10 @@ h3 { font-size: 1.05rem; }
       list.map(function (p, i) {
         var t = comp.teams[p.t];
         return '<tr><td class="pos l">' + (i + 1) + '</td>' +
-          '<td class="l strong">' + esc(p.name) + '</td>' +
+          '<td class="l strong">' + (function () {
+            var cur = t && t.players.filter(function (x) { return x.name === p.name; })[0];
+            return cur ? pLink(comp, t, cur) : esc(p.name);
+          })() + '</td>' +
           '<td class="l">' + teamCell(t, { abbr: true }) + '</td>' +
           '<td class="muted col-hide-sm">' + (p.seasons || 1) + '</td>' +
           '<td class="col-hide-sm">' + p.best + '</td><td class="muted">' + p.a + '</td>' +
@@ -12576,7 +12818,7 @@ h3 { font-size: 1.05rem; }
     var wc = isWorldCup(comp);
     var squad = team.players.slice().sort(function (x, y) {
       return (y.g + y.a) - (x.g + x.a) || y.skill - x.skill;
-    }).slice(0, 10);
+    });
     var squadHtml = '<div class="section-title" style="margin-top:18px">Squad — this ' +
       (wc ? 'cycle' : 'season') + '</div>' +
       '<div class="table-wrap"><table class="data"><thead><tr><th class="l">Player</th><th class="l">Pos</th>' +
@@ -12587,7 +12829,7 @@ h3 { font-size: 1.05rem; }
       '</tr></thead><tbody>' +
       squad.map(function (p) {
         var q = E.playerPhase(p, 'qual'), f = E.playerPhase(p, 'finals');
-        return '<tr><td class="l strong">' + esc(p.name) +
+        return '<tr><td class="l strong">' + pLink(comp, team, p, 'team:' + team.id) +
           (p.wild ? ' <span class="badge tiny" title="A generational talent — here while the run lasts">\u2605</span>' : '') +
           '</td><td class="l muted">' + p.pos + '</td>' +
           '<td class="col-hide-sm">' + p.skill + '</td><td class="muted">' + p.apps + '</td>' +
@@ -13958,6 +14200,12 @@ h3 { font-size: 1.05rem; }
       }
 
       case 'import': doImport(); return;
+
+      case 'player': {
+        var pc = findComp(el.dataset.comp) || comp;
+        if (pc) showPlayer(pc, el.dataset.team, el.dataset.pid, el.dataset.back);
+        return;
+      }
 
       case 'delete-all': {
         var nAll = S.state.competitions.length;
