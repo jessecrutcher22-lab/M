@@ -3974,6 +3974,13 @@ h3 { font-size: 1.05rem; }
       t.players.sort(function (x, y) { return x.skill - y.skill; });
       for (var i = 0; i < 2 && i < t.players.length; i++) {
         var old = t.players[i];
+        if (old.capps > 0) {
+          (comp.alumni = comp.alumni || []).push({
+            name: old.name, t: comp.teams.indexOf(t), pos: old.pos, capps: old.capps, cg: old.cg, ca: old.ca,
+            ct: old.ct || 0, cmotm: old.cmotm || 0, seasons: (old.log || []).length || old.seasons,
+            to: comp.season ? comp.season.number : 0
+          });
+        }
         t.players[i] = {
           id: old.id, name: rng.pick(LS.data.firstNames) + ' ' + rng.pick(LS.data.lastNames),
           pos: old.pos, gw: old.gw, aw: old.aw,
@@ -4414,6 +4421,10 @@ h3 { font-size: 1.05rem; }
     function fix(i) {
       if (i == null) return null;
       return i === k ? null : (i > k ? i - 1 : i);
+    }
+    if (comp.alumni) {
+      comp.alumni = comp.alumni.filter(function (x) { return x.t !== k; })
+        .map(function (x) { var o = {}, key; for (key in x) o[key] = x[key]; o.t = fix(x.t); return o; });
     }
     // Records are copied rather than patched in place: an award and a scorer
     // row can be the same object, and shifting one twice would misfile it.
@@ -12005,7 +12016,7 @@ h3 { font-size: 1.05rem; }
     }
 
     var histTabs = [['honours', 'Honours'], ['seasons', 'Seasons'], ['alltime', 'All-time'],
-       ['scorers', 'Scorers'], ['h2h', 'H2H'], ['rivals', 'Rivalries'],
+       ['players', 'Players'], ['scorers', 'Scorers'], ['h2h', 'H2H'], ['rivals', 'Rivalries'],
        ['records', 'Records'], ['story', 'Story']];
     if (comp.format === 'worldcup') histTabs.splice(3, 0, ['qualifying', 'Qualifying']);
     // the Qualifying tab only exists for a World Cup, so fall back if it is not here
@@ -12021,6 +12032,7 @@ h3 { font-size: 1.05rem; }
     if (histTab === 'seasons') body = histSeasons(comp);
     else if (histTab === 'alltime') body = histAllTime(comp);
     else if (histTab === 'qualifying') body = histQualifying(comp);
+    else if (histTab === 'players') body = histPlayers(comp);
     else if (histTab === 'scorers') body = histScorers(comp);
     else if (histTab === 'h2h') body = histH2H(comp);
     else if (histTab === 'rivals') body = rivalriesCard(comp);
@@ -12255,6 +12267,75 @@ h3 { font-size: 1.05rem; }
           '<td class="col-hide-sm">' + (r.worst || '–') + '</td>' +
           '<td class="muted col-hide-sm">' + (r.avgPos == null ? '–' : r.avgPos) + '</td></tr>';
       }).join('') + '</tbody></table></div></div>';
+  }
+
+  // Career numbers for everyone who has played: the current squads (and, for
+  // State of Origin, players out of the side) plus the ones who have retired.
+  function histPlayers(comp) {
+    var sp = sportOf(comp), tries = E.hasTries(sp), ui = app.ui;
+    var rows = [];
+    comp.teams.forEach(function (t) {
+      t.players.concat(t.former || []).forEach(function (p) {
+        if (!p.capps) return;
+        var seasons = (p.log || []).length + (p.apps ? 1 : 0);
+        rows.push({ name: p.name, t: t, p: p, pos: p.pos, apps: p.capps, g: p.cg, a: p.ca, tr: p.ct || 0,
+          m: p.cmotm || 0, seasons: Math.max(seasons, p.seasons || 0, 1), out: t.players.indexOf(p) < 0 });
+      });
+    });
+    (comp.alumni || []).forEach(function (x) {
+      var t = comp.teams[x.t];
+      if (!t) return;
+      rows.push({ name: x.name, t: t, p: null, pos: x.pos, apps: x.capps, g: x.cg, a: x.ca, tr: x.ct || 0,
+        m: x.cmotm || 0, seasons: Math.max(x.seasons || 0, 1), retired: x.to });
+    });
+    if (!rows.length) {
+      return '<div class="card"><div class="card-body"><p class="muted small" style="margin:0">Nobody has played yet.</p></div></div>';
+    }
+    var show = comp.origin ? 'all' : (ui.hpShow || 'all');
+    if (show === 'current') rows = rows.filter(function (r) { return !r.retired; });
+    if (show === 'retired') rows = rows.filter(function (r) { return r.retired; });
+
+    var keys = [['apps', 'Apps']].concat(tries ? [['tr', 'Tries']] : [])
+      .concat([['g', sp.scoreWord], ['a', 'Assists'], ['m', 'POTM']]);
+    var sortK = keys.some(function (k) { return k[0] === ui.hpSort; }) ? ui.hpSort : (tries ? 'tr' : 'g');
+    rows.sort(function (x, y) { return y[sortK] - x[sortK] || y.apps - x.apps || x.name.localeCompare(y.name); });
+    var total = rows.length, cap = ui.hpAll ? total : 50;
+
+    var controls = '<div class="btn-row" style="justify-content:space-between;align-items:center;margin-bottom:10px">' +
+      '<div class="seg seg-scroll">' + keys.map(function (k) {
+        return '<button data-act="hp-sort" data-k="' + k[0] + '" aria-pressed="' + (sortK === k[0]) + '">' + esc(k[1]) + '</button>';
+      }).join('') + '</div>' +
+      (comp.origin ? '' : '<div class="seg">' + [['all', 'Everyone'], ['current', 'Current'], ['retired', 'Retired']].map(function (k) {
+        return '<button data-act="hp-show" data-k="' + k[0] + '" aria-pressed="' + (show === k[0]) + '">' + k[1] + '</button>';
+      }).join('') + '</div>') + '</div>';
+
+    function cell(r, k, v) {
+      return '<td class="' + (sortK === k ? 'strong' : '') + (k === 'm' || k === 'a' ? ' col-hide-sm' : '') + '">' + v + '</td>';
+    }
+    var table = rows.length ? '<div class="table-wrap"><table class="data"><thead><tr>' +
+      '<th class="l" style="width:34px">#</th><th class="l">Player</th><th class="l">Team</th>' +
+      '<th class="col-hide-sm">' + (comp.origin ? 'Series' : comp.format === 'worldcup' ? 'Editions' : 'Seasons') + '</th><th>Apps</th>' + (tries ? '<th>Tries</th>' : '') +
+      '<th>' + esc(sp.scoreWord) + '</th><th class="col-hide-sm">Assists</th><th class="col-hide-sm" title="Player of the match">POTM</th>' +
+      '</tr></thead><tbody>' +
+      rows.slice(0, cap).map(function (r, i) {
+        return '<tr><td class="pos l">' + (i + 1) + '</td>' +
+          '<td class="l"><span class="strong">' + (r.p ? pLink(comp, r.t, r.p) : esc(r.name)) + '</span> ' +
+            '<span class="tiny muted">' + esc(r.pos || '') +
+            (r.retired ? ' \u00b7 retired after ' + (comp.format === 'worldcup' ? 'edition ' : 'season ') + r.retired : '') +
+            (r.out ? ' \u00b7 not in the squad' : '') + '</span></td>' +
+          '<td class="l">' + teamCell(r.t, { abbr: true }) + '</td>' +
+          '<td class="muted col-hide-sm">' + r.seasons + '</td>' +
+          cell(r, 'apps', r.apps) + (tries ? cell(r, 'tr', r.tr) : '') + cell(r, 'g', r.g) +
+          cell(r, 'a', r.a) + cell(r, 'm', r.m) + '</tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="muted small">Nobody here yet.</p>';
+
+    var more = total > cap ? '<div class="btn-row" style="justify-content:center;margin-top:12px">' +
+      '<button class="btn btn-sm" data-act="hp-all">Show all ' + total + ' players</button></div>' : '';
+
+    return '<div class="card"><div class="card-head"><h3>Career stats</h3>' +
+      '<span class="badge">' + total + ' players</span></div><div class="card-body">' + controls + table + more +
+      '<p class="tiny muted" style="margin:12px 0 0">Every season in ' + esc(comp.name) + ', the one in progress included. ' +
+      'Tap a current player for his full profile.</p></div></div>';
   }
 
   function histScorers(comp) {
@@ -14524,6 +14605,9 @@ h3 { font-size: 1.05rem; }
       case 'stat-tab': app.ui.statTab = el.dataset.tab; render(); return;
       case 'stat-phase': app.ui.statPhase = el.dataset.phase; render(); return;
       case 'hist-tab': app.ui.histTab = el.dataset.tab; render(); return;
+      case 'hp-sort': app.ui.hpSort = el.dataset.k; app.ui.hpAll = false; render(); return;
+      case 'hp-show': app.ui.hpShow = el.dataset.k; app.ui.hpAll = false; render(); return;
+      case 'hp-all': app.ui.hpAll = true; render(); return;
 
       case 'md':
         app.ui.md = E.clamp(app.ui.md + parseInt(el.dataset.d, 10), 0, E.matchdaysOf(comp.season) - 1);
