@@ -2140,10 +2140,14 @@ h3 { font-size: 1.05rem; }
       });
       md++;
     });
-    if (settings.doubleRound) {
+    // a short series (State of Origin's three games) runs the cycle more than
+    // twice, swapping home and away each time
+    var cycles = settings.cycles || (settings.doubleRound ? 2 : 1);
+    for (var c = 1; c < cycles; c++) {
       rounds.forEach(function (r) {
         r.forEach(function (m) {
-          matches.push(mkMatch(teams[m[1]].id, teams[m[0]].id, md, 'league', null, null));
+          var swap = c % 2 === 1;
+          matches.push(mkMatch(teams[swap ? m[1] : m[0]].id, teams[swap ? m[0] : m[1]].id, md, 'league', null, null));
         });
         md++;
       });
@@ -3087,8 +3091,34 @@ h3 { font-size: 1.05rem; }
     return match;
   }
 
+  // Player of the match, from what happened in it: most scored, then assists,
+  // then a share of the win, then the better player. No dice involved.
+  function playerOfMatch(match, players) {
+    var tally = {}, ast = {}, side = {};
+    (match.events || []).forEach(function (ev) {
+      if (ev.s) { tally[ev.s] = (tally[ev.s] || 0) + (ev.v || 1); side[ev.s] = ev.side; }
+      if (ev.a) { ast[ev.a] = (ast[ev.a] || 0) + 1; side[ev.a] = ev.side; }
+    });
+    var win = match.hg > match.ag ? 'h' : match.ag > match.hg ? 'a' : null, best = null;
+    Object.keys(tally).forEach(function (id) {
+      var pl = players[id];
+      var v = tally[id] * 10 + (ast[id] || 0) * 4 + (side[id] === win ? 3 : 0) + (pl ? pl.skill / 100 : 0);
+      if (!best || v > best.v) best = { id: id, v: v };
+    });
+    return best ? { id: best.id, g: tally[best.id], a: ast[best.id] || 0 } : null;
+  }
+
   function afterWhistle(match, h, a, sport, settings, rng, isQual) {
     var lh = countApps(h, rng, sport, isQual), la = countApps(a, rng, sport, isQual);
+    var everyone = {};
+    h.players.concat(a.players).forEach(function (p) { everyone[p.id] = p; });
+    var star = playerOfMatch(match, everyone);
+    match.potm = star ? star.id : null;
+    if (star && everyone[star.id]) {
+      var sp = everyone[star.id];
+      sp.motm = (sp.motm || 0) + 1;
+      sp.cmotm = (sp.cmotm || 0) + 1;
+    }
     match.inc = [];
     if (!injuriesOn(settings)) return;
     var outH = h.players.filter(function (p) { return h._avail.indexOf(p) < 0; });
@@ -3475,7 +3505,10 @@ h3 { font-size: 1.05rem; }
   // batch of matches and never touch the RNG, so results are unchanged.
   var hooks = {};
   function hookBefore(comp, due) { return hooks.before ? hooks.before(comp, due) : null; }
-  function hookAfter(comp, due, snap) { if (hooks.after) hooks.after(comp, due, snap); }
+  function hookAfter(comp, due, snap) {
+    if (hooks.after) hooks.after(comp, due, snap);
+    (hooks.also || []).forEach(function (f) { f(comp, due); });
+  }
 
   // Simulate every unplayed match in the current round. Returns the matches played.
   function playRound(comp) {
@@ -3905,7 +3938,7 @@ h3 { font-size: 1.05rem; }
         p.g = 0; p.a = 0; p.apps = 0;
         p.qg = 0; p.qa = 0; p.qapps = 0;
         // the summer clears bans and bookings and heals all but the worst
-        p.sus = 0; p.yc = 0;
+        p.sus = 0; p.yc = 0; p.motm = 0;
         if (p.inj) p.inj = Math.max(0, p.inj - 8);
       });
       t.players.sort(function (x, y) { return x.skill - y.skill; });
@@ -3970,6 +4003,7 @@ h3 { font-size: 1.05rem; }
     expectedGoals: expectedGoals,
     expectedPlays: expectedPlays,
     simulateMatch: simulateMatch,
+    playerOfMatch: playerOfMatch,
     available: available,
     strengthNow: strengthNow,
     absenceKey: absenceKey,
@@ -4175,6 +4209,16 @@ h3 { font-size: 1.05rem; }
     var scorers = scorerList(wc ? 'finals' : 'all');
     var qualScorers = wc ? scorerList('qual') : null;
 
+    // who won player of the match most often
+    var motmList = [];
+    comp.teams.forEach(function (t) {
+      t.players.forEach(function (p) {
+        if (p.motm) motmList.push({ n: p.name, t: idx[t.id], v: p.motm, pos: p.pos });
+      });
+    });
+    motmList.sort(function (x, y) { return y.v - x.v || x.n.localeCompare(y.n); });
+    motmList = motmList.slice(0, 10);
+
     var best = table.slice().sort(function (x, y) { return y.gf - x.gf; })[0];
     var tightest = table.slice().sort(function (x, y) { return x.ga - y.ga; })[0];
     var cleanest = table.slice().sort(function (x, y) { return y.cs - x.cs; })[0];
@@ -4194,11 +4238,13 @@ h3 { font-size: 1.05rem; }
       }),
       scorers: scorers,
       qualScorers: qualScorers,
+      motm: motmList,
       awards: {
         topScorer: scorers[0] || null,
         bestAttack: best ? { t: idx[best.id], v: best.gf } : null,
         bestDefence: tightest ? { t: idx[tightest.id], v: tightest.ga } : null,
-        mostCleanSheets: cleanest ? { t: idx[cleanest.id], v: cleanest.cs } : null
+        mostCleanSheets: cleanest ? { t: idx[cleanest.id], v: cleanest.cs } : null,
+        motm: motmList[0] || null
       },
       // compact results: [homeIdx, awayIdx, homeGoals, awayGoals, matchday, stageCode]
       results: season.matches.filter(function (m) { return m.played; }).map(function (m) {
@@ -4245,6 +4291,8 @@ h3 { font-size: 1.05rem; }
       }
     }
     comp.season = E.newSeason(comp, rec.n + 1);
+    // a State of Origin series linked to this league rolls over with it
+    if (LS.origin && !comp.origin) LS.origin.onLeagueEnd(comp);
     return true;
   }
 
@@ -4259,6 +4307,7 @@ h3 { font-size: 1.05rem; }
         p.g = 0; p.a = 0; p.apps = 0;
         p.qg = 0; p.qa = 0; p.qapps = 0;
         p.inj = 0; p.sus = 0; p.yc = 0;
+        p.cmotm = Math.max(0, (p.cmotm || 0) - (p.motm || 0)); p.motm = 0;
       });
     });
   }
@@ -4352,6 +4401,7 @@ h3 { font-size: 1.05rem; }
       rec.table.sort(function (a, b) { return a.pos - b.pos; })
         .forEach(function (r, i) { r.pos = i + 1; });
       rec.scorers = fixList(rec.scorers);
+      if (rec.motm) rec.motm = fixList(rec.motm);
       if (rec.surges) rec.surges = fixList(rec.surges);
       if (rec.rankings) {
         rec.rankings = fixList(rec.rankings);
@@ -4366,7 +4416,7 @@ h3 { font-size: 1.05rem; }
       rec.ratings = (rec.ratings || []).filter(function (_, i) { return i !== k; });
       rec.names = (rec.names || []).filter(function (_, i) { return i !== k; });
       if (rec.awards) {
-        ['topScorer', 'bestAttack', 'bestDefence', 'mostCleanSheets'].forEach(function (key) {
+        ['topScorer', 'bestAttack', 'bestDefence', 'mostCleanSheets', 'motm'].forEach(function (key) {
           var a = rec.awards[key];
           if (!a) return;
           rec.awards[key] = a.t === k ? null : moved(a);
@@ -5949,7 +5999,7 @@ h3 { font-size: 1.05rem; }
   // sports; elsewhere a haul is measured in points instead.
   function haulMin(sp) { return sp.basePlays <= 3.5 ? 3 : 0; }
   function pairKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
-  function isCup(comp) { return comp.format !== 'league'; }
+  function isCup(comp) { return comp.format !== 'league' || !!comp.origin; }
   function hasFinals(comp) {
     return comp.format === 'league' && !!(comp.settings.finals && comp.settings.finals.enabled);
   }
@@ -6576,7 +6626,8 @@ h3 { font-size: 1.05rem; }
       }
     }
 
-    if (comp.format === 'league') leagueSeasonEnd(comp, ctx);
+    // a three-game series has no table worth a record
+    if (comp.format === 'league' && !comp.origin) leagueSeasonEnd(comp, ctx);
   }
 
   function leagueSeasonEnd(comp, ctx) {
@@ -7430,6 +7481,201 @@ h3 { font-size: 1.05rem; }
 })(window.LS = window.LS || {});
 
 
+/* ===== origin.js ===== */
+/* Sideline — State of Origin.
+
+   A best-of-three series between New South Wales and Queensland, played in
+   the middle of an NRL season and linked to it. Each state picks its best
+   seventeen fit players from the NRL clubs in that state, so a state is as
+   strong as the clubs it draws on: its ratings are the average of the clubs
+   its players come from, lifted by how far above the league's average player
+   the chosen seventeen are. Squads are picked when the NRL reaches its
+   midpoint, so form and injuries at that moment decide who plays.
+
+   It is an ordinary league competition of two sides playing three times,
+   so the table, fixtures, live ticker, history and stories all apply. */
+(function (LS) {
+  'use strict';
+
+  var E = LS.engine, S = LS.store;
+
+  // which state each NRL club picks for, by its short name; the Warriors sit it out
+  var STATE = {
+    PEN: 'NSW', CBY: 'NSW', CBR: 'NSW', CRO: 'NSW', SYD: 'NSW', MAN: 'NSW', SGI: 'NSW',
+    PAR: 'NSW', WST: 'NSW', SOU: 'NSW', NEW: 'NSW',
+    BRI: 'QLD', NQL: 'QLD', DOL: 'QLD', GLD: 'QLD', MEL: 'QLD'
+  };
+  var SQUAD = 17;
+  var NAME = 'State of Origin';
+
+  function find(id) {
+    var out = null;
+    S.state.competitions.forEach(function (c) { if (c.id === id) out = c; });
+    return out;
+  }
+  function isOrigin(c) { return !!(c && c.origin); }
+  function league(o) { return o && o.origin ? find(o.origin.league) : null; }
+  function linked(L) {
+    return S.state.competitions.filter(function (c) { return c.origin && c.origin.league === L.id; });
+  }
+  function stateOf(cfg, club) {
+    var map = (cfg && cfg.states) || STATE;
+    return map[club.abbr] || null;
+  }
+  // an NRL-style league with clubs in both states can host a series
+  function canHost(L) {
+    if (!L || L.sport !== 'rugbyleague' || L.format !== 'league' || L.origin) return false;
+    var seen = {};
+    L.teams.forEach(function (t) { var st = stateOf(null, t); if (st) seen[st] = true; });
+    return !!(seen.NSW && seen.QLD);
+  }
+
+  function started(o) { return o.season.matches.some(function (m) { return m.played; }); }
+
+  // the NRL's regular season is at least half played
+  function midpoint(L) {
+    var all = 0, done = 0;
+    L.season.matches.forEach(function (m) {
+      if (m.stage !== 'league') return;
+      all++;
+      if (m.played) done++;
+    });
+    return L.season.stage !== 'league' || (all > 0 && done / all >= 0.5);
+  }
+  function midRound(L) {
+    return Math.ceil(E.matchdaysOf({ matches: L.season.matches.filter(function (m) { return m.stage === 'league'; }) }) / 2);
+  }
+
+  function copyPlayer(p, id) {
+    return { id: id, name: p.name, pos: p.pos, gw: p.gw, aw: p.aw, skill: p.skill,
+             g: 0, a: 0, apps: 0, qg: 0, qa: 0, qapps: 0, cg: 0, ca: 0, capps: 0, seasons: 0 };
+  }
+
+  // Pick both squads from the NRL as it stands.
+  function pick(o) {
+    var L = league(o);
+    if (!L) return false;
+    var all = [];
+    L.teams.forEach(function (t) { t.players.forEach(function (p) { all.push(p.skill); }); });
+    var mean = all.reduce(function (s, v) { return s + v; }, 0) / (all.length || 1);
+    o.teams.forEach(function (side) {
+      var pool = [];
+      L.teams.forEach(function (club) {
+        if (stateOf(o.origin, club) !== side.abbr) return;
+        club.players.forEach(function (p) { if (!E.isOut(p)) pool.push({ p: p, club: club }); });
+      });
+      if (!pool.length) return;
+      pool.sort(function (x, y) { return y.p.skill - x.p.skill; });
+      var picks = pool.slice(0, SQUAD);
+      // a returning player keeps his Origin record; newcomers start one
+      var mine = {}, n = 0;
+      side.players.forEach(function (p) {
+        mine[p.name] = p;
+        var k = parseInt(String(p.id).split('-p')[1], 10);
+        if (!isNaN(k) && k >= n) n = k + 1;
+      });
+      side.players = picks.map(function (x) {
+        var p = mine[x.p.name] || copyPlayer(x.p, side.id + '-p' + (n++));
+        p.skill = x.p.skill; p.pos = x.p.pos; p.gw = x.p.gw; p.aw = x.p.aw;
+        p.inj = 0; p.sus = 0;
+        p.club = x.club.abbr;
+        return p;
+      });
+      var att = 0, def = 0, sk = 0, from = {};
+      picks.forEach(function (x) {
+        att += x.club.att; def += x.club.def; sk += x.p.skill;
+        from[x.club.abbr] = (from[x.club.abbr] || 0) + 1;
+      });
+      var k = picks.length, lift = (sk / k - mean) * 0.35;
+      side.att = Math.max(20, Math.min(99, Math.round(att / k + lift)));
+      side.def = Math.max(20, Math.min(99, Math.round(def / k + lift)));
+      side.from = from;
+    });
+    o.origin.pickedAt = { n: L.season.number, round: L.season.round };
+    if (LS.wager && LS.wager.clearOddsCache) LS.wager.clearOddsCache();
+    return true;
+  }
+
+  function create(L) {
+    var o = S.createCompetition({
+      name: NAME, format: 'league', sport: 'rugbyleague', seed: (L.seed ^ 0x5eed) >>> 0,
+      teams: [
+        LS.data.T('New South Wales', 'NSW', 75, 75, '#6CACE4', '#002B5C'),
+        LS.data.T('Queensland', 'QLD', 75, 75, '#7A0C2E', '#F6BE00')
+      ],
+      settings: {
+        cycles: 3, doubleRound: false,
+        finals: { enabled: false, system: 'knockout', size: 4 },
+        zones: [{ from: 1, to: 1, label: 'Series winners', cls: 'z-title' }],
+        injuries: L.settings.injuries
+      }
+    });
+    o.origin = { league: L.id, season: L.season.number };
+    pick(o);
+    S.state.competitions.push(o);
+    S.save();
+    return o;
+  }
+
+  // After an NRL round: at the midpoint, the squads are picked fresh.
+  function tick(L) {
+    linked(L).forEach(function (o) {
+      var at = o.origin.pickedAt || {};
+      var picked = at.n === L.season.number && at.round >= midRound(L);
+      if (midpoint(L) && !picked && !started(o)) pick(o);
+    });
+  }
+
+  // Fast-forwarding the NRL plays the series when the midpoint comes round.
+  function autoPlay(L) {
+    var played = 0;
+    linked(L).forEach(function (o) {
+      if (!midpoint(L) || o.season.complete) return;
+      tick(L);
+      E.simulateSeason(o);
+      played++;
+    });
+    return played;
+  }
+
+  // The NRL season is over: finish any series still to play, archive it, and
+  // start the next one ready for the next NRL season.
+  function onLeagueEnd(L) {
+    linked(L).forEach(function (o) {
+      if (!o.season.complete) { if (!started(o)) pick(o); E.simulateSeason(o); }
+      S.endSeason(o);
+      o.origin.season = L.season.number;
+      pick(o);
+    });
+  }
+
+  // How the series stands.
+  function series(o) {
+    var w = {}, played = 0;
+    o.teams.forEach(function (t) { w[t.id] = 0; });
+    o.season.matches.forEach(function (m) {
+      if (!m.played) return;
+      played++;
+      var win = m.hg > m.ag ? m.h : m.ag > m.hg ? m.a : null;
+      if (win) w[win]++;
+    });
+    return { wins: w, played: played, total: o.season.matches.length };
+  }
+
+  // after every NRL round: pick the squads when the midpoint comes round
+  E.hooks.also = (E.hooks.also || []).concat([function (comp) {
+    if (!comp.origin && comp.sport === 'rugbyleague') tick(comp);
+  }]);
+
+  LS.origin = {
+    NAME: NAME, STATE: STATE,
+    isOrigin: isOrigin, league: league, linked: linked, canHost: canHost, stateOf: stateOf,
+    midpoint: midpoint, midRound: midRound, started: started,
+    pick: pick, create: create, tick: tick, autoPlay: autoPlay, onLeagueEnd: onLeagueEnd, series: series
+  };
+})(window.LS = window.LS || {});
+
+
 /* ===== ui.js ===== */
 /* Sideline — interface layer. Views render to HTML strings; all interaction runs
    through one delegated click handler keyed on data-act. */
@@ -7688,7 +7934,7 @@ h3 { font-size: 1.05rem; }
         '<button class="btn" data-act="recap" data-n="live">Recap image</button></div>';
     }
     var nm = E.nextMatch(comp);
-    var label = 'Play matchday ' + (s.round + 1);
+    var label = (comp.origin ? 'Play Game ' : 'Play matchday ') + (s.round + 1);
     if (s.stage === 'qual') {
       label = 'Play qualifying round ' + (s.round + 1);
     } else if (s.stage === 'finals') {
@@ -7831,6 +8077,13 @@ h3 { font-size: 1.05rem; }
      feature nobody can find may as well not be there. The fourth field is the
      tab to jump to, when there is one obvious place to start. */
   var WHATS_NEW = [
+    ['\u{1F3C9}', 'State of Origin, and player of the match',
+     'Add a State of Origin series to any NRL season: three games mid-season, with each state picking its best ' +
+     'seventeen fit players from its own NRL clubs, so its strength follows its clubs. Squads are picked at the ' +
+     'NRL midpoint, and fast-forwarding a season plays the series on the way. Every match now names a player of the ' +
+     'match, counted all season in Stats, in the season awards and in the records book.',
+     'NRL overview \u2192 State of Origin \u00b7 Stats \u2192 Players',
+     'overview'],
     ['\u{1F393}', 'OneSchool Global Rugby',
      'Every OneSchool Global campus in a rugby union competition: national competitions for ' +
      'Australia, UK & Ireland, New Zealand, North America, Europe and Argentina, with finals series ' +
@@ -8485,7 +8738,7 @@ h3 { font-size: 1.05rem; }
             s.stage === 'qual' ? 'Qualifying — round ' + (s.round + 1) :
             s.stage === 'finals' ? 'Finals series' :
             s.stage === 'ko' ? 'Knockout stage' :
-            'Matchday ' + Math.min(s.round + 1, prog.mds) + ' of ' + prog.mds) +
+            (comp.origin ? 'Game ' : 'Matchday ') + Math.min(s.round + 1, prog.mds) + ' of ' + prog.mds) +
           ' · ' + prog.played + ' of ' + prog.total + ' matches played</div>' +
         simButtons(comp) +
       '</div></div>';
@@ -8579,7 +8832,8 @@ h3 { font-size: 1.05rem; }
 
     var ladder = comp.rankings ? rankingsCard(comp, 10, true) : '';
 
-    return '<div class="stack">' + head + tourNudge() + championBanner(comp) + tiles + storyCard(comp) + finals +
+    var originBlock = comp.origin && LS.origin ? originInfoCard(comp) : originCard(comp);
+    return '<div class="stack">' + head + tourNudge() + championBanner(comp) + originBlock + tiles + storyCard(comp) + finals +
       (CT && CT.isCont(comp) ? contFieldCard(comp) : isWorldCup(comp) ? heldPlacesCard(comp) + qualifiedSummary(comp) : '') +
       middle + treatmentCard(comp) + race +
       '<div class="grid grid-2">' + scorerCard + honoursMini(comp) + '</div>' +
@@ -8595,6 +8849,7 @@ h3 { font-size: 1.05rem; }
   function formatLabel(comp) {
     var sp = sportOf(comp);
     var f = comp.format === 'cup' ? 'Knockout cup'
+      : comp.origin ? 'Best-of-three series'
       : comp.continental ? (comp.continental.qualify ? 'Qualifying, then groups + knockout' : 'Continental cup \u00b7 groups + knockout')
       : comp.format === 'worldcup' ? 'Qualifying + World Cup'
       : comp.format === 'groups' ? 'Groups + knockout'
@@ -9440,6 +9695,72 @@ h3 { font-size: 1.05rem; }
         return '<li class="' + (e.w >= 3 ? 'strong' : '') + '">' + storyIcon(e.k) + ' ' + esc(e.text) + '</li>';
       }).join('') + '</ul>' : '') +
       '</div>';
+  }
+
+
+  /* ------------------------------------------------------- State of Origin */
+
+  // On an NRL page: the series it feeds, or the offer to add one.
+  function originCard(L) {
+    var OR = LS.origin;
+    if (!OR || L.origin || L.sport !== 'rugbyleague' || L.format !== 'league') return '';
+    var o = OR.linked(L)[0];
+    if (!o) {
+      if (!OR.canHost(L)) return '';
+      return '<div class="card"><div class="card-head"><h3>State of Origin</h3>' +
+        '<button class="btn btn-sm btn-primary" data-act="origin-add">Add State of Origin</button></div>' +
+        '<div class="card-body"><p class="small" style="margin:0">A best-of-three series between New South Wales and ' +
+        'Queensland in the middle of every season. Each state picks its best seventeen fit players from its own NRL ' +
+        'clubs, so a state is only as strong as the clubs behind it.</p></div></div>';
+    }
+    return '<div class="card">' + originStatus(o, L, true) + '</div>';
+  }
+
+  // The series as it stands, both squads, and what happens next.
+  function originStatus(o, L, onLeague) {
+    var OR = LS.origin, sr = OR.series(o), map = E.teamsById(o);
+    var sides = o.teams;
+    var score = sides.map(function (t) { return sr.wins[t.id]; }).join('–');
+    var leader = sr.wins[sides[0].id] === sr.wins[sides[1].id] ? null
+      : sr.wins[sides[0].id] > sr.wins[sides[1].id] ? sides[0] : sides[1];
+    var mid = L ? OR.midpoint(L) : true;
+    var state = o.season.complete
+      ? (o.season.champion && map[o.season.champion] ? esc(map[o.season.champion].name) + ' win the series ' +
+          Math.max(sr.wins[sides[0].id], sr.wins[sides[1].id]) + '–' + Math.min(sr.wins[sides[0].id], sr.wins[sides[1].id]) : 'Series complete')
+      : sr.played ? (leader ? esc(leader.name) + ' lead ' : 'Level at ') + score + ' after ' + sr.played +
+          (sr.played === 1 ? ' game' : ' games')
+      : mid ? 'Squads picked. Game 1 is ready.'
+      : 'Squads are picked when the NRL reaches its midpoint (round ' + OR.midRound(L) + ').';
+    var squads = '<div class="grid grid-2" style="gap:12px">' + sides.map(function (t) {
+      var top = t.players.slice().sort(function (x, y) { return y.skill - x.skill; }).slice(0, 3);
+      var from = Object.keys(t.from || {}).sort(function (x, y) { return t.from[y] - t.from[x]; })
+        .map(function (k) { return k + ' ' + t.from[k]; }).join(' · ');
+      return '<div class="lp-side"><div class="lp-head">' + kit(t) + esc(t.name) +
+          '<span style="margin-left:auto">' + sr.wins[t.id] + (sr.wins[t.id] === 1 ? ' win' : ' wins') + '</span></div>' +
+        '<div class="tiny muted" style="margin:2px 0 6px">Att ' + t.att + ' · Def ' + t.def + '</div>' +
+        top.map(function (p) {
+          return '<div class="lp-row"><span class="lp-name">' + esc(p.name) + '<small>' + esc(p.pos) + '</small></span>' +
+            '<span class="lp-season">' + esc(p.club || '') + '</span><span class="lp-today">' + p.skill + '</span></div>';
+        }).join('') +
+        (from ? '<div class="tiny muted" style="margin-top:6px">Picked from: ' + esc(from) + '</div>' : '') + '</div>';
+    }).join('') + '</div>';
+    var buttons = '<div class="btn-row">' +
+      (onLeague ? '<button class="btn btn-sm btn-primary" data-act="open-comp" data-id="' + esc(o.id) + '">Go to State of Origin</button>' : '') +
+      (!o.season.complete && (mid || !onLeague) ? '<button class="btn btn-sm" data-act="origin-play" data-id="' + esc(o.id) + '">Simulate the series</button>' : '') +
+      (!onLeague && L ? '<button class="btn btn-sm" data-act="open-comp" data-id="' + esc(L.id) + '">Back to ' + esc(L.name) + '</button>' : '') +
+      (!onLeague && !OR.started(o) ? '<button class="btn btn-sm btn-ghost" data-act="origin-pick" data-id="' + esc(o.id) + '">Pick the squads now</button>' : '') +
+      '</div>';
+    return '<div class="card-head"><h3>\u{1F3C9} State of Origin' + (o.season.number > 1 ? ', series ' + o.season.number : '') + '</h3>' +
+      '<span class="badge' + (o.season.complete ? ' badge-accent' : '') + '">' + state + '</span></div>' +
+      '<div class="card-body stack" style="gap:12px">' + squads + buttons + '</div>';
+  }
+
+  function originInfoCard(o) {
+    var L = LS.origin.league(o);
+    return '<div class="card">' + originStatus(o, L, false) +
+      '<div class="zone-key"><p style="margin:0;color:inherit">Each state picks its best seventeen fit players from its NRL clubs ' +
+      '(NSW: Penrith, Bulldogs, Raiders, Sharks, Roosters, Manly, Dragons, Eels, Tigers, Souths, Knights. ' +
+      'QLD: Broncos, Cowboys, Dolphins, Titans, Storm). Its ratings come from those clubs, lifted by how good the seventeen are.</p></div></div>';
   }
 
   /* ------------------------------------------------ injuries & suspensions */
@@ -10660,7 +10981,31 @@ h3 { font-size: 1.05rem; }
             '<div class="card-body"><p class="muted small" style="margin:0">No assists recorded.</p></div>') + '</div>' +
         '<div class="card"><div class="card-head"><h3>' + esc(sp.scoreWord) + ' + assists</h3></div>' +
           plist(contrib, function (x) { return x.g + x.a; }, 'Total') + '</div>' +
-      '</div></div>';
+      '</div>' + motmCard(comp) + '</div>';
+  }
+
+  // Player of the match, counted all season.
+  function motmCard(comp) {
+    var rows = [];
+    comp.teams.forEach(function (t) {
+      t.players.forEach(function (p) { if (p.motm) rows.push({ p: p, t: t }); });
+    });
+    rows.sort(function (x, y) { return y.p.motm - x.p.motm || y.p.g - x.p.g; });
+    if (!rows.length) return '';
+    return '<div class="card"><div class="card-head"><h3>\u2B50 Player of the match awards</h3>' +
+      '<span class="badge badge-accent">Leader: ' + esc(rows[0].p.name) + ', ' + rows[0].p.motm + '</span></div>' +
+      '<div class="table-wrap"><table class="data"><thead><tr>' +
+      '<th class="l" style="width:34px">#</th><th class="l">Player</th><th class="l">Team</th>' +
+      '<th>Apps</th><th class="col-hide-sm">Career</th><th class="strong">Awards</th></tr></thead><tbody>' +
+      rows.slice(0, 12).map(function (x, i) {
+        return '<tr class="clickable" data-act="team" data-id="' + x.t.id + '">' +
+          '<td class="pos l">' + (i + 1) + '</td>' +
+          '<td class="l"><span class="strong">' + esc(x.p.name) + '</span> <span class="tiny muted">' + x.p.pos + '</span></td>' +
+          '<td class="l">' + teamCell(x.t, { abbr: true }) + '</td>' +
+          '<td class="muted">' + x.p.apps + '</td>' +
+          '<td class="muted col-hide-sm">' + (x.p.cmotm || x.p.motm) + '</td>' +
+          '<td class="strong">' + x.p.motm + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
   }
 
   function statsTeams(comp, table, phase) {
@@ -12144,6 +12489,14 @@ h3 { font-size: 1.05rem; }
       awardTile('🎯', 'Best attack', bestAtt ? bestAtt.team.name : '—', bestAtt ? bestAtt.gf + ' scored' : '') +
       awardTile('🧱', 'Meanest defence', bestDef ? bestDef.team.name : '—', bestDef ? bestDef.ga + ' conceded' : '') +
       awardTile('🧤', 'Most shut-outs', mostCs ? mostCs.team.name : '—', mostCs ? mostCs.cs + ' shut-outs' : '') +
+      (function () {
+        var top = null;
+        comp.teams.forEach(function (t) { t.players.forEach(function (p) {
+          if (p.motm && (!top || p.motm > top.p.motm)) top = { p: p, t: t };
+        }); });
+        return awardTile('\u2B50', 'Most player of the match awards', top ? top.p.name : '\u2014',
+          top ? top.p.motm + ' awards for ' + top.t.name : '');
+      })() +
       awardTile('📈', comp.settings.rankBy === 'winpct' ? 'Best win rate' : 'Best points per game',
         table[0] ? table[0].team.name : '—',
         table[0] ? (comp.settings.rankBy === 'winpct'
@@ -12928,9 +13281,23 @@ h3 { font-size: 1.05rem; }
     });
     apps.sort(function (x, y) { return y.v - x.v; });
 
+    var motmSeason = [], motmCareer = [];
+    H.forEach(function (rec) {
+      (rec.motm || []).forEach(function (x) { motmSeason.push({ name: x.n, team: who(x.t, rec.names), v: x.v, n: rec.n }); });
+    });
+    comp.teams.forEach(function (t) {
+      t.players.forEach(function (p) {
+        if (s.complete && p.motm) motmSeason.push({ name: p.name, team: { t: t, name: t.name }, v: p.motm, n: s.number });
+        if (p.cmotm) motmCareer.push({ name: p.name, team: { t: t, name: t.name }, v: p.cmotm });
+      });
+    });
+    motmSeason.sort(function (x, y) { return y.v - x.v; });
+    motmCareer.sort(function (x, y) { return y.v - x.v; });
+
     var R = MS ? MS.ensure(comp) : {};
     return { results: results, seasons: seasons, runs: runs, titles: titles, streaks: streaks, gaps: gaps,
              seasonScorers: seasonScorers, career: career, apps: apps,
+             motmSeason: motmSeason, motmCareer: motmCareer,
              hauls: (R.hauls || []).slice().sort(function (x, y) { return y.k - x.k || x.n - y.n; }),
              best: (R.best || []).slice().reverse(),
              fast: R.fast || [], comeback: R.comeback || [] };
@@ -13077,6 +13444,13 @@ h3 { font-size: 1.05rem; }
       recordRow('Fastest ' + (sp.scoreWordOne || 'goal'), d.fast, function (x) {
         return { val: x.label, who: recWho({ t: comp.teams[idxOf(comp, x.tid)], name: x.team }, x.name),
           when: matchLink(comp, x, 'v ' + x.opp + ', S' + x.n), plain: x.name + ' ' + x.label + ' (S' + x.n + ')' };
+      }),
+      recordRow('Most player of the match awards in a season', d.motmSeason, function (x) {
+        return { val: x.v + ' awards', who: recWho(x.team, x.name), when: seasonLink(comp, x.n),
+          plain: x.name + ' ' + x.v + ' (S' + x.n + ')' };
+      }),
+      recordRow('Most player of the match awards, current players', d.motmCareer, function (x) {
+        return { val: x.v + ' awards', who: recWho(x.team, x.name), when: '', plain: x.name + ' ' + x.v };
       }),
       recordRow('Most appearances, current players', d.apps, function (x) {
         return { val: x.v, who: recWho(x.team, x.name), when: '', plain: x.name + ' ' + x.v };
@@ -13598,6 +13972,29 @@ h3 { font-size: 1.05rem; }
     switch (act) {
       case 'story-all': showStory(comp); return;
       case 'cont-leagues': showContLeagues(comp); return;
+      case 'origin-add': {
+        var made = LS.origin.create(comp);
+        persist(); render();
+        toast('State of Origin added. Squads are picked again at the NRL midpoint');
+        return;
+      }
+      case 'origin-pick': {
+        var oc = S.state.competitions.filter(function (c) { return c.id === el.dataset.id; })[0];
+        if (oc && LS.origin.pick(oc)) { persist(); render(); toast('Squads picked from the NRL as it stands'); }
+        return;
+      }
+      case 'origin-play': {
+        var os = S.state.competitions.filter(function (c) { return c.id === el.dataset.id; })[0];
+        if (!os) return;
+        if (!LS.origin.started(os)) LS.origin.tick(LS.origin.league(os) || comp);
+        var omk = MS ? MS.mark(os) : 0;
+        E.simulateSeason(os);
+        persist(); render();
+        var om = E.teamsById(os), ch = om[os.season.champion];
+        toast(ch ? ch.name + ' win the State of Origin' : 'Series played');
+        popMoments(os, omk);
+        return;
+      }
       case 'cont-playall': {
         var played = LS.continental.playFeeders(comp);
         LS.continental.redraw(comp);
@@ -13705,7 +14102,10 @@ h3 { font-size: 1.05rem; }
         var wasStage = comp.season.stage;
         var r4;
         simulateAndRender(function () {
-          E.simulateSeason(comp, { stopAtFinals: true, beforeRound: lockTips });
+          E.simulateSeason(comp, { stopAtFinals: true, beforeRound: function (c) {
+            lockTips(c);
+            if (LS.origin && !c.origin) LS.origin.autoPlay(c);
+          } });
           r4 = settleBets(comp);
         });
         var done = comp.season.stage === 'finals' && wasStage !== 'finals'
@@ -13741,7 +14141,10 @@ h3 { font-size: 1.05rem; }
         closeModal();
         var r5;
         simulateAndRender(function () {
-          E.simulateSeason(comp, { stopAtFinals: true, beforeRound: lockTips });
+          E.simulateSeason(comp, { stopAtFinals: true, beforeRound: function (c) {
+            lockTips(c);
+            if (LS.origin && !c.origin) LS.origin.autoPlay(c);
+          } });
           r5 = settleBets(comp);
         });
         simToast(comp, r5, 'Season simulated with the favourites tipped');
