@@ -1,4 +1,7 @@
 <title>Sideline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
 <style>
 /* Sideline — design system */
 
@@ -964,6 +967,124 @@ button.badge:hover { background: var(--accent-soft); color: var(--accent); }
 
 table[data-table="rankspan"] .up { color: var(--accent); font-weight: 700; }
 table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
+
+/* ----------------------------------------------------------------- refresh
+   Layout: the same cards and tabs, quieter. A cool neutral leaning toward
+   the pitch green, hairline borders in place of shadows, and a condensed
+   scoreboard face for headings, scores and big numbers. */
+:root {
+  --bg: #f2f4f3;
+  --surface: #ffffff;
+  --surface-2: #f6f8f7;
+  --surface-3: #eaeeec;
+  --border: #dde3e0;
+  --border-soft: #ebefed;
+  --text: #121d19;
+  --text-2: #4a5852;
+  --muted: #7b8882;
+  --accent: #0b7552;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(11, 117, 82, .09);
+  --shadow: 0 1px 2px rgba(18, 29, 25, .04);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --display: "Barlow Semi Condensed", "Arial Narrow", -apple-system, "Segoe UI", sans-serif;
+  --sans: "Barlow", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1311;
+    --surface: #141b18;
+    --surface-2: #19221f;
+    --surface-3: #202b27;
+    --border: #26322d;
+    --border-soft: #1d2723;
+    --text: #e5ebe8;
+    --text-2: #a5b2ac;
+    --muted: #6e7c76;
+    --accent: #4cb98e;
+    --accent-ink: #062218;
+    --accent-soft: rgba(76, 185, 142, .12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .28);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1311;
+  --surface: #141b18;
+  --surface-2: #19221f;
+  --surface-3: #202b27;
+  --border: #26322d;
+  --border-soft: #1d2723;
+  --text: #e5ebe8;
+  --text-2: #a5b2ac;
+  --muted: #6e7c76;
+  --accent: #4cb98e;
+  --accent-ink: #062218;
+  --accent-soft: rgba(76, 185, 142, .12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .28);
+  color-scheme: dark;
+}
+
+body { font-family: var(--sans); font-size: 15px; letter-spacing: .005em; }
+h1, h2, h3, h4 { font-family: var(--display); font-weight: 600; letter-spacing: .005em; text-wrap: balance; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.22rem; }
+h3 { font-size: 1.05rem; }
+
+.topbar { background: color-mix(in srgb, var(--bg) 92%, transparent); border-bottom-color: var(--border); }
+.brand { font-family: var(--display); font-size: 1.2rem; letter-spacing: .01em; }
+.brand-mark { background: var(--accent); border-radius: 7px; font-family: var(--display); font-weight: 700; }
+.tab { font-family: var(--display); font-size: .98rem; font-weight: 600; letter-spacing: .01em; }
+.tab[aria-selected="true"] { border-bottom-width: 3px; }
+
+.card { box-shadow: var(--shadow); }
+.card-head { padding: 13px 18px; }
+.card-body { padding: 16px 18px; }
+.stat-tile { box-shadow: none; padding: 14px 16px; }
+.stat-tile .k, .section-title, table.data th, .rec-label, .stakes .lbl, .ft-moments .lbl, .tour-tag {
+  font-family: var(--display); font-weight: 600; letter-spacing: .08em;
+}
+.stat-tile .v, .live-score, .rec-val, .h2h-n, .fixture .score, .score, .lc-time {
+  font-family: var(--display); font-weight: 700; letter-spacing: .01em;
+}
+.stat-tile .v { font-size: 1.7rem; }
+.live-score { font-size: 2.6rem; }
+.fixture .score { font-size: 1.02rem; }
+
+.btn { border-radius: var(--radius-sm); font-weight: 600; }
+.btn-primary { box-shadow: none; }
+.badge { border-radius: 6px; font-weight: 600; letter-spacing: .02em; }
+.seg { border-radius: 10px; }
+.seg button { border-radius: 7px; font-weight: 600; }
+.preset { border-radius: 10px; }
+.modal { border-radius: var(--radius); }
+.hero { background: var(--surface); }
+.hero h1 { font-size: 2.3rem; letter-spacing: 0; }
+
+/* the live page: key players either side, with today's tally */
+.live-players {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px;
+}
+.lp-side { min-width: 0; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 8px 10px; }
+.lp-head { display: flex; align-items: center; gap: 7px; font-family: var(--display); font-weight: 600;
+  font-size: .82rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.lp-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: baseline;
+  padding: 5px 0; border-top: 1px solid var(--border-soft); font-size: .84rem; }
+.lp-row:first-of-type { border-top: 0; }
+.lp-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.lp-name small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.lp-season { color: var(--muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.lp-today { min-width: 28px; text-align: right; font-family: var(--display); font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--muted); }
+.lp-today.hot { color: var(--accent); }
+.lp-potm { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+  border-radius: var(--radius-sm); background: var(--accent-soft); font-size: .88rem; }
+.lp-potm b { font-family: var(--display); font-size: 1rem; }
+@media (max-width: 480px) { .live-players { grid-template-columns: 1fr; } }
+/* phones keep the stat tiles two across; only the narrowest screens stack them */
+@media (max-width: 400px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 340px) { .grid-4 { grid-template-columns: 1fr; } }
 
 </style>
 
@@ -9992,6 +10113,66 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     finally { m.played = true; S.clearRivalCache(); }
   }
 
+  // Who matters on each side, as it stood before kick-off: the season's top
+  // scorers, less whatever this match has already added to their tallies.
+  function keyPlayers(comp, m) {
+    var map = E.teamsById(comp), mine = {};
+    (m.events || []).forEach(function (ev) { if (ev.s) mine[ev.s] = (mine[ev.s] || 0) + (ev.v || 1); });
+    return [map[m.h], map[m.a]].map(function (t) {
+      return { team: t, list: t.players.map(function (p) {
+        return { p: p, pre: Math.max(0, p.g - (mine[p.id] || 0)) };
+      }).sort(function (x, y) { return y.pre - x.pre || y.p.skill - x.p.skill; }).slice(0, 3) };
+    });
+  }
+
+  // A player's season tally before this match.
+  function preMatch(p) {
+    var mine = 0;
+    live.evs.forEach(function (ev) { if (ev.s === p.id) mine += ev.v || 1; });
+    return Math.max(0, p.g - mine);
+  }
+
+  // Key players either side, then anyone else who has scored so far today.
+  function livePlayersHtml() {
+    if (!live) return '';
+    var word = (live.sp.scoreWord || 'Goals').toLowerCase();
+    var html = live.keys.map(function (side, si) {
+      var shown = {};
+      var rows = side.list.map(function (x) { shown[x.p.id] = true; return x; });
+      side.team.players.forEach(function (p) {
+        if (!shown[p.id] && live.today[p.id]) rows.push({ p: p, pre: preMatch(p) });
+      });
+      return '<div class="lp-side"><div class="lp-head">' + kit(side.team) + esc(side.team.abbr) +
+        '<span style="margin-left:auto">Today</span></div>' +
+        rows.map(function (x) {
+          var t = live.today[x.p.id] || 0, a = live.ast[x.p.id] || 0;
+          return '<div class="lp-row"><span class="lp-name">' + esc(x.p.name) + '<small>' + esc(x.p.pos) + '</small></span>' +
+            '<span class="lp-season">' + x.pre + ' this season</span>' +
+            '<span class="lp-today' + (t ? ' hot' : '') + '" title="' + a + (a === 1 ? ' assist' : ' assists') + ' today">' +
+              (t ? '+' + t : '\u2013') + '</span></div>';
+        }).join('') + '</div>';
+    }).join('');
+    if (live.done) {
+      // most scored, then assists, then a share of the win, then the better player
+      var best = null, m = live.m;
+      var winSide = m.hg > m.ag ? 'h' : m.ag > m.hg ? 'a' : null;
+      var sideOf = {};
+      live.evs.forEach(function (ev) { if (ev.s) sideOf[ev.s] = ev.side; if (ev.a) sideOf[ev.a] = ev.side; });
+      Object.keys(live.today).forEach(function (id) {
+        var pl = live.players[id];
+        var v = live.today[id] * 10 + (live.ast[id] || 0) * 4 + (sideOf[id] === winSide ? 3 : 0) + (pl ? pl.skill / 100 : 0);
+        if (!best || v > best.v) best = { id: id, v: v };
+      });
+      var p = best && live.players[best.id];
+      if (p) {
+        html += '<div class="lp-potm"><span aria-hidden="true">\u2B50</span><span>Player of the match: <b>' + esc(p.name) +
+          '</b> <span class="muted small">' + live.today[best.id] + ' ' + (live.today[best.id] === 1 ? (live.sp.scoreWordOne || 'goal') : word) +
+          (live.ast[best.id] ? ', ' + live.ast[best.id] + (live.ast[best.id] === 1 ? ' assist' : ' assists') : '') + '</span></span></div>';
+      }
+    }
+    return html;
+  }
+
   function watchMatch(comp, id) {
     var m = matchById(comp, id);
     if (!m) return;
@@ -10019,6 +10200,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       i: 0, t: 0, hg: 0, ag: 0, speed: 1, paused: false, done: false,
       pending: pending, timer: null,
       stakes: stakes, seq: seq, shown: {}, rivalry: rivalry,
+      keys: keyPlayers(comp, m), today: {}, ast: {},
       incs: (m.inc || []).slice(), ii: 0,
       // moments tied to a scoring play flash up as that play goes in
       flashes: MS ? MS.forMatch(comp, m.id).filter(function (e) { return e.min != null && e.s; }) : []
@@ -10031,7 +10213,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var comp = live.comp, m = live.m, map = E.teamsById(comp);
     var h = map[m.h], a = map[m.a];
     var body =
-      live.rivalry + stakesBlock(live.stakes) +
+      live.rivalry +
       '<div class="live-head">' +
         '<div class="lt"><div class="kit-big">' + kit(h, true) + '</div>' +
           '<div class="strong">' + esc(h.name) + '</div></div>' +
@@ -10044,6 +10226,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
         '<span class="lc-period" id="livePeriod"></span></div>' +
       '<div id="liveFlash" aria-live="polite"></div>' +
       '<div class="live-bar"><i id="liveBar" style="width:0%"></i></div>' +
+      '<div class="live-players" id="livePlayers">' + livePlayersHtml() + '</div>' +
       '<div id="liveMoments"></div>' +
       '<div class="live-feed" id="liveFeed"><p class="small muted center" id="liveEmpty">' +
         'Kick-off. Nothing on the board yet.</p></div>' +
@@ -10074,7 +10257,13 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     while (live.i < live.evs.length && live.evs[live.i].min <= live.t) {
       var ev = live.evs[live.i++];
       if (ev.side === 'h') live.hg += ev.v; else live.ag += ev.v;
+      if (ev.s) live.today[ev.s] = (live.today[ev.s] || 0) + (ev.v || 1);
+      if (ev.a) live.ast[ev.a] = (live.ast[ev.a] || 0) + 1;
       out.push(ev);
+    }
+    if (out.length) {
+      var lp = $('#livePlayers');
+      if (lp) lp.innerHTML = livePlayersHtml();
     }
     return out;
   }
@@ -10149,6 +10338,8 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     live.t = live.end;
     live.done = true;
     drawLiveFrame();
+    var lpEl = $('#livePlayers');
+    if (lpEl) lpEl.innerHTML = livePlayersHtml();
 
     var m = live.m, comp = live.comp;
     var map = E.teamsById(comp), h = map[m.h], a = map[m.a];
