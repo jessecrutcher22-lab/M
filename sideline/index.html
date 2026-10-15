@@ -9982,6 +9982,16 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     return found;
   }
 
+  // The rivalry callout without this match in it. A match being watched back
+  // is set aside for a moment so its own result does not count.
+  function rivalBefore(comp, m) {
+    if (!m.played) return rivalCallout(comp, m);
+    m.played = false;
+    S.clearRivalCache();
+    try { return rivalCallout(comp, m); }
+    finally { m.played = true; S.clearRivalCache(); }
+  }
+
   function watchMatch(comp, id) {
     var m = matchById(comp, id);
     if (!m) return;
@@ -9989,6 +9999,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var pending = !m.played;
     // the build-up is read before a ball is kicked, or there would be nothing left to say
     var stakes = pending && MS ? MS.stakes(comp, m) : [];
+    // the rivalry record as it stood before kick-off, frozen for the whole match,
+    // so the result is not given away before it happens
+    var rivalry = rivalBefore(comp, m);
     var seq = MS ? MS.mark(comp) : 0;
     if (pending) {
       lockTips(comp);
@@ -10005,7 +10018,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
       evs: (m.events || []).slice().sort(function (x, y) { return x.min - y.min; }),
       i: 0, t: 0, hg: 0, ag: 0, speed: 1, paused: false, done: false,
       pending: pending, timer: null,
-      stakes: stakes, seq: seq, shown: {},
+      stakes: stakes, seq: seq, shown: {}, rivalry: rivalry,
       incs: (m.inc || []).slice(), ii: 0,
       // moments tied to a scoring play flash up as that play goes in
       flashes: MS ? MS.forMatch(comp, m.id).filter(function (e) { return e.min != null && e.s; }) : []
@@ -10018,7 +10031,7 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     var comp = live.comp, m = live.m, map = E.teamsById(comp);
     var h = map[m.h], a = map[m.a];
     var body =
-      rivalCallout(comp, m) + stakesBlock(live.stakes) +
+      live.rivalry + stakesBlock(live.stakes) +
       '<div class="live-head">' +
         '<div class="lt"><div class="kit-big">' + kit(h, true) + '</div>' +
           '<div class="strong">' + esc(h.name) + '</div></div>' +
