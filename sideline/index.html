@@ -901,6 +901,16 @@ tr.z-rel td.pos { box-shadow: inset 3px 0 0 var(--z-rel); }
 .tour-nudge { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 @media (prefers-reduced-motion: reduce) { .tour-hole { transition: none; } }
 .live-inc .le-name { font-weight: 600; color: var(--text-2); }
+.h2h-sum { display: flex; justify-content: space-around; text-align: center; }
+.h2h-n { font-size: 1.5rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.h2h-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface-3); margin-top: 8px; }
+.h2h-bar i { display: block; height: 100%; }
+.h2h-bar i.h2h-draw { background: var(--muted); opacity: .5; }
+.h2h-row { display: grid; grid-template-columns: 74px 1fr auto 1fr; gap: 10px; align-items: center; padding: 7px 0;
+  border-bottom: 1px solid var(--border-soft); font-size: .88rem; }
+.h2h-row:last-child { border-bottom: 0; }
+.h2h-row > span:nth-child(2) { text-align: right; }
+.h2h-score { font-family: var(--mono); font-weight: 700; }
 .cont-league { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border-soft); }
 .cont-league select { width: auto; min-width: 92px; }
 button.badge { border: 0; cursor: pointer; font-family: inherit; }
@@ -10192,6 +10202,49 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
     finishLive();
   }
 
+  // The record between two sides: results split, scoring, and the last few meetings.
+  function h2hBlock(comp, m) {
+    var map = E.teamsById(comp), h = map[m.h], a = map[m.a];
+    var hi = comp.teams.indexOf(h), ai = comp.teams.indexOf(a);
+    if (hi < 0 || ai < 0) return '';
+    var r = S.headToHead(comp, hi, ai);
+    var meetings = r.meetings;
+    if (!meetings.length) {
+      return '<div class="section-title" style="margin-top:16px">Head to head</div>' +
+        '<p class="small muted" style="margin:0">First ever meeting between these two.</p>';
+    }
+    var hw = 0, d = 0, aw = 0, hf = 0, af = 0;
+    meetings.forEach(function (x) {
+      var hs = x.h === hi ? x.hg : x.ag, as = x.h === hi ? x.ag : x.hg;
+      hf += hs; af += as;
+      if (hs > as) hw++; else if (hs < as) aw++; else d++;
+    });
+    var n = meetings.length;
+    var bar = '<div class="h2h-bar"><i style="width:' + pct(hw, n) + '%;background:' + esc(h.c1) + '"></i>' +
+      '<i style="width:' + pct(d, n) + '%" class="h2h-draw"></i>' +
+      '<i style="width:' + pct(aw, n) + '%;background:' + esc(a.c1) + '"></i></div>';
+    var sp = sportOf(comp);
+    var last = meetings.slice(0, 5).map(function (x) {
+      var home = comp.teams[x.h], away = comp.teams[x.a];
+      var hwin = x.hg > x.ag, awin = x.ag > x.hg;
+      return '<div class="h2h-row"><span class="tiny muted">S' + x.season +
+        (x.st === 2 || x.st === 3 ? ' \u00b7 KO' : '') + '</span>' +
+        '<span class="' + (hwin ? 'strong' : '') + '">' + esc(home ? home.abbr : '?') + '</span>' +
+        '<span class="h2h-score">' + x.hg + '\u2013' + x.ag + '</span>' +
+        '<span class="' + (awin ? 'strong' : '') + '">' + esc(away ? away.abbr : '?') + '</span></div>';
+    }).join('');
+    return '<div class="section-title" style="margin-top:16px">Head to head</div>' +
+      '<div class="h2h-sum">' +
+        '<div><div class="h2h-n">' + hw + '</div><div class="tiny muted">' + esc(h.abbr) + ' wins</div></div>' +
+        (sp.draws ? '<div><div class="h2h-n">' + d + '</div><div class="tiny muted">draws</div></div>' : '') +
+        '<div><div class="h2h-n">' + aw + '</div><div class="tiny muted">' + esc(a.abbr) + ' wins</div></div>' +
+      '</div>' + bar +
+      '<div class="small muted center" style="margin:8px 0 12px">' + n + (n === 1 ? ' meeting' : ' meetings') +
+        ' \u00b7 ' + esc(sp.scoreWord.toLowerCase()) + ' ' + hf + '\u2013' + af +
+        ' \u00b7 average ' + (hf / n).toFixed(1) + '\u2013' + (af / n).toFixed(1) + '</div>' +
+      '<div class="section-title">Last meetings</div>' + last;
+  }
+
   function showMatch(comp, id) {
     var s = comp.season, map = E.teamsById(comp);
     var m = null;
@@ -10249,17 +10302,9 @@ table[data-table="rankspan"] .down { color: var(--red); font-weight: 700; }
           '<button class="btn" data-act="sim-this" data-id="' + esc(m.id) + '">Skip to the result</button>') +
       '</div>';
 
-    var story = '';
-    if (MS && !m.played) story = stakesBlock(MS.stakes(comp, m));
-    else if (MS) {
-      var moments = MS.forMatch(comp, m.id);
-      if (moments.length) {
-        story = '<div class="section-title" style="margin-top:16px">Moments</div>' +
-          MS.byWeight(moments).map(function (e) { return storyRow(comp, e); }).join('');
-      }
-    }
-    modal(h.abbr + ' v ' + a.abbr, head + rivalCallout(comp, m) + (m.played ? '' : story) +
-      missingBlock(comp, m) + meta + events + incidentBlock(comp, m) + (m.played ? story : '') + foot);
+    // kept deliberately plain: who, when, the rivalry and the record between them
+    modal(h.abbr + ' v ' + a.abbr, head + meta + rivalCallout(comp, m) + h2hBlock(comp, m) +
+      (m.played ? events : '') + foot);
   }
 
   /* ------------------------------------------------------------ stats view */
