@@ -12022,6 +12022,7 @@ h3 { font-size: 1.05rem; }
        ['players', 'Players'], ['scorers', 'Scorers'], ['h2h', 'H2H'], ['rivals', 'Rivalries'],
        ['records', 'Records'], ['story', 'Story']];
     if (comp.format === 'worldcup') histTabs.splice(3, 0, ['qualifying', 'Qualifying']);
+    if (comp.format === 'league' && !comp.origin) histTabs.splice(3, 0, ['clubs', 'Clubs']);
     // the Qualifying tab only exists for a World Cup, so fall back if it is not here
     var histTab = histTabs.some(function (t) { return t[0] === ui.histTab; }) ? ui.histTab : 'honours';
     var tabs = '<div class="seg seg-scroll">' +
@@ -12036,6 +12037,7 @@ h3 { font-size: 1.05rem; }
     else if (histTab === 'alltime') body = histAllTime(comp);
     else if (histTab === 'qualifying') body = histQualifying(comp);
     else if (histTab === 'players') body = histPlayers(comp);
+    else if (histTab === 'clubs') body = histClubs(comp);
     else if (histTab === 'scorers') body = histScorers(comp);
     else if (histTab === 'h2h') body = histH2H(comp);
     else if (histTab === 'rivals') body = rivalriesCard(comp);
@@ -12270,6 +12272,180 @@ h3 { font-size: 1.05rem; }
           '<td class="col-hide-sm">' + (r.worst || '–') + '</td>' +
           '<td class="muted col-hide-sm">' + (r.avgPos == null ? '–' : r.avgPos) + '</td></tr>';
       }).join('') + '</tbody></table></div></div>';
+  }
+
+  // Every finished season boiled down: the ladder, who won it, who lost the
+  // grand final and by what. The current season joins once it is complete.
+  function ladderSeasons(comp) {
+    var out = [];
+    comp.history.forEach(function (rec) {
+      if (rec.format !== 'league') return;
+      var gf = null;
+      if (rec.finalsSystem && rec.champion != null && rec.runnerUp != null) {
+        rec.results.forEach(function (r) {
+          if (r[5] !== 3) return;
+          if ((r[0] === rec.champion && r[1] === rec.runnerUp) || (r[1] === rec.champion && r[0] === rec.runnerUp)) {
+            gf = r[0] === rec.champion ? [r[2], r[3]] : [r[3], r[2]];
+          }
+        });
+      }
+      out.push({ n: rec.n, names: rec.names, table: rec.table, champion: rec.champion, runnerUp: rec.runnerUp,
+        finals: !!rec.finalsSystem, gf: gf });
+    });
+    var s = comp.season;
+    if (s.complete && !out.some(function (x) { return x.n === s.number; })) {
+      var idx = {};
+      comp.teams.forEach(function (t, i) { idx[t.id] = i; });
+      var table = E.computeTable(comp.teams, s.matches, comp.settings, function (m) { return m.stage === 'league'; })
+        .map(function (r) { return { t: idx[r.id], pos: r.pos, p: r.p, w: r.w, d: r.d, l: r.l, gf: r.gf, ga: r.ga, pts: r.pts }; });
+      var ch = s.champion != null ? idx[s.champion] : null, ru = s.runnerUp != null ? idx[s.runnerUp] : null;
+      var gf2 = null;
+      if (s.finals && ch != null && ru != null) {
+        s.matches.forEach(function (m) {
+          if (m.stage !== 'finals' || !m.played) return;
+          if ((idx[m.h] === ch && idx[m.a] === ru) || (idx[m.a] === ch && idx[m.h] === ru)) {
+            gf2 = idx[m.h] === ch ? [m.hg, m.ag] : [m.ag, m.hg];
+          }
+        });
+      }
+      out.push({ n: s.number, table: table, champion: ch, runnerUp: ru, finals: !!s.finals, gf: gf2 });
+    }
+    return out;
+  }
+
+  function histClubs(comp) {
+    var seasons = ladderSeasons(comp);
+    if (!seasons.length) {
+      return '<div class="card"><div class="card-body"><p class="muted small" style="margin:0">Finish a season to start the club records.</p></div></div>';
+    }
+    var fs = comp.settings.finals || {};
+    var anyFinals = seasons.some(function (x) { return x.finals; });
+    var size = fs.size || 8, half = Math.floor(size / 2);
+    var rd = recordsData(comp);
+
+    var rows = comp.teams.map(function (t, i) {
+      return { t: t, i: i, seasons: 0, prem: 0, gfs: 0, gfLost: 0, minor: 0, top4: 0, lower: 0, finals: 0,
+               spoons: 0, best: null, worst: null, win: 0, lose: 0, ru: 0 };
+    });
+    seasons.forEach(function (x) {
+      var last = 0;
+      x.table.forEach(function (r) { if (r.p && r.pos > last) last = r.pos; });
+      x.table.forEach(function (r) {
+        var row = rows[r.t];
+        if (!row || !r.p) return;
+        row.seasons++;
+        if (r.pos === 1) row.minor++;
+        if (r.pos <= 4) row.top4++;
+        if (x.finals && r.pos <= size) row.finals++;
+        if (x.finals && r.pos > half && r.pos <= size) row.lower++;
+        if (r.pos === last) row.spoons++;
+        if (row.best == null || r.pos < row.best) row.best = r.pos;
+        if (row.worst == null || r.pos > row.worst) row.worst = r.pos;
+      });
+      if (x.champion != null && rows[x.champion]) rows[x.champion].prem++;
+      if (x.runnerUp != null && rows[x.runnerUp]) rows[x.runnerUp].ru++;
+      if (x.finals) {
+        if (x.champion != null && rows[x.champion]) rows[x.champion].gfs++;
+        if (x.runnerUp != null && rows[x.runnerUp]) { rows[x.runnerUp].gfs++; rows[x.runnerUp].gfLost++; }
+      }
+    });
+    rd.runs.win.forEach(function (r) { var row = r.team.t && rows[comp.teams.indexOf(r.team.t)]; if (row && r.len > row.win) row.win = r.len; });
+    rd.runs.lose.forEach(function (r) { var row = r.team.t && rows[comp.teams.indexOf(r.team.t)]; if (row && r.len > row.lose) row.lose = r.len; });
+
+    function leader(key, low) {
+      var list = rows.filter(function (r) { return r[key] > 0; })
+        .sort(function (x, y) { return low ? x[key] - y[key] : y[key] - x[key]; });
+      return list;
+    }
+    function lead(label, key, unit, sub) {
+      var list = leader(key);
+      if (!list.length) return tile(label, '\u2013', 'None yet');
+      var top = list[0], tied = list.filter(function (r) { return r[key] === top[key]; });
+      return tile(label, top[key] + (unit ? ' <span class="small muted">' + unit + '</span>' : ''),
+        kit(top.t) + ' ' + esc(top.t.name) + (tied.length > 1 ? ' +' + (tied.length - 1) + ' more' : '') + (sub ? sub(top) : ''));
+    }
+    var bestWin = rd.runs.win[0], bestLose = rd.runs.lose[0];
+    function runTile(label, r) {
+      if (!r) return tile(label, '\u2013', 'None yet');
+      return tile(label, r.len + ' <span class="small muted">games</span>',
+        (r.team.t ? kit(r.team.t) + ' ' : '') + esc(r.team.name) + '<br><span class="tiny">' + esc(r.from) + ' to ' + esc(r.to) +
+        (r.live ? ' \u00b7 still going' : '') + '</span>');
+    }
+    var tiles = '<div class="grid pl-tiles" style="margin-bottom:4px">' +
+      lead(anyFinals ? 'Most premierships' : 'Most titles', 'prem') +
+      (anyFinals ? lead('Most grand finals', 'gfs') : lead('Most top-four finishes', 'top4')) +
+      (anyFinals ? lead('Most minor premierships', 'minor') : lead('Most runner-up finishes', 'ru')) +
+      lead('Most wooden spoons', 'spoons') +
+      runTile('Longest winning streak', bestWin) +
+      runTile('Longest losing streak', bestLose) +
+      '</div>';
+
+    var lowLabel = (half + 1) + '\u2013' + size;
+    var head = '<th class="l">Club</th><th class="col-hide-sm">Seasons</th>' +
+      '<th title="' + (anyFinals ? 'Premierships' : 'Titles') + '">' + (anyFinals ? 'Prem' : 'Titles') + '</th>' +
+      (anyFinals ? '<th title="Grand final appearances">GF</th><th class="col-hide-sm" title="Grand finals lost">GF lost</th>' : '') +
+      (anyFinals ? '<th class="col-hide-sm" title="Minor premierships, first on the ladder">Minor</th>'
+        : '<th class="col-hide-sm" title="Runner-up finishes">2nd</th>') +
+      '<th class="col-hide-sm" title="Finished in the top four">Top 4</th>' +
+      (anyFinals ? '<th class="col-hide-sm" title="Made the finals in the bottom half of the top ' + size + '">' + lowLabel + '</th>' +
+        '<th class="col-hide-sm" title="Finals appearances">Finals</th>' : '') +
+      '<th title="Wooden spoons, last on the ladder">Spoons</th>' +
+      '<th class="col-hide-sm">Best</th><th class="col-hide-sm">Worst</th>' +
+      '<th class="col-hide-sm" title="Longest winning streak, in games">Win run</th>' +
+      '<th class="col-hide-sm" title="Longest losing streak, in games">Lose run</th>';
+    rows.sort(function (x, y) { return y.prem - x.prem || y.gfs - x.gfs || y.minor - x.minor || y.finals - x.finals ||
+      (x.best || 99) - (y.best || 99); });
+    function ord(n) { return n == null ? '\u2013' : n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'); }
+    var table = '<div class="table-wrap"><table class="data"><thead><tr>' + head + '</tr></thead><tbody>' +
+      rows.filter(function (r) { return r.seasons; }).map(function (r) {
+        return '<tr class="clickable" data-act="team" data-id="' + esc(r.t.id) + '">' +
+          '<td class="l">' + teamCell(r.t) + '</td><td class="muted col-hide-sm">' + r.seasons + '</td>' +
+          '<td class="strong">' + r.prem + '</td>' +
+          (anyFinals ? '<td>' + r.gfs + '</td><td class="col-hide-sm">' + r.gfLost + '</td>' : '') +
+          '<td class="col-hide-sm">' + (anyFinals ? r.minor : r.ru) + '</td><td class="col-hide-sm">' + r.top4 + '</td>' +
+          (anyFinals ? '<td class="col-hide-sm">' + r.lower + '</td><td class="col-hide-sm">' + r.finals + '</td>' : '') +
+          '<td>' + r.spoons + '</td>' +
+          '<td class="col-hide-sm">' + ord(r.best) + '</td><td class="col-hide-sm">' + ord(r.worst) + '</td>' +
+          '<td class="col-hide-sm">' + (r.win || '\u2013') + '</td><td class="col-hide-sm">' + (r.lose || '\u2013') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+
+    function nameOf(i, names) {
+      var t = comp.teams[i];
+      return t ? kit(t) + ' ' + esc(t.name) : esc((names || [])[i] || '?');
+    }
+    var gfRoll = anyFinals ? '<div class="card"><div class="card-head"><h3>Grand finals</h3>' +
+      '<span class="badge">' + seasons.filter(function (x) { return x.finals; }).length + ' played</span></div>' +
+      '<div class="table-wrap"><table class="data"><thead><tr><th class="l">Season</th><th class="l">Premiers</th>' +
+      '<th>Score</th><th class="l">Runners-up</th></tr></thead><tbody>' +
+      seasons.filter(function (x) { return x.finals && x.champion != null; }).reverse().map(function (x) {
+        var ladder = {};
+        x.table.forEach(function (r) { ladder[r.t] = r.pos; });
+        return '<tr><td class="l muted">' + x.n + '</td>' +
+          '<td class="l strong">' + nameOf(x.champion, x.names) + ' <span class="tiny muted">' + ord(ladder[x.champion]) + '</span></td>' +
+          '<td class="nowrap">' + (x.gf ? x.gf[0] + '\u2013' + x.gf[1] : '') + '</td>' +
+          '<td class="l">' + (x.runnerUp != null ? nameOf(x.runnerUp, x.names) + ' <span class="tiny muted">' + ord(ladder[x.runnerUp]) + '</span>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<p class="tiny muted" style="margin:10px 16px 14px">Small print is where each side finished on the ladder.</p></div>' : '';
+
+    var spoonRoll = '<div class="card"><div class="card-head"><h3>\u{1F944} Wooden spoons</h3>' +
+      '<span class="badge">Bottom of the ladder</span></div>' +
+      '<div class="table-wrap"><table class="data"><thead><tr><th class="l">Season</th><th class="l">Club</th>' +
+      '<th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead><tbody>' +
+      seasons.slice().reverse().map(function (x) {
+        var lastRow = null;
+        x.table.forEach(function (r) { if (r.p && (!lastRow || r.pos > lastRow.pos)) lastRow = r; });
+        if (!lastRow) return '';
+        return '<tr><td class="l muted">' + x.n + '</td><td class="l strong">' + nameOf(lastRow.t, x.names) + '</td>' +
+          '<td>' + lastRow.w + '</td><td>' + lastRow.d + '</td><td>' + lastRow.l + '</td><td class="strong">' + lastRow.pts + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+
+    return '<div class="card"><div class="card-head"><h3>Club records</h3>' +
+        '<span class="badge">' + seasons.length + (seasons.length === 1 ? ' season' : ' seasons') + '</span></div>' +
+        '<div class="card-body">' + tiles + '</div>' + table +
+        '<p class="tiny muted" style="margin:10px 16px 14px">' +
+        (anyFinals ? 'GF counts grand final appearances. ' + lowLabel + ' counts seasons a club made the finals from the bottom half of the top ' + size + '. ' : '') +
+        'Streaks run across seasons, the current one included. Tap a club for more.</p></div>' +
+      '<div class="grid grid-2">' + gfRoll + spoonRoll + '</div>';
   }
 
   // Career numbers for everyone who has played: the current squads (and, for
