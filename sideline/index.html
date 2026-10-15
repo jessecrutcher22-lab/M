@@ -4880,6 +4880,12 @@ h3 { font-size: 1.05rem; }
     save();
   }
 
+  function removeAll() {
+    state.competitions = [];
+    state.activeId = null;
+    save();
+  }
+
   function setActive(id) { state.activeId = id; save(); }
 
   function exportJSON(comp) {
@@ -4923,6 +4929,7 @@ h3 { font-size: 1.05rem; }
     active: active,
     add: add,
     remove: remove,
+    removeAll: removeAll,
     setActive: setActive,
     exportJSON: exportJSON,
     importJSON: importJSON,
@@ -8279,8 +8286,10 @@ h3 { font-size: 1.05rem; }
         '<span class="badge">' + comps.length + ' saved</span></div>' +
         '<div class="card-body"><div class="preset-grid">' +
         comps.map(compCard).join('') + '</div>' +
-        '<p class="tiny muted" style="margin:12px 0 0">Switch between them any time with the ' +
-        'picker at the top of the page.</p></div></div>' : '';
+        '<div class="btn-row" style="margin-top:12px;align-items:center;justify-content:space-between">' +
+        '<p class="tiny muted" style="margin:0">Switch between them any time with the ' +
+        'picker at the top of the page.</p>' +
+        '<button class="btn btn-danger btn-sm" data-act="delete-all">Delete all</button></div></div></div>' : '';
 
     // "Where" is the point of this card, so every row says it plainly and,
     // when a competition is already open, offers the jump.
@@ -12881,6 +12890,8 @@ h3 { font-size: 1.05rem; }
         '<div class="btn-row">' +
           '<button class="btn btn-danger" data-act="restart">Restart season ' + comp.season.number + '</button>' +
           '<button class="btn btn-danger" data-act="delete">Delete this competition</button>' +
+          (S.state.competitions.length > 1 ?
+            '<button class="btn btn-danger" data-act="delete-all">Delete all ' + S.state.competitions.length + ' competitions</button>' : '') +
         '</div>' +
         '<p class="tiny muted" style="margin:12px 0 0">Restarting regenerates the fixture list and wipes this ' +
         'season\'s results. Archived seasons in History are not touched.</p>' +
@@ -13947,6 +13958,23 @@ h3 { font-size: 1.05rem; }
       }
 
       case 'import': doImport(); return;
+
+      case 'delete-all': {
+        var nAll = S.state.competitions.length;
+        if (!nAll) return;
+        confirmAction(nAll === 1 ? 'Delete your competition?' : 'Delete all ' + nAll + ' competitions?',
+          'Every competition you have made, with all its seasons, results and records, is removed ' +
+          'from this browser. Export any you want to keep first. This can\u2019t be undone.',
+          function () {
+            S.removeAll();
+            closeModal();
+            app.view = 'home';
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            toast(nAll === 1 ? 'Competition deleted' : 'All ' + nAll + ' competitions deleted');
+          }, true);
+        return;
+      }
 
       case 'close-modal': closeModal(); return;
 
