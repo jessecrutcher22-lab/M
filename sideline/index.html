@@ -7895,17 +7895,26 @@ h3 { font-size: 1.05rem; }
   var FOCUS = { att: 'Attack', def: 'Defence', rec: 'Recovery' };
   var ROUNDS_PER_POINT = 5;
 
-  var state = null;
+  var state = null, saveError = null;
 
   function load() {
     try { state = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { state = null; }
     return state;
   }
+  // Play carries on if the browser refuses the save, but the page says so:
+  // otherwise a reload would quietly drop you back to the last round saved.
   function save() {
     try {
       if (state) localStorage.setItem(KEY, JSON.stringify(state));
       else localStorage.removeItem(KEY);
-    } catch (e) { /* storage full or blocked: play on, unsaved */ }
+      saveError = null;
+      return true;
+    } catch (e) {
+      saveError = e && (e.name === 'QuotaExceededError' || e.code === 22)
+        ? 'This browser\u2019s storage is full, so your career isn\u2019t being saved. Delete a few old competitions from the Home page to make room.'
+        : 'Your career couldn\u2019t be saved in this browser.';
+      return false;
+    }
   }
   function get() { return state; }
 
@@ -8103,10 +8112,13 @@ h3 { font-size: 1.05rem; }
   function lighten(c) {
     var div = myDiv(c);
     c.divs.forEach(function (d) {
-      if (d === div) return;
-      d.season.matches.forEach(function (m) { if (m.played && m.events && m.events.length) { m.events = []; m.inc = []; } });
-      // stories and the records book are only read for your own division
-      delete d.story; delete d.records;
+      d.season.matches.forEach(function (m) {
+        if (!m.played || (d === div && (m.h === c.club || m.a === c.club))) return;
+        if (m.events && m.events.length) { m.events = []; m.inc = []; }
+        m.absent = null;
+      });
+      // the story feed and records book are never shown in a career
+      delete d.story; delete d.records; delete d.storySeq;
     });
   }
 
@@ -8335,7 +8347,7 @@ h3 { font-size: 1.05rem; }
 
   LS.career = {
     PATHS: PATHS, MONEY: MONEY, GROUND: GROUND, FOCUS: FOCUS,
-    load: load, save: save, get: get, start: start, starters: starters,
+    load: load, save: save, get: get, saveErr: function () { return saveError; }, start: start, starters: starters,
     myTeam: myTeam, myDiv: myDiv, tierOf: tierOf, findTeam: findTeam, ladder: ladder, expectedPos: expectedPos,
     playRound: playRound, simToEnd: simToEnd, seasonDone: seasonDone, rollover: rollover, review: review,
     takeOffer: takeOffer, watchable: watchable, markWatched: markWatched, shop: shop, buy: buy, setFocus: setFocus, quit: quit, nextMatch: nextMatch,
@@ -11379,7 +11391,10 @@ h3 { font-size: 1.05rem; }
     if (live.pending && live.career) {
       // the rest of the round, the gate money and the week's training follow the whistle
       live.pending = false;
-      K.playRound();
+      try { K.playRound(); } catch (e) {
+        if (window.console) console.error(e);
+        toast('Something went wrong: ' + (e && e.message ? e.message : e));
+      }
       render();
       if (K.get() && K.seasonDone(K.get())) toast('Season complete');
       return;
@@ -16081,7 +16096,10 @@ h3 { font-size: 1.05rem; }
 
   function crTopBar(c) {
     var tab = app.ui.crTab === 'stats' ? 'stats' : 'club';
-    return '<div class="btn-row" style="justify-content:space-between;align-items:center">' +
+    var err = K.saveErr();
+    return (err ? '<div class="card" style="border-color:var(--red)"><div class="card-body small" style="color:var(--red)">\u26A0\uFE0F ' +
+        esc(err) + '</div></div>' : '') +
+      '<div class="btn-row" style="justify-content:space-between;align-items:center">' +
       '<h2 style="margin:0">\u{1F9E2} Coach career</h2>' +
       (c && !c.market ? '<div class="seg"><button data-act="cr-tab" data-k="club" aria-pressed="' + (tab === 'club') + '">Club</button>' +
         '<button data-act="cr-tab" data-k="stats" aria-pressed="' + (tab === 'stats') + '">Stats</button></div>' : '') +
@@ -16194,13 +16212,19 @@ h3 { font-size: 1.05rem; }
     if (!el) return;
     var act = el.dataset.act;
     if (el.tagName === 'INPUT' || el.tagName === 'SELECT') return; // handled by input/change
-    if (act === 'confirm-yes') {
-      var fn = confirmAction._yes;
-      confirmAction._yes = null;
-      if (fn) fn();
-      return;
+    try {
+      if (act === 'confirm-yes') {
+        var fn = confirmAction._yes;
+        confirmAction._yes = null;
+        if (fn) fn();
+        return;
+      }
+      handleAction(act, el, ev);
+    } catch (e) {
+      // a broken button says so, rather than silently doing nothing
+      if (window.console) console.error(e);
+      toast('Something went wrong: ' + (e && e.message ? e.message : e));
     }
-    handleAction(act, el, ev);
   }
 
   function onInput(ev) {
