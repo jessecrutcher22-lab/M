@@ -449,6 +449,41 @@ tr.z-rel td.pos { box-shadow: inset 3px 0 0 var(--z-rel); }
 
 /* --------------------------------------------------------------- stats */
 
+.cr-promo-body { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.cr-promo-icon { font-size: 2rem; line-height: 1; }
+.cr-promo-text { flex: 1 1 260px; }
+.cr-promo-text h2 { margin: 0; }
+.cr-hero-top { display: flex; align-items: center; gap: 14px; }
+.cr-hero-top h1 { margin: 2px 0; font-size: 1.5rem; line-height: 1.15; }
+.cr-hero-kit { font-size: 2rem; }
+.cr-fixture { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin-bottom: 14px; text-align: center; }
+.cr-side { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 1.05rem; }
+.cr-vs { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.cr-attr { margin-bottom: 14px; }
+.cr-attr-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.cr-attr-top b { font-size: 1.2rem; }
+.cr-bar { height: 8px; border-radius: 99px; background: var(--border-soft); overflow: hidden; }
+.cr-bar span { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.cr-bar span.cr-bar-soft { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.cr-attr .cr-bar + .tiny + .cr-bar { height: 4px; margin-top: 4px; }
+.cr-buy { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 12px; text-align: left;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px;
+  margin-bottom: 8px; font: inherit; color: inherit; cursor: pointer; }
+.cr-buy > span:first-child { display: flex; flex-direction: column; gap: 2px; }
+.cr-buy:hover:not([disabled]) { border-color: var(--accent); }
+.cr-buy[disabled] { opacity: .5; cursor: not-allowed; }
+.cr-price { font-weight: 700; white-space: nowrap; }
+tr.cr-me td { background: var(--accent-soft); }
+.cr-news { margin: 0; padding-left: 18px; }
+.cr-news li { margin: 4px 0; font-size: .9rem; }
+.cr-offers { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.cr-offer { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; background: var(--surface); }
+.cr-offer-head { display: flex; align-items: center; gap: 10px; }
+.cr-trophies { display: flex; flex-wrap: wrap; gap: 8px; }
+.cr-trophy { display: inline-flex; flex-direction: column; gap: 2px; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px 10px; background: var(--surface); font-size: .85rem; }
+#careerBtn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+@media (max-width: 420px) { .cr-btn-label { display: none; } }
 .plink { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit;
   cursor: pointer; text-align: left; text-decoration: underline; text-decoration-style: dotted;
   text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 3px; }
@@ -1111,6 +1146,7 @@ h3 { font-size: 1.05rem; }
     <div class="topbar-spacer"></div>
     <button class="icon-btn" id="tourBtn" data-act="tour-list" title="Tutorials" aria-label="Tutorials">?</button>
     <button class="icon-btn" id="themeBtn" title="Switch theme" aria-label="Switch theme">◐</button>
+    <button class="btn btn-sm" id="careerBtn" data-act="career" title="Coach career">&#x1F9E2; <span class="cr-btn-label">Career</span></button>
     <button class="btn btn-sm" id="newCompBtn">New</button>
   </div>
 </header>
@@ -7760,6 +7796,530 @@ h3 { font-size: 1.05rem; }
 })(window.LS = window.LS || {});
 
 
+/* ===== career.js ===== */
+/* Sideline — Coach career.
+
+   A separate game from the competitions: you coach one club inside a small
+   pyramid of divisions with promotion and relegation. You start near the
+   bottom, choose what the squad trains on each week, spend the club's money
+   on signings and a better training ground, and sign contracts of a few
+   seasons. When a contract runs out (or the board loses patience) you go to
+   the open market, where your reputation decides who wants you.
+
+   Each division is an ordinary competition object run by the same engine,
+   kept in its own save so the rest of the app never sees it. */
+(function (LS) {
+  'use strict';
+
+  var E = LS.engine, S = LS.store;
+  var KEY = 'sideline.career';
+
+  function C(name, abbr, r, c1, c2) { return [name, abbr, r, c1, c2]; }
+
+  var PATHS = {
+    league: {
+      name: 'Rugby league pathway', icon: '\u{1F3C9}', sport: 'rugbyleague',
+      blurb: 'Country Cup, State Cup, then the NRL',
+      tiers: [
+        { name: 'NRL', preset: 'nrl', down: 2 },
+        { name: 'State Cup', up: 2, down: 2, finals: 4, clubs: [
+          C('Newtown Jets', 'NEJ', 66, '#1D4E89', '#FFFFFF'), C('North Sydney Bears', 'NSB', 65, '#C8102E', '#000000'),
+          C('Western Suburbs Magpies', 'WSM', 63, '#000000', '#FFFFFF'), C('Mounties', 'MNT', 64, '#00A859', '#FFFFFF'),
+          C('Blacktown Workers', 'BWK', 61, '#5B2C83', '#FFFFFF'), C('Ipswich Jets', 'IPJ', 62, '#F58220', '#5B2C83'),
+          C('Tweed Seagulls', 'TWS', 63, '#00539F', '#FFD100'), C('Wynnum Manly Seagulls', 'WMS', 64, '#8B1A1A', '#FFFFFF'),
+          C('Norths Devils', 'NDV', 65, '#C8102E', '#000000'), C('Souths Logan Magpies', 'SLM', 60, '#000000', '#FFFFFF'),
+          C('Burleigh Bears', 'BUB', 66, '#C8102E', '#000000'), C('Brisbane Tigers', 'BRT', 64, '#F58220', '#000000'),
+          C('Central Queensland Capras', 'CQC', 59, '#5B2C83', '#FFD100'), C('Mackay Cutters', 'MKC', 60, '#00843D', '#FFD100'),
+          C('Northern Pride', 'NPR', 61, '#0E7C7B', '#FFFFFF'), C('Townsville Blackhawks', 'TBH', 62, '#000000', '#E30613')
+        ] },
+        { name: 'Country Cup', up: 2, finals: 4, clubs: [
+          C('Queanbeyan Blues', 'QBL', 55, '#0033A0', '#FFFFFF'), C('Queanbeyan Kangaroos', 'QKA', 54, '#006A4E', '#FFD100'),
+          C('Tuggeranong Bushrangers', 'TUG', 53, '#C8102E', '#FFFFFF'), C('West Belconnen Warriors', 'WBW', 54, '#000000', '#E30613'),
+          C('Belconnen United Sharks', 'BUS', 52, '#00A3E0', '#000000'), C('Gungahlin Bulls', 'GUB', 53, '#8B1A1A', '#FFD100'),
+          C('Woden Valley Rams', 'WVR', 50, '#003DA5', '#FFD100'), C('Goulburn Workers Bulldogs', 'GWB', 51, '#003DA5', '#FFFFFF'),
+          C('Yass Magpies', 'YAS', 48, '#000000', '#FFFFFF'), C('Wagga Wagga Kangaroos', 'WWK', 52, '#006A4E', '#FFD100'),
+          C('Albury Thunder', 'ALT', 51, '#00205B', '#FFD100'), C('Cootamundra Bulldogs', 'COO', 47, '#003DA5', '#C8102E'),
+          C('Young Cherrypickers', 'YCP', 49, '#C8102E', '#FFFFFF'), C('Bathurst Panthers', 'BAP', 53, '#000000', '#00A859'),
+          C('Orange CYMS', 'ORC', 52, '#00205B', '#FFFFFF'), C('Dubbo CYMS', 'DUC', 50, '#00205B', '#E30613')
+        ] }
+      ]
+    },
+    football: {
+      name: 'English football pyramid', icon: '⚽', sport: 'football',
+      blurb: 'League One, the Championship, then the Premier League',
+      tiers: [
+        { name: 'Premier League', preset: 'premier', down: 3 },
+        { name: 'Championship', up: 3, down: 3, clubs: [
+          C('Birmingham City', 'BIR', 62, '#0000FF', '#FFFFFF'), C('Blackburn Rovers', 'BLB', 58, '#009EE0', '#FFFFFF'),
+          C('Bristol City', 'BRC', 59, '#E30613', '#FFFFFF'), C('Charlton Athletic', 'CHA', 55, '#E30613', '#FFFFFF'),
+          C('Coventry City', 'COV', 62, '#5BC2E7', '#FFFFFF'), C('Derby County', 'DER', 56, '#FFFFFF', '#000000'),
+          C('Hull City', 'HUL', 57, '#F5A12D', '#000000'), C('Ipswich Town', 'IPS', 63, '#0044A9', '#FFFFFF'),
+          C('Leicester City', 'LEI', 63, '#003090', '#FDBE11'), C('Middlesbrough', 'MID', 61, '#E30613', '#FFFFFF'),
+          C('Millwall', 'MIL', 58, '#001D5E', '#FFFFFF'), C('Norwich City', 'NOR', 59, '#FFF200', '#00A650'),
+          C('Oxford United', 'OXF', 53, '#FFF200', '#001D5E'), C('Portsmouth', 'POR', 55, '#001489', '#FFFFFF'),
+          C('Preston North End', 'PNE', 57, '#FFFFFF', '#001D5E'), C('Queens Park Rangers', 'QPR', 56, '#1D5BA4', '#FFFFFF'),
+          C('Sheffield United', 'SHU', 61, '#EE2737', '#FFFFFF'), C('Sheffield Wednesday', 'SHW', 52, '#4479C4', '#FFFFFF'),
+          C('Southampton', 'SOU', 63, '#D71920', '#FFFFFF'), C('Stoke City', 'STK', 57, '#E03A3E', '#FFFFFF'),
+          C('Swansea City', 'SWA', 57, '#FFFFFF', '#000000'), C('Watford', 'WAT', 58, '#FBEE23', '#ED2127'),
+          C('West Bromwich Albion', 'WBA', 60, '#122F67', '#FFFFFF'), C('Wrexham', 'WRE', 59, '#D71920', '#FFFFFF')
+        ] },
+        { name: 'League One', up: 3, clubs: [
+          C('AFC Wimbledon', 'WIM', 46, '#002F6C', '#FFD100'), C('Barnsley', 'BAR', 50, '#D71920', '#FFFFFF'),
+          C('Blackpool', 'BPL', 49, '#F68712', '#FFFFFF'), C('Bolton Wanderers', 'BOL', 52, '#FFFFFF', '#263C7E'),
+          C('Bradford City', 'BRA', 48, '#8B1A3C', '#F7B718'), C('Burton Albion', 'BUR', 44, '#FFF200', '#000000'),
+          C('Cardiff City', 'CAR', 52, '#0070B5', '#FFFFFF'), C('Doncaster Rovers', 'DON', 47, '#E30613', '#FFFFFF'),
+          C('Exeter City', 'EXE', 44, '#E30613', '#FFFFFF'), C('Huddersfield Town', 'HUD', 51, '#0E63AD', '#FFFFFF'),
+          C('Leyton Orient', 'LEY', 47, '#E30613', '#FFFFFF'), C('Lincoln City', 'LIN', 48, '#E30613', '#000000'),
+          C('Luton Town', 'LUT', 52, '#F78F1E', '#002D62'), C('Mansfield Town', 'MAN', 46, '#F5A12D', '#0057B8'),
+          C('Northampton Town', 'NTH', 43, '#7B1F2E', '#FFFFFF'), C('Peterborough United', 'PET', 47, '#0055A5', '#FFFFFF'),
+          C('Plymouth Argyle', 'PLY', 49, '#00543C', '#FFFFFF'), C('Port Vale', 'PVA', 45, '#FFFFFF', '#000000'),
+          C('Reading', 'REA', 48, '#004494', '#FFFFFF'), C('Rotherham United', 'ROT', 45, '#E30613', '#FFFFFF'),
+          C('Stevenage', 'STE', 47, '#E30613', '#FFFFFF'), C('Stockport County', 'STO', 50, '#005DAA', '#FFFFFF'),
+          C('Wigan Athletic', 'WIG', 48, '#1D59AF', '#FFFFFF'), C('Wycombe Wanderers', 'WYC', 49, '#88D1F1', '#002F6C')
+        ] }
+      ]
+    }
+  };
+
+  // what the board hands over each season, a signing's price and the prize
+  // per win, by tier (0 is the top flight)
+  var MONEY = [
+    { budget: 4, sign: 2.5, win: 0.15, draw: 0.05 },
+    { budget: 2, sign: 1.5, win: 0.1, draw: 0.04 },
+    { budget: 1, sign: 1, win: 0.06, draw: 0.02 }
+  ];
+  var GROUND = [null, { cost: 2, rate: 1.25 }, { cost: 4, rate: 1.5 }];
+  var FOCUS = { att: 'Attack', def: 'Defence', rec: 'Recovery' };
+  var ROUNDS_PER_POINT = 5;
+
+  var state = null;
+
+  function load() {
+    try { state = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { state = null; }
+    return state;
+  }
+  function save() {
+    try {
+      if (state) localStorage.setItem(KEY, JSON.stringify(state));
+      else localStorage.removeItem(KEY);
+    } catch (e) { /* storage full or blocked: play on, unsaved */ }
+  }
+  function get() { return state; }
+
+  function path(c) { return PATHS[(c || state).path]; }
+  function myTeam(c) {
+    c = c || state;
+    var out = null;
+    c.divs.forEach(function (d) { d.teams.forEach(function (t) { if (t.id === c.club) out = t; }); });
+    return out;
+  }
+  function tierOf(c, teamId) {
+    for (var i = 0; i < c.divs.length; i++) {
+      if (c.divs[i].teams.some(function (t) { return t.id === teamId; })) return i;
+    }
+    return -1;
+  }
+  function myDiv(c) { c = c || state; var i = tierOf(c, c.club); return i < 0 ? null : c.divs[i]; }
+  function findTeam(c, id) {
+    var out = null;
+    c.divs.forEach(function (d) { d.teams.forEach(function (t) { if (t.id === id) out = t; }); });
+    return out;
+  }
+
+  function ladder(div) {
+    return E.computeTable(div.teams, div.season.matches, div.settings, function (m) { return m.stage === 'league'; });
+  }
+  // where a team would be expected to finish, going on its ratings
+  function expectedPos(div, teamId) {
+    var sorted = div.teams.slice().sort(function (x, y) { return (y.att + y.def) - (x.att + x.def); });
+    for (var i = 0; i < sorted.length; i++) if (sorted[i].id === teamId) return i + 1;
+    return sorted.length;
+  }
+
+  // The board's target for a club, from where it is expected to finish.
+  function targetFor(c, tier, pos) {
+    var t = path(c).tiers[tier], n = c.divs[tier].teams.length;
+    if (pos <= 1) return { code: 'win', text: tier === 0 ? 'Win the title' : 'Win the league' };
+    if (t.up && pos <= t.up + 1) return { code: 'promo', text: 'Win promotion' };
+    if (pos <= Math.ceil(n / 2)) return { code: 'top', text: 'Finish in the top half' };
+    if (t.down) return { code: 'safe', text: 'Avoid relegation' };
+    return { code: 'last', text: 'Stay off the bottom' };
+  }
+  function targetMet(c, tier, target, pos, champion) {
+    var t = path(c).tiers[tier], n = c.divs[tier].teams.length;
+    switch (target.code) {
+      case 'win': return pos === 1 || champion;
+      case 'promo': return pos <= (t.up || 0);
+      case 'top': return pos <= Math.ceil(n / 2);
+      case 'safe': return pos <= n - (t.down || 0);
+      default: return pos < n;
+    }
+  }
+
+  function repLabel(r) {
+    return r >= 85 ? 'World class' : r >= 70 ? 'Elite' : r >= 55 ? 'Highly rated' : r >= 40 ? 'Respected'
+      : r >= 25 ? 'Up and coming' : 'Unknown';
+  }
+
+  function makeDivision(p, tier, seed, k) {
+    var t = p.tiers[tier], comp;
+    if (t.preset) {
+      comp = S.fromPreset(t.preset, { seed: (seed + k * 7919) >>> 0 });
+    } else {
+      comp = S.createCompetition({
+        name: t.name, format: 'league', sport: p.sport, seed: (seed + k * 7919) >>> 0,
+        teams: t.clubs.map(function (x) {
+          return LS.data.T(x[0], x[1], x[2] + ((k * 3 + x[0].length) % 5) - 2, x[2] + ((k * 5 + x[0].length) % 5) - 2, x[3], x[4]);
+        }),
+        settings: t.finals ? { finals: { enabled: true, system: 'knockout', size: t.finals } } : { finals: { enabled: false, system: 'knockout', size: 4 } }
+      });
+    }
+    comp.name = t.name;
+    // every team and player id unique across the whole pyramid, since clubs move between divisions
+    comp.teams.forEach(function (team) {
+      var old = team.id;
+      team.id = 'c' + tier + '-' + old;
+      team.players.forEach(function (pl) { pl.id = team.id + '-' + String(pl.id).split('-').pop(); });
+    });
+    zones(comp, t);
+    comp.season = E.newSeason(comp, 1);
+    return comp;
+  }
+  function zones(comp, t) {
+    var n = comp.teams.length, z = [];
+    var f = comp.settings.finals || {};
+    z.push({ from: 1, to: 1, label: t.preset ? (f.enabled ? 'Minor premiers' : 'Champions') : 'League leaders', cls: 'z-title' });
+    if (t.up) z.push({ from: 2, to: t.up, label: 'Promotion', cls: 'z-uel' });
+    else if (f.enabled) z.push({ from: 2, to: f.size || 8, label: 'Finals', cls: 'z-ucl' });
+    if (t.up && f.enabled && (f.size || 4) > t.up) z.push({ from: t.up + 1, to: f.size, label: 'Finals', cls: 'z-ucl' });
+    if (t.down) z.push({ from: n - t.down + 1, to: n, label: 'Relegation', cls: 'z-rel' });
+    comp.settings.zones = z;
+  }
+
+  // the clubs you can start with: the bottom division, or the one above for a harder start
+  function starters(pathKey) {
+    var p = PATHS[pathKey];
+    var preview = [];
+    for (var tier = p.tiers.length - 1; tier >= 1; tier--) {
+      var t = p.tiers[tier];
+      preview.push({ tier: tier, name: t.name, clubs: t.clubs.map(function (x) {
+        return { name: x[0], abbr: x[1], r: x[2], c1: x[3], c2: x[4] };
+      }) });
+    }
+    return preview;
+  }
+
+  function start(pathKey, coach, tier, abbr) {
+    var p = PATHS[pathKey];
+    var seed = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
+    var divs = p.tiers.map(function (t, i) { return makeDivision(p, i, seed, i); });
+    var team = divs[tier].teams.filter(function (t) { return t.abbr === abbr; })[0];
+    if (!team) return null;
+    state = {
+      v: 1, path: pathKey, coach: (coach || 'Coach').slice(0, 40), seed: seed, rngState: seed ^ 0x9e3779b9,
+      season: 1, divs: divs, club: team.id, rep: tier === p.tiers.length - 1 ? 15 : 25,
+      funds: MONEY[tier].budget, ground: 0, focus: 'att', train: { att: 0, def: 0 },
+      contract: null, log: [], trophies: [], news: [], market: null, review: null, signed: 0
+    };
+    sign(state, team.id, 2, true);
+    save();
+    return state;
+  }
+
+  function sign(c, teamId, years, first) {
+    var tier = tierOf(c, teamId), div = c.divs[tier];
+    var exp = expectedPos(div, teamId);
+    c.club = teamId;
+    c.contract = { years: years, total: years, from: c.season, target: targetFor(c, tier, exp), expect: exp };
+    c.market = null;
+    c.train = { att: 0, def: 0 };
+    if (!first) c.funds = Math.max(c.funds, MONEY[tier].budget);
+    var team = findTeam(c, teamId);
+    news(c, (first ? 'You take charge of ' : 'You sign a ' + years + '-year deal with ') + team.name +
+      (first ? ' on a ' + years + '-year deal' : '') + '. The board wants you to ' + c.contract.target.text.toLowerCase() + '.');
+  }
+
+  function news(c, text) {
+    c.news.unshift({ s: c.season, text: text });
+    if (c.news.length > 30) c.news.length = 30;
+  }
+
+  function seasonDone(c) { var d = myDiv(c); return !!(d && d.season.complete); }
+
+  // One round: every division plays it, your squad trains, the gate money comes in.
+  function playRound(c) {
+    c = c || state;
+    if (!c || c.market) return null;
+    var div = myDiv(c), team = myTeam(c);
+    if (div.season.complete) return null;
+    var tier = tierOf(c, c.club);
+    var due = E.playRound(div);
+    c.divs.forEach(function (d) { if (d !== div && !d.season.complete) E.playRound(d); });
+    lighten(c);
+    var mine = due.filter(function (m) { return m.h === team.id || m.a === team.id; })[0] || null;
+    if (mine) {
+      var home = mine.h === team.id, f = home ? mine.hg : mine.ag, a = home ? mine.ag : mine.hg;
+      c.funds += f > a ? MONEY[tier].win : f === a ? MONEY[tier].draw : 0;
+      c.funds = Math.round(c.funds * 100) / 100;
+      // training: a point in the chosen area every few weeks, quicker with a better ground
+      if (c.focus === 'rec') {
+        team.players.forEach(function (p) { if (p.inj > 0) p.inj = Math.max(0, p.inj - 1); });
+      } else {
+        var rate = (GROUND[c.ground] ? GROUND[c.ground].rate : 1) / ROUNDS_PER_POINT;
+        // past the best side in the division, gains come slower
+        var top = 0;
+        div.teams.forEach(function (t) { if (t !== team && t[c.focus] > top) top = t[c.focus]; });
+        if (team[c.focus] >= top || team[c.focus] >= 85) rate /= 2;
+        c.train[c.focus] = (c.train[c.focus] || 0) + rate;
+        while (c.train[c.focus] >= 1) {
+          c.train[c.focus] -= 1;
+          if (team[c.focus] < 99) team[c.focus]++;
+        }
+      }
+    }
+    c.last = mine ? mine.id : null;
+    if (div.season.complete) c.review = review(c);
+    save();
+    return mine;
+  }
+
+  // Other divisions only need their results, not every scoring play, which
+  // keeps the save small.
+  function lighten(c) {
+    var div = myDiv(c);
+    c.divs.forEach(function (d) {
+      if (d === div) return;
+      d.season.matches.forEach(function (m) { if (m.played && m.events && m.events.length) { m.events = []; m.inc = []; } });
+      // stories and the records book are only read for your own division
+      delete d.story; delete d.records;
+    });
+  }
+
+  function simToEnd(c) {
+    c = c || state;
+    var guard = 500;
+    while (c && !c.market && !seasonDone(c) && guard-- > 0) playRound(c);
+    return c;
+  }
+
+  // How the season went, worked out once your division is finished.
+  function review(c) {
+    var div = myDiv(c), tier = tierOf(c, c.club), t = path(c).tiers[tier];
+    var table = ladder(div), n = table.length, pos = 0;
+    table.forEach(function (r) { if (r.id === c.club) pos = r.pos; });
+    var champion = div.season.champion === c.club || (!div.settings.finals.enabled && pos === 1);
+    var promoted = !!(t.up && pos <= t.up), relegated = !!(t.down && pos > n - t.down);
+    var met = targetMet(c, tier, c.contract.target, pos, champion);
+    var diff = c.contract.expect - pos;
+    var delta = Math.max(-10, Math.min(12, Math.round(diff * 1.5))) + (met ? 5 : -3) +
+      (promoted ? 8 : 0) + (champion ? 10 : 0) + (relegated ? -8 : 0);
+    var sacked = !met && pos - c.contract.expect >= 6;
+    return { season: c.season, tier: tier, div: t.name, pos: pos, n: n, champion: champion, promoted: promoted,
+      relegated: relegated, met: met, target: c.contract.target.text, expect: c.contract.expect, delta: delta,
+      sacked: sacked, ends: c.contract.years <= 1, club: c.club };
+  }
+
+  // Close the season: every division finishes, clubs move up and down,
+  // squads move on, and either your next season starts or the market opens.
+  function rollover(c) {
+    c = c || state;
+    if (!c || !seasonDone(c)) return null;
+    var r = c.review || review(c);
+    var team = myTeam(c), p = path(c);
+    c.divs.forEach(function (d) { if (!d.season.complete) E.simulateSeason(d); });
+
+    c.rep = Math.max(0, Math.min(100, c.rep + r.delta));
+    c.log.push({ s: c.season, club: team.name, abbr: team.abbr, c1: team.c1, c2: team.c2, div: r.div, pos: r.pos, n: r.n,
+      champion: r.champion, promoted: r.promoted, relegated: r.relegated, target: r.target, met: r.met, rep: r.delta });
+    if (r.champion) c.trophies.push({ s: c.season, club: team.name, text: r.div + (path(c).tiers[r.tier].preset && c.divs[r.tier].settings.finals.enabled ? ' premiers' : ' champions') });
+    if (r.promoted) c.trophies.push({ s: c.season, club: team.name, text: 'Promoted from the ' + r.div });
+
+    // who goes up and down, from each division's final ladder
+    var tables = c.divs.map(ladder);
+    var moves = [];
+    for (var i = 0; i < c.divs.length - 1; i++) {
+      var down = p.tiers[i].down || 0, up = p.tiers[i + 1].up || 0, k = Math.min(down, up);
+      var dn = tables[i].slice(-k).map(function (x) { return x.id; });
+      var upIds = tables[i + 1].slice(0, k).map(function (x) { return x.id; });
+      moves.push({ from: i, to: i + 1, ids: dn });
+      moves.push({ from: i + 1, to: i, ids: upIds });
+    }
+    // squads move on: drift, retirements and new faces, as in any league
+    c.divs.forEach(function (d, i) { E.evolveTeams(d, tables[i]); });
+    // and a winning small club loses players to bigger ones
+    var mineDiv = c.divs[r.tier], mean = { att: 0, def: 0 };
+    mineDiv.teams.forEach(function (t) { mean.att += t.att; mean.def += t.def; });
+    var lost = 0;
+    ['att', 'def'].forEach(function (k) {
+      mean[k] /= mineDiv.teams.length;
+      var drop = team[k] > mean[k] + 8 ? 3 : 1;
+      team[k] = Math.max(20, team[k] - drop);
+      lost += drop;
+    });
+    if (lost > 2) news(c, 'Bigger clubs come calling and a couple of your best players move on.');
+    moves.forEach(function (mv) {
+      var from = c.divs[mv.from], to = c.divs[mv.to];
+      mv.ids.forEach(function (id) {
+        var t = from.teams.filter(function (x) { return x.id === id; })[0];
+        if (!t) return;
+        from.teams.splice(from.teams.indexOf(t), 1);
+        to.teams.push(t);
+      });
+    });
+    c.season++;
+    c.divs.forEach(function (d, i) {
+      zones(d, p.tiers[i]);
+      d.season = E.newSeason(d, c.season);
+    });
+
+    c.contract.years--;
+    c.review = null;
+    c.last = null;
+    var tier = tierOf(c, c.club);
+    if (r.sacked) {
+      news(c, team.name + ' have let you go after finishing ' + ord(r.pos) + '. Time to find a new club.');
+      c.market = { why: 'sacked', from: team.name, offers: offers(c, true) };
+    } else if (c.contract.years <= 0) {
+      news(c, 'Your contract with ' + team.name + ' is up. The open market awaits.');
+      c.market = { why: 'expired', from: team.name, offers: offers(c, false) };
+    } else {
+      // a new season under the same deal: fresh money and a fresh target
+      c.funds = Math.round((c.funds + MONEY[tier].budget) * 100) / 100;
+      var exp = expectedPos(c.divs[tier], c.club);
+      c.contract.expect = exp;
+      c.contract.target = targetFor(c, tier, exp);
+      news(c, 'Season ' + c.season + ': the board wants you to ' + c.contract.target.text.toLowerCase() + '.');
+    }
+    save();
+    return r;
+  }
+
+  function ord(n) { return n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'); }
+
+  // The reputation a club wants before it will talk to you: the top flight's
+  // best jobs need an elite name, the bottom division takes anyone.
+  function needed(c, tier, exp, n) {
+    var top = exp <= Math.ceil(n / 2);
+    if (tier === 0) return top ? 72 : 50;
+    if (tier === 1) return top ? 38 : 22;
+    return 0;
+  }
+
+  function offers(c, sacked) {
+    var rng = new E.RNG(c.rngState);
+    var out = [], cur = c.club;
+    var last = c.log[c.log.length - 1];
+    // the current club wants you back if you hit the target
+    if (!sacked && last && last.met) {
+      var t0 = tierOf(c, cur), e0 = expectedPos(c.divs[t0], cur);
+      out.push({ id: cur, years: rng.int(2, 3), tier: t0, expect: e0, target: targetFor(c, t0, e0), renew: true });
+    }
+    var pool = [];
+    c.divs.forEach(function (d, tier) {
+      d.teams.forEach(function (t) {
+        if (t.id === cur) return;
+        var e = expectedPos(d, t.id);
+        var need = needed(c, tier, e, d.teams.length);
+        if (c.rep >= need) pool.push({ id: t.id, tier: tier, expect: e, need: need });
+      });
+    });
+    // the best jobs you qualify for first, then a few more around the market
+    pool.sort(function (x, y) { return y.need - x.need || x.tier - y.tier || rng.next() - 0.5; });
+    var best = pool.slice(0, 6);
+    rng.shuffle(best);
+    var picks = best.slice(0, 2).concat(rng.shuffle(pool.slice(6)).slice(0, 2));
+    picks.forEach(function (x) {
+      out.push({ id: x.id, years: rng.int(1, 3), tier: x.tier, expect: x.expect, target: targetFor(c, x.tier, x.expect) });
+    });
+    c.rngState = rng.s;
+    return out;
+  }
+
+  function takeOffer(i) {
+    var c = state;
+    if (!c || !c.market) return false;
+    var o = c.market.offers[i];
+    if (!o) return false;
+    var team = findTeam(c, o.id);
+    if (!team) return false;
+    sign(c, o.id, o.years, false);
+    c.funds = Math.max(c.funds, MONEY[tierOf(c, o.id)].budget);
+    save();
+    return true;
+  }
+
+  // Spending the club's money.
+  function shop(c) {
+    c = c || state;
+    var tier = tierOf(c, c.club), m = MONEY[tier];
+    var next = GROUND[c.ground + 1];
+    return {
+      sign: m.sign,
+      ground: next ? next.cost : null,
+      groundLevel: c.ground + 1
+    };
+  }
+  function buy(kind) {
+    var c = state, team = myTeam(c);
+    if (!c || !team || c.market) return null;
+    var price = shop(c);
+    if (kind === 'ground') {
+      if (price.ground == null || c.funds < price.ground) return null;
+      c.funds = Math.round((c.funds - price.ground) * 100) / 100;
+      c.ground++;
+      news(c, 'The new training ground opens (level ' + (c.ground + 1) + '). The squad will improve faster.');
+      save();
+      return { text: 'Training ground upgraded' };
+    }
+    if (kind !== 'att' && kind !== 'def') return null;
+    if (c.funds < price.sign) return null;
+    c.funds = Math.round((c.funds - price.sign) * 100) / 100;
+    var rng = new E.RNG(c.rngState);
+    var sport = LS.data.sports[path(c).sport];
+    // the new signing takes the place of the weakest player in the right area
+    var wantPos = kind === 'att'
+      ? team.players.slice().sort(function (x, y) { return y.gw - x.gw; })[0].pos
+      : team.players.slice().sort(function (x, y) { return x.gw - y.gw; })[0].pos;
+    var same = team.players.filter(function (p) { return p.pos === wantPos; })
+      .sort(function (x, y) { return x.skill - y.skill; });
+    var out = same[0] || team.players.slice().sort(function (x, y) { return x.skill - y.skill; })[0];
+    var best = Math.max.apply(null, team.players.map(function (p) { return p.skill; }));
+    var skill = E.clamp(Math.max(best - 2, Math.round((team.att + team.def) / 2) + 6) + rng.int(-1, 2), 30, 99);
+    var name = rng.pick(LS.data.firstNames) + ' ' + rng.pick(LS.data.lastNames);
+    var neo = { id: team.id + '-s' + (c.signed = (c.signed || 0) + 1), name: name, pos: out.pos, gw: out.gw, aw: out.aw, skill: skill,
+      g: 0, a: 0, apps: 0, qg: 0, qa: 0, qapps: 0, cg: 0, ca: 0, capps: 0, seasons: 0, signed: c.season };
+    team.players[team.players.indexOf(out)] = neo;
+    team[kind] = Math.min(99, team[kind] + 2);
+    c.rngState = rng.s;
+    news(c, 'Signed ' + name + ' (' + neo.pos + ', ' + skill + '). ' + FOCUS[kind] + ' up to ' + team[kind] + '.');
+    save();
+    return { text: name + ' signed', name: name };
+  }
+
+  function setFocus(f) { if (state && FOCUS[f]) { state.focus = f; save(); } }
+  function quit() { state = null; save(); }
+
+  // next match for your club this season, if there is one
+  function nextMatch(c) {
+    c = c || state;
+    var div = myDiv(c);
+    if (!div) return null;
+    var list = div.season.matches.filter(function (m) { return !m.played && (m.h === c.club || m.a === c.club); });
+    list.sort(function (x, y) { return x.md - y.md; });
+    return list[0] || null;
+  }
+
+  LS.career = {
+    PATHS: PATHS, MONEY: MONEY, GROUND: GROUND, FOCUS: FOCUS,
+    load: load, save: save, get: get, start: start, starters: starters,
+    myTeam: myTeam, myDiv: myDiv, tierOf: tierOf, findTeam: findTeam, ladder: ladder, expectedPos: expectedPos,
+    playRound: playRound, simToEnd: simToEnd, seasonDone: seasonDone, rollover: rollover, review: review,
+    takeOffer: takeOffer, shop: shop, buy: buy, setFocus: setFocus, quit: quit, nextMatch: nextMatch,
+    repLabel: repLabel, ord: ord, path: path
+  };
+})(window.LS = window.LS || {});
+
+
 /* ===== ui.js ===== */
 /* Sideline — interface layer. Views render to HTML strings; all interaction runs
    through one delegated click handler keyed on data-act. */
@@ -8429,7 +8989,7 @@ h3 { font-size: 1.05rem; }
         'is a tap away.</li>' +
         '</ul></div></div>';
 
-    return '<div class="stack home">' + hero + steps + toursCard() + quick + yours + news + tabs +
+    return '<div class="stack home">' + hero + careerHomeCard() + steps + toursCard() + quick + yours + news + tabs +
       deeper + keys + '</div>';
   }
 
@@ -10985,7 +11545,10 @@ h3 { font-size: 1.05rem; }
   /* ------------------------------------------------------- player profile */
 
   function findComp(id) {
-    return S.state.competitions.filter(function (c) { return c.id === id; })[0] || null;
+    var out = S.state.competitions.filter(function (c) { return c.id === id; })[0] || null;
+    var cr = !out && LS.career && LS.career.get();
+    if (cr) cr.divs.forEach(function (d) { if (d.id === id) out = d; });
+    return out;
   }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
   function perGame(v, apps) { return apps ? (v / apps).toFixed(1) + ' a game' : '\u00a0'; }
@@ -13587,6 +14150,16 @@ h3 { font-size: 1.05rem; }
   function render() {
     var comp = S.active();
     var switchEl = $('#compSwitch');
+    var crBtn = $('#careerBtn');
+    if (crBtn) crBtn.setAttribute('aria-pressed', String(app.view === 'career'));
+
+    if (app.view === 'career') {
+      tabsEl.hidden = true;
+      switchEl.hidden = true;
+      viewEl.innerHTML = viewCareer();
+      enhanceTables(viewEl, 'v');
+      return;
+    }
 
     if (app.view === 'home') {
       // with a competition open the strip stays, so there is always a way back
@@ -14461,6 +15034,92 @@ h3 { font-size: 1.05rem; }
 
       case 'import': doImport(); return;
 
+      case 'career':
+        app.view = 'career';
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      case 'cr-path': app.ui.crPath = el.dataset.k; app.ui.crTier = null; keepName(); render(); return;
+      case 'cr-tier': app.ui.crTier = parseInt(el.dataset.k, 10); keepName(); render(); return;
+      case 'cr-pick': {
+        keepName();
+        var pk = K.PATHS[app.ui.crPath] ? app.ui.crPath : 'league';
+        var tierN = parseInt(el.dataset.tier, 10), abbr = el.dataset.abbr;
+        var club = K.starters(pk).filter(function (t) { return t.tier === tierN; })[0].clubs
+          .filter(function (x) { return x.abbr === abbr; })[0];
+        if (!club) return;
+        confirmAction('Take the job at ' + club.name + '?',
+          'A 2-year deal in the ' + K.PATHS[pk].tiers[tierN].name + '. You can retire and start again any time.',
+          function () {
+            var made = K.start(pk, app.ui.crName, tierN, abbr);
+            closeModal();
+            app.ui.crDiv = null;
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (made) toast('Welcome to ' + club.name + '!');
+          });
+        return;
+      }
+      case 'cr-focus': K.setFocus(el.dataset.k); render(); return;
+      case 'cr-play': {
+        var mm = K.playRound();
+        render();
+        var cc = K.get(), tm = cc && K.myTeam(cc);
+        if (mm && tm) {
+          var hm = mm.h === tm.id, f1 = hm ? mm.hg : mm.ag, a1 = hm ? mm.ag : mm.hg;
+          toast((f1 > a1 ? 'Win! ' : f1 < a1 ? 'Loss. ' : 'Draw. ') + f1 + '\u2013' + a1);
+        }
+        if (cc && K.seasonDone(cc)) window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      case 'cr-sim':
+        K.simToEnd();
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        toast('Season complete');
+        return;
+      case 'cr-buy': {
+        var got = K.buy(el.dataset.k);
+        render();
+        if (got) toast(got.text);
+        return;
+      }
+      case 'cr-next': {
+        var rv = K.rollover();
+        app.ui.crDiv = null;
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        var c2 = K.get();
+        if (rv) toast(c2 && c2.market ? 'Welcome to the open market' : 'Season ' + c2.season + ' is go');
+        return;
+      }
+      case 'cr-offer': {
+        var c3 = K.get(), off = c3 && c3.market && c3.market.offers[parseInt(el.dataset.i, 10)];
+        if (!off) return;
+        var oteam = K.findTeam(c3, off.id);
+        confirmAction('Sign with ' + oteam.name + '?', 'A ' + off.years + '-year deal in the ' + c3.divs[off.tier].name +
+          '. The board wants you to ' + off.target.text.toLowerCase() + '.', function () {
+            K.takeOffer(parseInt(el.dataset.i, 10));
+            closeModal();
+            app.ui.crDiv = null;
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            toast('Signed with ' + oteam.name);
+          });
+        return;
+      }
+      case 'cr-div': app.ui.crDiv = parseInt(el.dataset.k, 10); render(); return;
+      case 'cr-match': crMatchModal(el.dataset.id); return;
+      case 'cr-quit':
+        confirmAction('Retire from coaching?', 'Your whole career, every club, season and trophy, is wiped so you can start fresh. ' +
+          'Your competitions are not touched.', function () {
+            K.quit();
+            closeModal();
+            render();
+            toast('Career over. Time for a new one.');
+          }, true);
+        return;
+
       case 'player': {
         var pc = findComp(el.dataset.comp) || comp;
         if (pc) showPlayer(pc, el.dataset.team, el.dataset.pid, el.dataset.back);
@@ -15053,6 +15712,337 @@ h3 { font-size: 1.05rem; }
     input.click();
   }
 
+  /* --------------------------------------------------------- coach career */
+
+  var K = LS.career;
+
+  // the name box survives a re-render
+  function keepName() {
+    var inp = document.getElementById('crName');
+    if (inp) app.ui.crName = inp.value;
+  }
+
+  function money(v) { return '$' + (Math.round(v * 10) / 10).toFixed(1) + 'm'; }
+  function crOrd(n) { return K.ord(n); }
+
+  function careerHomeCard() {
+    var c = K.get();
+    var mine = c && K.myTeam(c);
+    return '<div class="card cr-promo"><div class="card-body cr-promo-body">' +
+      '<div class="cr-promo-icon" aria-hidden="true">\u{1F9E2}</div>' +
+      '<div class="cr-promo-text"><h2>Coach career</h2>' +
+        '<p class="small muted" style="margin:4px 0 0">' +
+        (c && mine ? 'Season ' + c.season + ' with ' + esc(mine.name) + ' in the ' + esc(K.myDiv(c).name) + '. Reputation ' + c.rep + '.'
+          : c && c.market ? 'You’re on the open market. Clubs are waiting to hear from you.'
+          : 'A separate game. Start in the lower grades, build your club up, and earn better jobs.') + '</p></div>' +
+      '<button class="btn btn-primary" data-act="career">' + (c ? 'Continue' : 'Start a career') + '</button>' +
+    '</div></div>';
+  }
+
+  function careerSetup() {
+    var ui = app.ui, pk = K.PATHS[ui.crPath] ? ui.crPath : 'league', P = K.PATHS[pk];
+    var tiers = K.starters(pk);
+    var tierIdx = tiers.some(function (t) { return t.tier === ui.crTier; }) ? ui.crTier : tiers[0].tier;
+    var cur = tiers.filter(function (t) { return t.tier === tierIdx; })[0];
+    var ranked = cur.clubs.slice().sort(function (x, y) { return y.r - x.r; });
+
+    var paths = '<div class="preset-grid">' + Object.keys(K.PATHS).map(function (k) {
+      var p = K.PATHS[k];
+      return '<button class="preset" data-act="cr-path" data-k="' + k + '" aria-pressed="' + (k === pk) + '">' +
+        '<div class="flag">' + p.icon + '</div><div class="nm">' + esc(p.name) + '</div>' +
+        '<div class="sub">' + esc(p.blurb) + '</div></button>';
+    }).join('') + '</div>';
+
+    var tierSeg = '<div class="seg" style="margin-bottom:12px">' + tiers.map(function (t, i) {
+      return '<button data-act="cr-tier" data-k="' + t.tier + '" aria-pressed="' + (t.tier === tierIdx) + '">' +
+        esc(t.name) + (i ? ' (harder)' : '') + '</button>';
+    }).join('') + '</div>';
+
+    var clubs = '<div class="preset-grid">' + cur.clubs.map(function (x) {
+      var exp = ranked.indexOf(x) + 1;
+      return '<button class="preset" data-act="cr-pick" data-tier="' + tierIdx + '" data-abbr="' + esc(x.abbr) + '">' +
+        '<div class="flag">' + kit({ c1: x.c1, c2: x.c2 }, true) + '</div>' +
+        '<div class="nm">' + esc(x.name) + '</div>' +
+        '<div class="sub">Rating ' + x.r + ' · tipped ' + crOrd(exp) + '</div></button>';
+    }).join('') + '</div>';
+
+    return '<div class="stack">' +
+      '<div class="card"><div class="card-head"><h2>\u{1F9E2} Coach career</h2>' +
+        '<button class="btn btn-sm" data-act="go-home">Back to competitions</button></div>' +
+        '<div class="card-body"><p class="small" style="margin:0 0 4px;max-width:640px">Pick a club in the lower grades and take ' +
+        'them as far as you can. Each week you choose what the squad trains on. Spend the club’s money on signings ' +
+        'and a better training ground. Finish high enough and you go up a division. When your contract runs out, ' +
+        'you hit the open market and your reputation decides who comes knocking.</p></div></div>' +
+      '<div class="card"><div class="card-head"><h3>1. Pick a pathway</h3></div><div class="card-body">' + paths + '</div></div>' +
+      '<div class="card"><div class="card-head"><h3>2. Your name</h3></div><div class="card-body">' +
+        '<input type="text" id="crName" maxlength="40" placeholder="Coach" value="' + esc(ui.crName || '') + '" ' +
+        'style="max-width:320px" aria-label="Your name"></div></div>' +
+      '<div class="card"><div class="card-head"><h3>3. Pick your club</h3></div><div class="card-body">' +
+        tierSeg + clubs + '<p class="tiny muted" style="margin:12px 0 0">Every club starts on a 2-year deal. ' +
+        'The board sets a target from where the club is tipped to finish.</p></div></div>' +
+    '</div>';
+  }
+
+  // is the club on course for the board's target right now?
+  function onTrack(c, pos) {
+    var tier = K.tierOf(c, c.club), t = K.path(c).tiers[tier], n = K.myDiv(c).teams.length, code = c.contract.target.code;
+    return code === 'win' ? pos === 1 : code === 'promo' ? pos <= (t.up || 0) : code === 'top' ? pos <= Math.ceil(n / 2)
+      : code === 'safe' ? pos <= n - (t.down || 0) : pos < n;
+  }
+
+  function crResultLine(c, div, m, team) {
+    var home = m.h === team.id, opp = E.teamsById(div)[home ? m.a : m.h];
+    var f = home ? m.hg : m.ag, a = home ? m.ag : m.hg;
+    var res = f > a ? 'W' : f < a ? 'L' : 'D';
+    var rd = m.stage === 'league' ? 'Rd ' + (m.md + 1) : (m.round || 'Final');
+    return '<tr class="clickable" data-act="cr-match" data-id="' + esc(m.id) + '">' +
+      '<td class="l muted small nowrap">' + esc(rd) + '</td>' +
+      '<td class="l">' + (opp ? kit(opp) + ' ' + (home ? 'v ' : '@ ') + esc(opp.name) : '') + '</td>' +
+      '<td class="nowrap"><span style="display:inline-flex;align-items:center;gap:6px"><span class="form-dot form-' + res + '">' + res +
+      '</span>' + f + '–' + a + (m.ot ? ' <span class="tiny muted">' + esc(sportOf(div).clock && sportOf(div).clock.ot ? sportOf(div).clock.ot.shortWord : 'OT') + '</span>' : '') + '</span></td></tr>';
+  }
+
+  function crMatchModal(id) {
+    var c = K.get();
+    if (!c) return;
+    var div = null, m = null;
+    c.divs.forEach(function (d) { d.season.matches.forEach(function (x) { if (x.id === id) { div = d; m = x; } }); });
+    if (!m) return;
+    var map = E.teamsById(div), h = map[m.h], a = map[m.a], sp = sportOf(div);
+    var players = {};
+    [h, a].forEach(function (t) { t.players.forEach(function (p) { players[p.id] = { p: p, t: t }; }); });
+    var head = '<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;text-align:center;margin-bottom:12px">' +
+      '<div><div style="font-size:1.5rem">' + kit(h, true) + '</div><div class="strong" style="margin-top:6px">' + esc(h.name) + '</div></div>' +
+      '<div style="font-size:1.9rem;font-weight:700">' + m.hg + ' – ' + m.ag + '</div>' +
+      '<div><div style="font-size:1.5rem">' + kit(a, true) + '</div><div class="strong" style="margin-top:6px">' + esc(a.name) + '</div></div></div>';
+    var potm = m.potm && players[m.potm] ? '<p class="small center" style="margin:0 0 12px">⭐ Player of the match: <b>' +
+      pLink(div, players[m.potm].t, players[m.potm].p) + '</b></p>' : '';
+    var evs = (m.events || []).length ? '<div class="table-wrap"><table class="data"><tbody>' + m.events.map(function (ev) {
+      var x = players[ev.s], as = players[ev.a], t = ev.side === 'h' ? h : a;
+      return '<tr><td class="l muted nowrap" style="width:54px">' + esc(E.clockLabel(sp, ev.min)) + '</td><td class="l">' + kit(t) + '</td>' +
+        '<td class="l strong">' + (x ? pLink(div, x.t, x.p) : 'Unknown') + '</td>' +
+        (sp.units.length > 1 ? '<td class="l muted tiny nowrap">+' + (ev.v || 1) + (E.isTry(sp, ev.v) ? ' try' : '') + '</td>' : '') +
+        '<td class="l muted tiny">' + (as ? 'assist ' + esc(as.p.name) : '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>' : '<p class="small muted center">No scoring plays on record.</p>';
+    modal(h.abbr + ' v ' + a.abbr, head + potm + evs);
+  }
+
+  function crLadder(c) {
+    var ui = app.ui, mineTier = K.tierOf(c, c.club);
+    var show = ui.crDiv != null && c.divs[ui.crDiv] ? ui.crDiv : (mineTier < 0 ? 0 : mineTier);
+    var div = c.divs[show];
+    var rows = K.ladder(div);
+    var seg = '<div class="seg seg-scroll">' + c.divs.map(function (d, i) {
+      return '<button data-act="cr-div" data-k="' + i + '" aria-pressed="' + (i === show) + '">' + esc(d.name) + '</button>';
+    }).join('') + '</div>';
+    return '<div class="card"><div class="card-head"><h3>Ladder</h3>' + seg + '</div>' +
+      '<div class="table-wrap"><table class="data"><thead><tr><th class="l" style="width:34px">#</th><th class="l">Club</th>' +
+      '<th>P</th><th class="col-hide-sm">W</th><th class="col-hide-sm">D</th><th class="col-hide-sm">L</th><th>Diff</th><th class="strong">Pts</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var me = r.id === c.club;
+        return '<tr class="' + zoneClass(div, r.pos) + (me ? ' cr-me' : '') + '"><td class="pos l">' + r.pos + '</td>' +
+          '<td class="l">' + teamCell(r.team) + (me ? ' <span class="badge badge-accent tiny">You</span>' : '') + '</td>' +
+          '<td>' + r.p + '</td><td class="col-hide-sm">' + r.w + '</td><td class="col-hide-sm">' + r.d + '</td><td class="col-hide-sm">' + r.l + '</td>' +
+          '<td>' + signed(r.gd) + '</td><td class="strong">' + r.pts + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<div style="padding:10px 16px 14px">' + zoneKey(div) + '</div></div>';
+  }
+
+  function bar(v, max, cls) {
+    return '<div class="cr-bar"><span class="' + (cls || '') + '" style="width:' + Math.max(0, Math.min(100, v / max * 100)) + '%"></span></div>';
+  }
+
+  function crClub(c, team) {
+    var shop = K.shop(c), ground = K.GROUND[c.ground];
+    function row(k, label) {
+      var pr = c.train[k] || 0;
+      return '<div class="cr-attr"><div class="cr-attr-top"><span>' + label + '</span><b>' + team[k] + '</b></div>' +
+        bar(team[k], 99) +
+        '<div class="tiny muted" style="margin-top:4px">Training ' + Math.round(pr * 100) + '% to the next point' +
+        (c.focus === k ? ' · <span style="color:var(--accent)">focus</span>' : '') + '</div>' + bar(pr, 1, 'cr-bar-soft') + '</div>';
+    }
+    var buys = [
+      ['att', 'Sign an attacking player', '+1 attack, and a new face in the squad', shop.sign],
+      ['def', 'Sign a defender', '+1 defence, and a new face in the squad', shop.sign]
+    ];
+    if (shop.ground != null) buys.push(['ground', 'Upgrade the training ground', 'Level ' + (shop.groundLevel + 1) + ': training gains come faster', shop.ground]);
+    return '<div class="card"><div class="card-head"><h3>Your club</h3><span class="badge">Funds ' + money(c.funds) + '</span></div>' +
+      '<div class="card-body">' + row('att', 'Attack') + row('def', 'Defence') +
+      '<p class="tiny muted" style="margin:2px 0 12px">Training ground level ' + (c.ground + 1) + (ground ? ' (gains ×' + ground.rate + ')' : '') + '.</p>' +
+      '<div class="section-title" style="margin-top:0">Spend</div>' +
+      buys.map(function (b) {
+        var ok = !c.market && c.funds >= b[3];
+        return '<button class="cr-buy" data-act="cr-buy" data-k="' + b[0] + '"' + (ok ? '' : ' disabled') + '>' +
+          '<span><b>' + esc(b[1]) + '</b><span class="tiny muted">' + esc(b[2]) + '</span></span>' +
+          '<span class="cr-price">' + money(b[3]) + '</span></button>';
+      }).join('') +
+      '<p class="tiny muted" style="margin:10px 0 0">Wins earn prize money. The board tops up the budget each season.</p>' +
+      '</div></div>';
+  }
+
+  function crSquad(c, div, team) {
+    var sp = sportOf(div), tries = E.hasTries(sp);
+    var list = team.players.slice().sort(function (x, y) { return (y.g + y.a) - (x.g + x.a) || y.skill - x.skill; });
+    return '<div class="card"><div class="card-head"><h3>Squad</h3><span class="badge">' + team.players.length + ' players</span></div>' +
+      '<div class="table-wrap"><table class="data"><thead><tr><th class="l">Player</th><th class="l">Pos</th><th>Rating</th>' +
+      '<th>Apps</th>' + (tries ? '<th>Tries</th>' : '') + '<th>' + esc(sp.scoreWord) + '</th><th class="col-hide-sm">Assists</th></tr></thead><tbody>' +
+      list.map(function (p) {
+        return '<tr><td class="l strong">' + pLink(div, team, p) +
+          (p.signed ? ' <span class="badge badge-accent tiny">signed S' + p.signed + '</span>' : '') +
+          (E.isOut(p) ? ' <span class="badge badge-red tiny">out</span>' : '') + '</td>' +
+          '<td class="l muted">' + p.pos + '</td><td class="muted">' + p.skill + '</td><td>' + p.apps + '</td>' +
+          (tries ? '<td>' + (p.t || 0) + '</td>' : '') + '<td class="strong">' + p.g + '</td><td class="col-hide-sm">' + p.a + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+  }
+
+  function crCareerCard(c) {
+    var log = c.log.slice().reverse();
+    var table = log.length ? '<div class="table-wrap"><table class="data"><thead><tr><th class="l">Season</th><th class="l">Club</th>' +
+      '<th class="l">Division</th><th>Finish</th><th class="l">Outcome</th></tr></thead><tbody>' +
+      log.map(function (x) {
+        var tags = [];
+        if (x.champion) tags.push('<span class="badge badge-amber tiny">\u{1F3C6} Champions</span>');
+        if (x.promoted) tags.push('<span class="badge badge-accent tiny">⬆ Promoted</span>');
+        if (x.relegated) tags.push('<span class="badge badge-red tiny">⬇ Relegated</span>');
+        tags.push('<span class="tiny ' + (x.met ? '' : 'muted') + '">' + (x.met ? 'Target met' : 'Target missed') + '</span>');
+        return '<tr><td class="l muted">' + x.s + '</td><td class="l">' + kit({ c1: x.c1, c2: x.c2 }) + ' ' + esc(x.club) + '</td>' +
+          '<td class="l small">' + esc(x.div) + '</td><td>' + crOrd(x.pos) + ' <span class="tiny muted">of ' + x.n + '</span></td>' +
+          '<td class="l">' + tags.join(' ') + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="card-body"><p class="small muted" style="margin:0">Your first season is under way.</p></div>';
+    var trophies = c.trophies.length ? '<div class="card-body" style="padding-top:0"><div class="section-title">Trophy cabinet</div>' +
+      '<div class="cr-trophies">' + c.trophies.slice().reverse().map(function (t) {
+        return '<span class="cr-trophy">' + (/Promoted/.test(t.text) ? '⬆️' : '\u{1F3C6}') + ' <b>' + esc(t.text) + '</b>' +
+          '<span class="tiny muted">S' + t.s + ' · ' + esc(t.club) + '</span></span>';
+      }).join('') + '</div></div>' : '';
+    return '<div class="card"><div class="card-head"><h3>Your career</h3><span class="badge">' +
+      c.log.length + (c.log.length === 1 ? ' season' : ' seasons') + '</span></div>' + table + trophies + '</div>';
+  }
+
+  function crNews(c) {
+    if (!c.news.length) return '';
+    return '<div class="card"><div class="card-head"><h3>News</h3></div><div class="card-body"><ul class="cr-news">' +
+      c.news.slice(0, 8).map(function (n) { return '<li><span class="tiny muted">S' + n.s + '</span> ' + esc(n.text) + '</li>'; }).join('') +
+      '</ul></div></div>';
+  }
+
+  function crMarket(c) {
+    var mk = c.market;
+    return '<div class="card cr-market"><div class="card-head"><h2>\u{1F4BC} Open market</h2>' +
+      '<span class="badge">Reputation ' + c.rep + ' · ' + esc(K.repLabel(c.rep)) + '</span></div>' +
+      '<div class="card-body"><p class="small" style="margin:0 0 12px">' +
+      (mk.why === 'sacked' ? esc(mk.from) + ' have let you go. ' : 'Your contract with ' + esc(mk.from) + ' is up. ') +
+      'These clubs want to talk. Pick one to sign.</p>' +
+      '<div class="cr-offers">' + mk.offers.map(function (o, i) {
+        var t = K.findTeam(c, o.id), d = c.divs[o.tier];
+        return '<div class="cr-offer">' +
+          '<div class="cr-offer-head">' + kit(t, true) + '<div><div class="strong">' + esc(t.name) + '</div>' +
+          '<div class="tiny muted">' + esc(d.name) + ' · tipped ' + crOrd(o.expect) + ' of ' + d.teams.length + '</div></div>' +
+          (o.renew ? '<span class="badge badge-accent tiny" style="margin-left:auto">Stay</span>' : '') + '</div>' +
+          '<div class="small" style="margin:8px 0">Attack ' + t.att + ' · Defence ' + t.def + '</div>' +
+          '<div class="small"><b>' + o.years + '-year deal</b>. Target: ' + esc(o.target.text.toLowerCase()) + '.</div>' +
+          '<button class="btn btn-primary btn-sm" style="margin-top:10px" data-act="cr-offer" data-i="' + i + '">Sign</button></div>';
+      }).join('') + '</div></div></div>';
+  }
+
+  function crReview(c) {
+    var r = c.review || K.review(c);
+    var lines = [];
+    if (r.champion) lines.push('\u{1F3C6} Champions of the ' + esc(r.div) + '!');
+    if (r.promoted) lines.push('⬆️ Promoted to the ' + esc(c.divs[r.tier - 1].name) + '.');
+    if (r.relegated) lines.push('⬇️ Relegated to the ' + esc(c.divs[r.tier + 1].name) + '.');
+    lines.push((r.met ? '✅ Target met: ' : '❌ Target missed: ') + esc(r.target.toLowerCase()) + '.');
+    lines.push('Reputation ' + (r.delta >= 0 ? '+' : '') + r.delta + '.');
+    if (r.sacked) lines.push('The board has seen enough. You’ll be let go at the end of the season.');
+    else if (r.ends) lines.push('Your contract is up. You’ll head to the open market.');
+    var next = r.sacked || r.ends ? 'Go to the open market' : 'Start season ' + (c.season + 1);
+    return '<div class="card cr-review"><div class="card-head"><h2>Season ' + r.season + ' review</h2></div><div class="card-body">' +
+      '<p style="margin:0 0 10px;font-size:1.05rem">You finished <b>' + crOrd(r.pos) + '</b> of ' + r.n + ' in the ' + esc(r.div) +
+      ' (tipped ' + crOrd(r.expect) + ').</p>' +
+      '<ul class="cr-news" style="margin-bottom:14px">' + lines.map(function (l) { return '<li>' + l + '</li>'; }).join('') + '</ul>' +
+      '<button class="btn btn-primary" data-act="cr-next">' + next + '</button></div></div>';
+  }
+
+  function crNext(c, div, team) {
+    var m = K.nextMatch(c), map = E.teamsById(div);
+    var round = div.season.round + 1, total = E.matchdaysOf({ matches: div.season.matches.filter(function (x) { return x.stage === 'league'; }) });
+    var focus = '<div class="section-title">Training this week</div><div class="seg" style="margin-bottom:6px">' +
+      Object.keys(K.FOCUS).map(function (k) {
+        return '<button data-act="cr-focus" data-k="' + k + '" aria-pressed="' + (c.focus === k) + '">' + K.FOCUS[k] + '</button>';
+      }).join('') + '</div><p class="tiny muted" style="margin:0 0 14px">' +
+      (c.focus === 'rec' ? 'Recovery gets injured players back a game sooner.' :
+        'A point of ' + K.FOCUS[c.focus].toLowerCase() + ' every few games. It sticks until you change it.') + '</p>';
+    var fixture;
+    if (m) {
+      var home = m.h === team.id, opp = map[home ? m.a : m.h];
+      var stage = m.stage === 'league' ? 'Round ' + (m.md + 1) + ' of ' + total : esc(m.round || 'Finals');
+      fixture = '<div class="cr-fixture"><div class="cr-side">' + kit(team, true) + '<b>' + esc(team.abbr) + '</b>' +
+        '<span class="tiny muted">ATT ' + team.att + ' · DEF ' + team.def + '</span></div>' +
+        '<div class="cr-vs"><span class="tiny muted">' + stage + '</span><b>' + (home ? 'Home' : 'Away') + '</b></div>' +
+        '<div class="cr-side">' + kit(opp, true) + '<b>' + esc(opp.abbr) + '</b>' +
+        '<span class="tiny muted">ATT ' + opp.att + ' · DEF ' + opp.def + '</span></div></div>';
+    } else {
+      fixture = '<p class="small muted" style="margin:0 0 12px">' + (div.season.stage === 'finals'
+        ? 'Your season is over. The finals play on without you.' : 'No game for you this round.') + '</p>';
+    }
+    var lastM = null;
+    if (c.last) div.season.matches.forEach(function (x) { if (x.id === c.last) lastM = x; });
+    var last = lastM ? '<div class="section-title">Last game</div><div class="table-wrap" style="margin-bottom:12px"><table class="data"><tbody>' +
+      crResultLine(c, div, lastM, team) + '</tbody></table></div>' : '';
+    return '<div class="card"><div class="card-head"><h3>' + (m ? 'Next up' : 'This round') + '</h3></div><div class="card-body">' +
+      fixture + last + focus +
+      '<div class="btn-row"><button class="btn btn-primary" data-act="cr-play">Play next round</button>' +
+      '<button class="btn" data-act="cr-sim">Sim to end of season</button></div></div></div>';
+  }
+
+  function viewCareer() {
+    var c = K.get();
+    if (!c) return careerSetup();
+    var team = K.myTeam(c), div = team ? K.myDiv(c) : null;
+
+    if (c.market) {
+      return '<div class="stack">' + crTopBar(c) + crMarket(c) + crCareerCard(c) + crNews(c) + crQuit() + '</div>';
+    }
+
+    var rows = K.ladder(div), pos = 0;
+    rows.forEach(function (r) { if (r.id === c.club) pos = r.pos; });
+    var played = div.season.matches.some(function (m) { return m.played && (m.h === c.club || m.a === c.club); });
+    var track = played ? onTrack(c, pos) : null;
+    var hero = '<div class="card cr-hero"><div class="card-body">' +
+      '<div class="cr-hero-top">' + '<span class="cr-hero-kit">' + kit(team, true) + '</span>' +
+      '<div><div class="tiny muted">Coach ' + esc(c.coach) + '</div><h1>' + esc(team.name) + '</h1>' +
+      '<div class="small muted">' + esc(div.name) + ' · Season ' + c.season + '</div></div></div>' +
+      '<div class="grid pl-tiles" style="margin:14px 0 0">' +
+        tile('Ladder', played ? crOrd(pos) : '–', 'of ' + rows.length) +
+        tile('Board target', '<span style="font-size:1rem">' + esc(c.contract.target.text) + '</span>',
+          track == null ? 'Tipped ' + crOrd(c.contract.expect) : track ? '<span style="color:var(--accent)">On track</span>' : '<span style="color:var(--red)">Off track</span>') +
+        tile('Contract', c.contract.years + (c.contract.years === 1 ? ' season' : ' seasons'), 'left, this one included') +
+        tile('Reputation', c.rep, esc(K.repLabel(c.rep))) +
+      '</div></div></div>';
+
+    var main = K.seasonDone(c) ? crReview(c) : crNext(c, div, team);
+    var recent = div.season.matches.filter(function (m) { return m.played && (m.h === c.club || m.a === c.club); })
+      .sort(function (x, y) { return y.md - x.md; }).slice(0, 6);
+    var results = recent.length ? '<div class="card"><div class="card-head"><h3>Results</h3></div>' +
+      '<div class="table-wrap"><table class="data"><tbody>' + recent.map(function (m) { return crResultLine(c, div, m, team); }).join('') +
+      '</tbody></table></div></div>' : '';
+
+    return '<div class="stack">' + crTopBar(c) + hero +
+      '<div class="grid grid-2">' + '<div class="stack">' + main + crClub(c, team) + '</div>' +
+      '<div class="stack">' + crLadder(c) + results + '</div></div>' +
+      crSquad(c, div, team) + '<div class="grid grid-2">' + crCareerCard(c) + crNews(c) + '</div>' + crQuit() + '</div>';
+  }
+
+  function crTopBar() {
+    return '<div class="btn-row" style="justify-content:space-between;align-items:center">' +
+      '<h2 style="margin:0">\u{1F9E2} Coach career</h2>' +
+      '<button class="btn btn-sm" data-act="go-home">Back to competitions</button></div>';
+  }
+  function crQuit() {
+    return '<div class="btn-row" style="justify-content:center;margin:6px 0 20px">' +
+      '<button class="btn btn-danger btn-sm" data-act="cr-quit">Retire and start a new career</button></div>';
+  }
+
+
   /* --------------------------------------------------------------- events */
 
   function onClick(ev) {
@@ -15262,6 +16252,7 @@ h3 { font-size: 1.05rem; }
       (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
 
     S.load();
+    if (LS.career) LS.career.load();
     // State of Origin series made before draws were ruled out get the rule too
     S.state.competitions.forEach(function (c) { if (c.origin) c.settings.noDraws = true; });
     // first visit lands on the home page, which explains the place
