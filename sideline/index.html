@@ -2169,8 +2169,11 @@ h3 { font-size: 1.05rem; }
       for (i = 0; i < half; i++) {
         var h = idx[i], a = idx[n - 1 - i];
         if (h === bye || a === bye) continue;
-        // alternate home/away so no team gets a lopsided run of home games
-        if ((r + i) % 2 === 0) md.push([h, a]); else md.push([a, h]);
+        // alternate home and away week to week. Every team but the fixed one moves
+        // a place each round, so the side of the pair it sits on decides it; the
+        // fixed team swaps by round.
+        var homeFirst = i === 0 ? r % 2 === 0 : i % 2 === 1;
+        if (homeFirst) md.push([h, a]); else md.push([a, h]);
       }
       rounds.push(md);
       idx.splice(1, 0, idx.pop()); // rotate all but the first
@@ -8051,16 +8054,28 @@ h3 { font-size: 1.05rem; }
     c = c || state;
     if (!c || c.market) return null;
     var div = myDiv(c), team = myTeam(c);
-    if (div.season.complete) return null;
+    var watched = null;
+    // a game watched live has already been played; the rest of its round follows now
+    if (c.watched) div.season.matches.forEach(function (m) { if (m.id === c.watched && m.played) watched = m; });
+    c.watched = null;
+    if (div.season.complete && !watched) return null;
     var tier = tierOf(c, c.club);
-    var due = E.playRound(div);
+    var due = div.season.complete ? [] : E.playRound(div);
     c.divs.forEach(function (d) { if (d !== div && !d.season.complete) E.playRound(d); });
     lighten(c);
-    var mine = due.filter(function (m) { return m.h === team.id || m.a === team.id; })[0] || null;
+    var mine = watched || due.filter(function (m) { return m.h === team.id || m.a === team.id; })[0] || null;
     if (mine) {
       var home = mine.h === team.id, f = home ? mine.hg : mine.ag, a = home ? mine.ag : mine.hg;
       c.funds += f > a ? MONEY[tier].win : f === a ? MONEY[tier].draw : 0;
       c.funds = Math.round(c.funds * 100) / 100;
+      // your record as a coach, club by club
+      c.rec = c.rec || {};
+      var rr = c.rec[team.id] || (c.rec[team.id] = { name: team.name, abbr: team.abbr, c1: team.c1, c2: team.c2,
+        p: 0, w: 0, d: 0, l: 0, pf: 0, pa: 0, seasons: {} });
+      rr.p++; rr.pf += f; rr.pa += a;
+      if (f > a) rr.w++; else if (f < a) rr.l++; else rr.d++;
+      rr.seasons[c.season] = true;
+      if (!rr.best || f - a > rr.best.m) rr.best = { m: f - a, f: f, a: a, s: c.season, opp: E.teamsById(div)[home ? mine.a : mine.h].name };
       // training: a point in the chosen area every few weeks, quicker with a better ground
       if (c.focus === 'rec') {
         team.players.forEach(function (p) { if (p.inj > 0) p.inj = Math.max(0, p.inj - 1); });
@@ -8300,6 +8315,15 @@ h3 { font-size: 1.05rem; }
   function quit() { state = null; save(); }
 
   // next match for your club this season, if there is one
+  // Your next game, if it is in the round about to be played (so it can be
+  // watched live without playing anything out of order).
+  function watchable(c) {
+    c = c || state;
+    var m = nextMatch(c), div = myDiv(c);
+    return m && div && !div.season.complete && m.md === div.season.round ? m : null;
+  }
+  function markWatched(id) { if (state) state.watched = id; }
+
   function nextMatch(c) {
     c = c || state;
     var div = myDiv(c);
@@ -8314,7 +8338,7 @@ h3 { font-size: 1.05rem; }
     load: load, save: save, get: get, start: start, starters: starters,
     myTeam: myTeam, myDiv: myDiv, tierOf: tierOf, findTeam: findTeam, ladder: ladder, expectedPos: expectedPos,
     playRound: playRound, simToEnd: simToEnd, seasonDone: seasonDone, rollover: rollover, review: review,
-    takeOffer: takeOffer, shop: shop, buy: buy, setFocus: setFocus, quit: quit, nextMatch: nextMatch,
+    takeOffer: takeOffer, watchable: watchable, markWatched: markWatched, shop: shop, buy: buy, setFocus: setFocus, quit: quit, nextMatch: nextMatch,
     repLabel: repLabel, ord: ord, path: path
   };
 })(window.LS = window.LS || {});
@@ -11149,7 +11173,7 @@ h3 { font-size: 1.05rem; }
     return html;
   }
 
-  function watchMatch(comp, id) {
+  function watchMatch(comp, id, opts) {
     var m = matchById(comp, id);
     if (!m) return;
     stopLive();
@@ -11174,7 +11198,7 @@ h3 { font-size: 1.05rem; }
       end: E.fullTime(sp, !!m.ot),
       evs: (m.events || []).slice().sort(function (x, y) { return x.min - y.min; }),
       i: 0, t: 0, hg: 0, ag: 0, speed: 1, paused: false, done: false,
-      pending: pending, timer: null,
+      pending: pending, timer: null, career: !!(opts && opts.career),
       stakes: stakes, seq: seq, shown: {}, rivalry: rivalry,
       keys: keyPlayers(comp, m), today: {}, ast: {},
       incs: (m.inc || []).slice(), ii: 0,
@@ -11333,7 +11357,7 @@ h3 { font-size: 1.05rem; }
     var controls = $('#liveControls');
     if (controls) {
       controls.innerHTML =
-        '<button class="btn btn-sm" data-act="match" data-id="' + esc(m.id) + '">Match details</button>' +
+        '<button class="btn btn-sm" data-act="' + (live.career ? 'cr-match' : 'match') + '" data-id="' + esc(m.id) + '">Match details</button>' +
         '<button class="btn btn-primary btn-sm" data-act="close-modal">Done</button>';
     }
 
@@ -11352,6 +11376,14 @@ h3 { font-size: 1.05rem; }
       }
     }
 
+    if (live.pending && live.career) {
+      // the rest of the round, the gate money and the week's training follow the whistle
+      live.pending = false;
+      K.playRound();
+      render();
+      if (K.get() && K.seasonDone(K.get())) toast('Season complete');
+      return;
+    }
     if (live.pending) {
       var res = settleBets(comp);
       live.pending = false;
@@ -15072,6 +15104,15 @@ h3 { font-size: 1.05rem; }
         if (cc && K.seasonDone(cc)) window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
+      case 'cr-watch': {
+        var cw = K.get(), wm = cw && K.watchable(cw);
+        if (!wm) return;
+        K.markWatched(wm.id);
+        watchMatch(K.myDiv(cw), wm.id, { career: true });
+        K.save();
+        return;
+      }
+      case 'cr-tab': app.ui.crTab = el.dataset.k; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
       case 'cr-sim':
         K.simToEnd();
         render();
@@ -15143,6 +15184,9 @@ h3 { font-size: 1.05rem; }
         return;
       }
 
+      case 'live-pause': toggleLivePause(); return;
+      case 'live-speed': cycleLiveSpeed(); return;
+      case 'live-skip': skipLive(); return;
       case 'close-modal': closeModal(); return;
 
       case 'tour-list': showTours(); return;
@@ -15255,9 +15299,6 @@ h3 { font-size: 1.05rem; }
         if (el.dataset.id) watchMatch(comp, el.dataset.id);
         return;
 
-      case 'live-pause': toggleLivePause(); return;
-      case 'live-speed': cycleLiveSpeed(); return;
-      case 'live-skip': skipLive(); return;
 
       case 'sim-this': {
         lockTips(comp);
@@ -15990,7 +16031,10 @@ h3 { font-size: 1.05rem; }
       crResultLine(c, div, lastM, team) + '</tbody></table></div>' : '';
     return '<div class="card"><div class="card-head"><h3>' + (m ? 'Next up' : 'This round') + '</h3></div><div class="card-body">' +
       fixture + last + focus +
-      '<div class="btn-row"><button class="btn btn-primary" data-act="cr-play">Play next round</button>' +
+      '<div class="btn-row">' +
+        (K.watchable(c) ? '<button class="btn btn-primary" data-act="cr-watch">\u25B6 Watch live</button>' +
+          '<button class="btn" data-act="cr-play">Quick result</button>'
+          : '<button class="btn btn-primary" data-act="cr-play">Play next round</button>') +
       '<button class="btn" data-act="cr-sim">Sim to end of season</button></div></div></div>';
   }
 
@@ -16001,6 +16045,9 @@ h3 { font-size: 1.05rem; }
 
     if (c.market) {
       return '<div class="stack">' + crTopBar(c) + crMarket(c) + crCareerCard(c) + crNews(c) + crQuit() + '</div>';
+    }
+    if (app.ui.crTab === 'stats') {
+      return '<div class="stack">' + crTopBar(c) + crStats(c) + '</div>';
     }
 
     var rows = K.ladder(div), pos = 0;
@@ -16032,10 +16079,107 @@ h3 { font-size: 1.05rem; }
       crSquad(c, div, team) + '<div class="grid grid-2">' + crCareerCard(c) + crNews(c) + '</div>' + crQuit() + '</div>';
   }
 
-  function crTopBar() {
+  function crTopBar(c) {
+    var tab = app.ui.crTab === 'stats' ? 'stats' : 'club';
     return '<div class="btn-row" style="justify-content:space-between;align-items:center">' +
       '<h2 style="margin:0">\u{1F9E2} Coach career</h2>' +
+      (c && !c.market ? '<div class="seg"><button data-act="cr-tab" data-k="club" aria-pressed="' + (tab === 'club') + '">Club</button>' +
+        '<button data-act="cr-tab" data-k="stats" aria-pressed="' + (tab === 'stats') + '">Stats</button></div>' : '') +
       '<button class="btn btn-sm" data-act="go-home">Back to competitions</button></div>';
+  }
+
+  // Leaders across your division this season, your players picked out.
+  function crLeaders(c, div, title, key, fmt) {
+    var rows = [];
+    div.teams.forEach(function (t) { t.players.forEach(function (p) { var v = key(p); if (v > 0) rows.push({ p: p, t: t, v: v }); }); });
+    rows.sort(function (x, y) { return y.v - x.v || y.p.skill - x.p.skill; });
+    return '<div class="card"><div class="card-head"><h3>' + esc(title) + '</h3></div>' +
+      (rows.length ? '<div class="table-wrap"><table class="data"><tbody>' + rows.slice(0, 8).map(function (x, i) {
+        return '<tr class="' + (x.t.id === c.club ? 'cr-me' : '') + '"><td class="pos l">' + (i + 1) + '</td>' +
+          '<td class="l"><span class="strong">' + pLink(div, x.t, x.p) + '</span> <span class="tiny muted">' + x.p.pos + '</span></td>' +
+          '<td class="l">' + kit(x.t) + ' <span class="small">' + esc(x.t.abbr) + '</span></td>' +
+          '<td class="strong">' + (fmt ? fmt(x) : x.v) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="card-body"><p class="small muted" style="margin:0">Nothing yet.</p></div>') + '</div>';
+  }
+
+  function crStats(c) {
+    var div = K.myDiv(c), team = K.myTeam(c), sp = sportOf(div), tries = E.hasTries(sp);
+    var mine = div.season.matches.filter(function (m) { return m.played && (m.h === c.club || m.a === c.club); })
+      .sort(function (x, y) { return x.md - y.md; });
+    var S0 = { p: 0, w: 0, d: 0, l: 0, pf: 0, pa: 0 }, H = { w: 0, d: 0, l: 0 }, A = { w: 0, d: 0, l: 0 };
+    var best = null, worst = null, run = 0, bestRun = 0, form = [];
+    mine.forEach(function (m) {
+      var home = m.h === c.club, f = home ? m.hg : m.ag, a = home ? m.ag : m.hg, r = f > a ? 'w' : f < a ? 'l' : 'd';
+      S0.p++; S0[r]++; S0.pf += f; S0.pa += a;
+      (home ? H : A)[r]++;
+      run = r === 'w' ? run + 1 : 0; if (run > bestRun) bestRun = run;
+      var opp = E.teamsById(div)[home ? m.a : m.h];
+      if (!best || f - a > best.m) best = { m: f - a, f: f, a: a, opp: opp };
+      if (!worst || f - a < worst.m) worst = { m: f - a, f: f, a: a, opp: opp };
+      form.push(r.toUpperCase());
+    });
+    function wdl(x) { return x.w + '-' + x.d + '-' + x.l; }
+    var season = '<div class="card"><div class="card-head"><h3>' + esc(team.name) + ', season ' + c.season + '</h3>' +
+      '<span class="badge">' + esc(div.name) + '</span></div><div class="card-body">' +
+      '<div class="grid pl-tiles">' +
+        tile('Record', wdl(S0), S0.p + ' played') +
+        tile(sp.scoreWord + ' for', S0.pf, S0.p ? (S0.pf / S0.p).toFixed(1) + ' a game' : '\u00a0') +
+        tile(sp.scoreWord + ' against', S0.pa, S0.p ? (S0.pa / S0.p).toFixed(1) + ' a game' : '\u00a0') +
+        tile('Win rate', S0.p ? Math.round(S0.w / S0.p * 100) + '%' : '\u2013', 'Home ' + wdl(H) + ' \u00b7 Away ' + wdl(A)) +
+        tile('Best win', best && best.m > 0 ? best.f + '\u2013' + best.a : '\u2013', best && best.m > 0 ? 'v ' + esc(best.opp.abbr) : 'Not yet') +
+        tile('Heaviest loss', worst && worst.m < 0 ? worst.f + '\u2013' + worst.a : '\u2013', worst && worst.m < 0 ? 'v ' + esc(worst.opp.abbr) : 'None yet') +
+        tile('Longest win run', bestRun, 'games this season') +
+        '<div class="stat-tile"><div class="k">Form</div><div class="v" style="font-size:1rem">' +
+          (form.length ? formRun(form.slice(-5)) : '\u2013') + '</div><div class="s">last five</div></div>' +
+      '</div></div></div>';
+
+    // the coach's own record, all clubs
+    var rec = c.rec || {}, ids = Object.keys(rec);
+    var T = { p: 0, w: 0, d: 0, l: 0, pf: 0, pa: 0 };
+    ids.forEach(function (k) { ['p', 'w', 'd', 'l', 'pf', 'pa'].forEach(function (f) { T[f] += rec[k][f]; }); });
+    var titles = c.trophies.filter(function (t) { return !/Promoted/.test(t.text); }).length;
+    var promos = c.trophies.filter(function (t) { return /Promoted/.test(t.text); }).length;
+    var coach = '<div class="card"><div class="card-head"><h3>' + (c.coach && c.coach !== 'Coach' ? esc(c.coach) + '\u2019s coaching record' : 'Your coaching record') + '</h3>' +
+      '<span class="badge">Reputation ' + c.rep + ' \u00b7 ' + esc(K.repLabel(c.rep)) + '</span></div><div class="card-body">' +
+      '<div class="grid pl-tiles">' +
+        tile('Games coached', T.p, wdl(T)) +
+        tile('Win rate', T.p ? Math.round(T.w / T.p * 100) + '%' : '\u2013', T.p ? signed(T.pf - T.pa) + ' difference' : '\u00a0') +
+        tile('Titles', titles, plural(promos, 'promotion', 'promotions')) +
+        tile('Seasons', c.log.length + 1, plural(ids.length || 1, 'club', 'clubs')) +
+      '</div>' +
+      (ids.length ? '<div class="section-title">Club by club</div><div class="table-wrap"><table class="data"><thead><tr>' +
+        '<th class="l">Club</th><th>Seasons</th><th>P</th><th>W</th><th class="col-hide-sm">D</th><th>L</th>' +
+        '<th>Win %</th><th class="col-hide-sm">Best win</th></tr></thead><tbody>' +
+        ids.map(function (k) {
+          var r = rec[k];
+          return '<tr><td class="l">' + kit(r) + ' ' + esc(r.name) + '</td><td>' + Object.keys(r.seasons).length + '</td>' +
+            '<td>' + r.p + '</td><td>' + r.w + '</td><td class="col-hide-sm">' + r.d + '</td><td>' + r.l + '</td>' +
+            '<td class="strong">' + (r.p ? Math.round(r.w / r.p * 100) + '%' : '\u2013') + '</td>' +
+            '<td class="col-hide-sm small">' + (r.best && r.best.m > 0 ? r.best.f + '\u2013' + r.best.a + ' v ' + esc(r.best.opp) : '\u2013') + '</td></tr>';
+        }).join('') + '</tbody></table></div>' : '<p class="small muted" style="margin:0">Your record starts with your first game.</p>') +
+      '</div></div>';
+
+    // your players, career numbers with the club
+    var legends = team.players.filter(function (p) { return p.capps; }).sort(function (x, y) {
+      return (tries ? (y.ct || 0) - (x.ct || 0) : 0) || y.cg - x.cg || y.capps - x.capps; }).slice(0, 10);
+    var club = '<div class="card"><div class="card-head"><h3>Club greats</h3><span class="badge">Career numbers, current squad</span></div>' +
+      (legends.length ? '<div class="table-wrap"><table class="data"><thead><tr><th class="l">Player</th><th>Apps</th>' +
+        (tries ? '<th>Tries</th>' : '') + '<th>' + esc(sp.scoreWord) + '</th><th class="col-hide-sm">Assists</th><th class="col-hide-sm">POTM</th></tr></thead><tbody>' +
+        legends.map(function (p) {
+          return '<tr><td class="l strong">' + pLink(div, team, p) + ' <span class="tiny muted">' + p.pos + '</span></td>' +
+            '<td>' + p.capps + '</td>' + (tries ? '<td>' + (p.ct || 0) + '</td>' : '') + '<td class="strong">' + p.cg + '</td>' +
+            '<td class="col-hide-sm">' + p.ca + '</td><td class="col-hide-sm">' + (p.cmotm || 0) + '</td></tr>';
+        }).join('') + '</tbody></table></div>' : '<div class="card-body"><p class="small muted" style="margin:0">Nothing yet.</p></div>') + '</div>';
+
+    var lead = '<div class="grid grid-2">' +
+      (tries ? crLeaders(c, div, 'Top try scorers', function (p) { return p.t || 0; }) : '') +
+      crLeaders(c, div, 'Most ' + sp.scoreWord.toLowerCase(), function (p) { return p.g; }) +
+      crLeaders(c, div, 'Most assists', function (p) { return p.a; }) +
+      crLeaders(c, div, 'Player of the match awards', function (p) { return p.motm || 0; }) +
+      '</div>';
+
+    return season + coach + '<div class="section-title" style="margin:4px 0 -4px">' + esc(div.name) + ' leaders this season</div>' +
+      lead + club;
   }
   function crQuit() {
     return '<div class="btn-row" style="justify-content:center;margin:6px 0 20px">' +
