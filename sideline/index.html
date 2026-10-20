@@ -7322,8 +7322,19 @@ h3 { font-size: 1.05rem; }
       // OneSchool Global enters every campus; a cup of clubs takes the top few
       var everyone = cfg.enterAll === true || (cfg.enterAll !== false && !!comp.osg);
       var ids = everyone ? st.ids.slice() : st.ids.slice(0, Math.min(st.ids.length, entrantsFor(cfg, L.id, places)));
+      // OneSchool Global: campuses play in qualifying groups of about five and
+      // every group winner goes through, so a country's places follow its size.
+      // Its champion skips qualifying only where there are two full groups left.
+      var gsz = cfg.qualGroupSize || (comp.osg ? 5 : 0);
+      if (gsz) {
+        var seededG = cfg.champAuto !== false && st.done && ids.length - 1 >= gsz * 2;
+        var nq = ids.length - (seededG ? 1 : 0);
+        places = (nq <= gsz ? 1 : Math.ceil(nq / gsz)) + (seededG ? 1 : 0);
+        cfg.placesBy = cfg.placesBy || {};
+        cfg.placesBy[L.id] = places;
+      }
       // a country with a single place plays it out, so nobody is entered for nothing
-      var seeded = cfg.champAuto !== false && st.done && places > 1;
+      var seeded = cfg.champAuto !== false && st.done && (gsz ? ids.length - 1 >= gsz * 2 : places > 1);
       var inQual = 0;
       ids.forEach(function (id, i) {
         var src = map[id];
@@ -7337,7 +7348,7 @@ h3 { font-size: 1.05rem; }
         }
       });
       // a region small enough plays one table, home and away; a bigger one splits into groups
-      confs[L.name] = { name: L.name, slots: places, groupSize: inQual > 6 ? 4 : 0 };
+      confs[L.name] = { name: L.name, slots: places, groupSize: gsz ? (inQual > gsz ? gsz : 0) : (inQual > 6 ? 4 : 0) };
       order.push(L.name);
       notes.push({ id: L.id, name: L.name, n: st.n, done: st.done, live: st.live, entered: ids.length });
     });
@@ -7410,6 +7421,17 @@ h3 { font-size: 1.05rem; }
     return true;
   }
 
+  // A World Series made before qualifying groups of five: switch it over, and
+  // redraw straight away if the season has not started.
+  function upgradeOsg(comp) {
+    if (!comp.osg || !comp.osg.global || comp.osg.v >= 2 || !comp.continental) return false;
+    comp.osg.v = 2;
+    comp.continental.qualGroupSize = 5;
+    comp.settings.groupSize = 5;
+    if (!comp.season.matches.some(function (m) { return m.played; })) redraw(comp);
+    return true;
+  }
+
   function setLeagues(comp, ids, places, placesBy, opts) {
     comp.continental.leagues = ids.filter(function (id) { return !!find(id); });
     if (places) comp.continental.places = Math.max(1, places);
@@ -7441,7 +7463,7 @@ h3 { font-size: 1.05rem; }
     fedBy: fedBy,
     standing: standing,
     draw: draw,
-    redraw: redraw,
+    redraw: redraw, upgradeOsg: upgradeOsg,
     create: create,
     setLeagues: setLeagues,
     placesFor: placesFor,
@@ -7560,9 +7582,11 @@ h3 { font-size: 1.05rem; }
     var made = LS.continental.create({
       sport: 'rugby', name: GLOBAL_NAME, leagues: ids, places: 2, placesBy: placesBy, seed: opts.seed,
       qualify: true, champAuto: true, enterAll: true,
-      settings: { groupSize: 4, qualifyPerGroup: 2, twoLegs: false, neutralKo: true }
+      settings: { groupSize: 5, qualifyPerGroup: 2, twoLegs: false, neutralKo: true }
     });
-    made.comp.osg = { global: true };
+    made.comp.osg = { global: true, v: 2 };
+    made.comp.continental.qualGroupSize = 5;
+    LS.continental.redraw(made.comp);
     S.save();
     return made.comp;
   }
@@ -10605,8 +10629,11 @@ h3 { font-size: 1.05rem; }
       (from ? '<div class="zone-key">Drawn from: ' + from + (last && !qualMode ? ' \u00b7 \u2605 not here last season' : '') + '</div>' : '') +
       (qualMode ? '<div class="zone-key"><p style="margin:0;color:inherit">\u{1F3C6} National champions go straight through' +
         (comp.continental.champAuto === false ? ' (switched off)' : '') + '. ' +
-        (comp.osg ? 'Every other campus' : 'Everyone else') + ' plays a qualifying round, home and away, ' +
-        'for the rest of their country\u2019s places. A country with a single place plays it out, champions included. Then the qualifiers and champions are drawn into the finals groups.</p></div>' : '') +
+        (comp.osg ? 'Every other campus plays in a qualifying group of about five, home and away, and each group winner goes through, ' +
+          'so a country with more campuses gets more places. Champions only skip qualifying in the big countries. ' +
+          'Then the qualifiers and champions are drawn into finals groups of five.</p></div>'
+        : 'Everyone else plays a qualifying round, home and away, ' +
+        'for the rest of their country\u2019s places. A country with a single place plays it out, champions included. Then the qualifiers and champions are drawn into the finals groups.</p></div>') : '') +
       (unfinished && !started ? '<div class="zone-key"><p style="margin:0;color:inherit">Some ' + (comp.osg ? 'national competitions' : 'leagues') +
         ' have not finished a season yet, so their places are provisional. Play them first, or press ' +
         '<b>Play the ' + (comp.osg ? 'national' : 'league') + ' seasons</b>, and the field is redrawn from the final tables.</p></div>' : '') +
@@ -16421,6 +16448,11 @@ h3 { font-size: 1.05rem; }
 
     S.load();
     if (LS.career) LS.career.load();
+    if (LS.continental && LS.continental.upgradeOsg) {
+      var upg = false;
+      S.state.competitions.forEach(function (c) { if (LS.continental.upgradeOsg(c)) upg = true; });
+      if (upg) S.save();
+    }
     // State of Origin series made before draws were ruled out get the rule too
     S.state.competitions.forEach(function (c) { if (c.origin) c.settings.noDraws = true; });
     // first visit lands on the home page, which explains the place
