@@ -2718,6 +2718,45 @@ h3 { font-size: 1.05rem; }
     return out;
   }
 
+  // How many spots the bonus round fills, and who is in line for it: the
+  // best of those who missed out, compared on where they finished in their
+  // group and then points per game, so uneven groups stay fair.
+  function playoffDraw(comp) {
+    var gs = comp.settings.groupSize || 4;
+    var through = qualifiedTeams(comp), seen = {};
+    through.forEach(function (q) { seen[q.id] = true; });
+    var spots = (gs - (through.length % gs)) % gs;
+    if (!spots) return null;
+    var plan = (comp.season.qualifying || {}).plan || [];
+    var rest = [];
+    plan.forEach(function (entry) {
+      qualifyingTables(comp, entry).forEach(function (t) {
+        t.forEach(function (r, i) { if (!seen[r.id] && r.p) rest.push({ r: r, rank: i + 1 }); });
+      });
+    });
+    rest.sort(function (a, b) {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      var ap = a.r.p ? a.r.pts / a.r.p : 0, bp = b.r.p ? b.r.pts / b.r.p : 0;
+      return bp - ap || (b.r.gd - a.r.gd) || (b.r.gf - a.r.gf);
+    });
+    var ids = rest.slice(0, spots * 2).map(function (x) { return x.r.id; });
+    if (ids.length < 2) return null;
+    spots = Math.floor(ids.length / 2);
+    var pairs = [];
+    // best against worst, the better side at home
+    for (var i = 0; i < spots; i++) pairs.push([ids[i], ids[ids.length - 1 - i]]);
+    return { spots: spots, ids: ids, pairs: pairs };
+  }
+
+  function playoffWinners(comp) {
+    var out = [];
+    comp.season.matches.forEach(function (m) {
+      if (m.conf !== 'PO' || !m.played) return;
+      out.push(m.shootoutWinner || (m.hg > m.ag ? m.h : m.a));
+    });
+    return out;
+  }
+
   function qualifiedTeams(comp) {
     var plan = (comp.season.qualifying || {}).plan || [];
     var map = teamsById(comp);
@@ -2733,6 +2772,9 @@ h3 { font-size: 1.05rem; }
     });
     plan.forEach(function (entry) {
       qualifiedFromConf(comp, entry).forEach(push);
+    });
+    playoffWinners(comp).forEach(function (id) {
+      push({ id: id, conf: (map[id] || {}).conf || null, via: 'playoff', note: 'Won the bonus qualifying round' });
     });
     return out;
   }
@@ -3698,6 +3740,20 @@ h3 { font-size: 1.05rem; }
     }
 
     if (season.stage === 'qual') {
+      // a bonus round first, where it is on and the finals are short of full groups
+      if ((comp.settings.qualifying || {}).playoff && !season.playoff) {
+        var po = playoffDraw(comp);
+        if (po) {
+          season.playoff = { spots: po.spots, ids: po.ids, md: total };
+          po.pairs.forEach(function (pr, i) {
+            var pm = mkMatch(pr[0], pr[1], total, 'qual', null, 'Bonus');
+            pm.conf = 'PO'; pm.tie = 'po' + i; pm.mustDecide = true;
+            season.matches.push(pm);
+          });
+          return;
+        }
+        season.playoff = { spots: 0, ids: [] };
+      }
       // qualifying is done: draw the finals from whoever came through
       var through = qualifiedTeams(comp);
       season.qualified = through;
@@ -4073,6 +4129,7 @@ h3 { font-size: 1.05rem; }
     groupLetter: groupLetter,
     qualifiedTeams: qualifiedTeams,
     qualifiedFromConf: qualifiedFromConf,
+    playoffDraw: playoffDraw,
     qualifyingTables: qualifyingTables,
     EVOLUTION: EVOLUTION,
     FINALS_SYSTEMS: FINALS_SYSTEMS,
@@ -7353,6 +7410,8 @@ h3 { font-size: 1.05rem; }
       notes.push({ id: L.id, name: L.name, n: st.n, done: st.done, live: st.live, entered: ids.length });
     });
     comp.settings.qualifying = { order: order, confs: confs, entrants: entrants, autoQualify: { mode: 'none' } };
+    // OneSchool Global fills its finals groups of five with a bonus round for the best runners-up
+    if (comp.osg) comp.settings.qualifying.playoff = true;
     cfg.lastDraw = { n: n, from: notes, qualify: true };
     comp.autoQualified = auto;
     comp.host = null;
@@ -7424,8 +7483,15 @@ h3 { font-size: 1.05rem; }
   // A World Series made before qualifying groups of five: switch it over, and
   // redraw straight away if the season has not started.
   function upgradeOsg(comp) {
-    if (!comp.osg || !comp.osg.global || comp.osg.v >= 2 || !comp.continental) return false;
-    comp.osg.v = 2;
+    if (!comp.osg || !comp.osg.global || !comp.continental) return false;
+    if (comp.osg.v === 2) {
+      // made with groups of five before the bonus round existed
+      comp.osg.v = 3;
+      if (comp.settings.qualifying) comp.settings.qualifying.playoff = true;
+      return true;
+    }
+    if (comp.osg.v >= 3) return false;
+    comp.osg.v = 3;
     comp.continental.qualGroupSize = 5;
     comp.settings.groupSize = 5;
     if (!comp.season.matches.some(function (m) { return m.played; })) redraw(comp);
@@ -7584,7 +7650,7 @@ h3 { font-size: 1.05rem; }
       qualify: true, champAuto: true, enterAll: true,
       settings: { groupSize: 5, qualifyPerGroup: 2, twoLegs: false, neutralKo: true }
     });
-    made.comp.osg = { global: true, v: 2 };
+    made.comp.osg = { global: true, v: 3 };
     made.comp.continental.qualGroupSize = 5;
     LS.continental.redraw(made.comp);
     S.save();
@@ -9974,9 +10040,43 @@ h3 { font-size: 1.05rem; }
 
     // a continental cup shows who is already through on its own field card
     var held = comp.continental ? '' : heldPlacesCard(comp) + qualifiedSummary(comp);
-    return '<div class="stack">' + head + held +
+    return '<div class="stack">' + head + held + bonusRoundCard(comp, totalSlots) +
       '<div class="grid grid-2">' + cards + '</div>' +
       (comp.rankings ? rankingsCard(comp, 10, true) : '') + '</div>';
+  }
+
+  // The bonus round: who plays it, or who would as it stands.
+  function bonusRoundCard(comp, totalSlots) {
+    var season = comp.season, q = comp.settings.qualifying || {};
+    if (!q.playoff) return '';
+    var map = E.teamsById(comp), gs = comp.settings.groupSize || 4;
+    var pms = season.matches.filter(function (m) { return m.conf === 'PO'; });
+    if (season.playoff && !pms.length) return '';
+    if (!pms.length) {
+      var short = (gs - (totalSlots % gs)) % gs;
+      if (!short) return '';
+      var anyQ = season.matches.some(function (m) { return m.stage === 'qual' && m.played; });
+      var preview = anyQ ? E.playoffDraw(comp) : null;
+      return '<div class="card"><div class="card-head"><h3>\u2B50 Bonus qualifying round</h3>' +
+        '<span class="badge">' + short + (short === 1 ? ' spot' : ' spots') + '</span></div><div class="card-body">' +
+        '<p class="small" style="margin:0 0 ' + (preview ? '10px' : '0') + '">The finals are drawn in groups of ' + gs + ', and the group winners fill ' +
+        totalSlots + ' places. The best ' + (short * 2) + ' runners-up play off for the last ' + (short === 1 ? 'spot' : short + ' spots') +
+        ', so every finals group has ' + gs + '.</p>' +
+        (preview ? '<div class="small muted">As it stands: ' + preview.pairs.map(function (pr) {
+          return kit(map[pr[0]]) + ' ' + esc(map[pr[0]].name) + ' v ' + kit(map[pr[1]]) + ' ' + esc(map[pr[1]].name);
+        }).join(' \u00b7 ') + '</div>' : '') + '</div></div>';
+    }
+    return '<div class="card"><div class="card-head"><h3>\u2B50 Bonus qualifying round</h3>' +
+      '<span class="badge">' + pms.length + (pms.length === 1 ? ' spot' : ' spots') + '</span></div>' +
+      '<div class="table-wrap"><table class="data"><tbody>' + pms.map(function (m) {
+        var h = map[m.h], a = map[m.a];
+        var w = m.played ? (m.shootoutWinner || (m.hg > m.ag ? m.h : m.a)) : null;
+        return '<tr class="clickable" data-act="match" data-id="' + esc(m.id) + '">' +
+          '<td class="l' + (w === m.h ? ' strong' : '') + '">' + kit(h) + ' ' + esc(h.name) + ' <span class="tiny muted">' + esc((h.conf || '').replace('OSG ', '')) + '</span></td>' +
+          '<td class="nowrap">' + (m.played ? m.hg + '\u2013' + m.ag + (m.ot ? ' <span class="tiny muted">ET</span>' : '') : 'v') + '</td>' +
+          '<td class="l' + (w === m.a ? ' strong' : '') + '">' + kit(a) + ' ' + esc(a.name) + ' <span class="tiny muted">' + esc((a.conf || '').replace('OSG ', '')) + '</span></td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<div class="zone-key">One game each, winner takes a place in the finals.</div></div>';
   }
 
   function qualifiedSummary(comp) {
