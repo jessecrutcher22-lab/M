@@ -11,6 +11,7 @@ api/scores.js     GET  /api/scores  → returns the top 100 leaderboard entries
 api/submit.js     POST /api/submit  → records a score (best run per player kept)
 package.json      "type": "module" so the api/*.js ES-module functions run on Vercel
 robots.txt        SEO
+sideline/         Sideline, the league simulator (self-contained index.html, served at /sideline)
 ```
 
 ## Global leaderboard
